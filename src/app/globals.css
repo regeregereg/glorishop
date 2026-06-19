@@ -97,3 +97,9 @@ h1, h2, h3, h4, .font-display {
     animation: none;
   }
 }
+
+/* Transisi halus untuk kartu onboarding & elemen yang muncul bergantian */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}

@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Star, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Star, Clock } from "lucide-react";
 import { Service, Staff, Slot } from "@/types";
 import { formatServicePrice, formatRupiah, formatTime, formatDateShort, toLocalDateString, cn } from "@/lib/utils";
 import { Button } from "@/components/Button";
@@ -20,6 +20,11 @@ function BookingFlow() {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [dates, setDates] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>("");
+  const [viewMonth, setViewMonth] = useState<Date>(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d;
+  });
 
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedBarber, setSelectedBarber] = useState<Staff | "any" | null>(null);
@@ -69,18 +74,45 @@ function BookingFlow() {
       });
   }, [searchParams]);
 
-  // generate next 7 days for date picker
+  // generate semua tanggal di bulan yang sedang dilihat (viewMonth) untuk date picker
   useEffect(() => {
-    const today = new Date();
+    const year = viewMonth.getFullYear();
+    const month = viewMonth.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
     const arr: string[] = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      arr.push(toLocalDateString(d));
+    for (let day = 1; day <= daysInMonth; day++) {
+      arr.push(toLocalDateString(new Date(year, month, day)));
     }
     setDates(arr);
-    setSelectedDate(arr[0]);
-  }, []);
+
+    // kalau tanggal yang sedang dipilih bukan di bulan ini, pilih tanggal
+    // pertama yang valid (hari ini kalau bulan ini, atau tanggal 1 kalau
+    // bulan depan; tidak boleh memilih tanggal yang sudah lewat)
+    const todayStr = toLocalDateString(new Date());
+    setSelectedDate((prev) => {
+      if (prev && arr.includes(prev) && prev >= todayStr) return prev;
+      const firstValid = arr.find((d) => d >= todayStr);
+      return firstValid || arr[0];
+    });
+  }, [viewMonth]);
+
+  function goToMonth(offset: number) {
+    setViewMonth((prev) => {
+      const next = new Date(prev);
+      next.setMonth(prev.getMonth() + offset);
+      next.setDate(1);
+      return next;
+    });
+  }
+
+  const todayStr = toLocalDateString(new Date());
+  const isCurrentMonth =
+    viewMonth.getFullYear() === new Date().getFullYear() &&
+    viewMonth.getMonth() === new Date().getMonth();
+  const monthLabel = viewMonth.toLocaleDateString("id-ID", {
+    month: "long",
+    year: "numeric",
+  });
 
   // load slots when entering slot step
   useEffect(() => {
@@ -278,28 +310,100 @@ function BookingFlow() {
         {/* STEP: SLOT */}
         {step === "slot" && (
           <div>
+            {/* Foto barber yang dipilih, tampil di atas seperti referensi */}
+            {selectedBarber && selectedBarber !== "any" && (
+              <div className="relative mb-5 -mx-5 h-56 w-[calc(100%+2.5rem)] overflow-hidden sm:rounded-3xl sm:mx-0 sm:w-full">
+                {selectedBarber.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={selectedBarber.photo_url}
+                    alt={selectedBarber.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-surface-2 via-surface to-accent-soft">
+                    <span className="font-display text-3xl font-bold text-accent/60">
+                      {selectedBarber.name.slice(0, 2).toUpperCase()}
+                    </span>
+                  </div>
+                )}
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 to-transparent" />
+                <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
+                  <div>
+                    <p className="font-display text-base font-bold text-white">
+                      {selectedBarber.name}
+                    </p>
+                    <p className="flex items-center gap-1 text-xs text-white/80">
+                      <Star size={11} className="fill-accent text-accent" /> 4.9
+                      <span className="text-white/50">• Pro Barber</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Header bulan dengan navigasi maju/mundur */}
+            <div className="flex items-center justify-between">
+              <p className="font-display text-sm font-semibold capitalize">{monthLabel}</p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => goToMonth(-1)}
+                  disabled={isCurrentMonth}
+                  aria-label="Bulan sebelumnya"
+                  className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-full border border-border-soft transition-colors",
+                    isCurrentMonth
+                      ? "cursor-not-allowed text-text-tertiary/40"
+                      : "text-text-secondary hover:border-accent/40 hover:text-text-primary"
+                  )}
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToMonth(1)}
+                  aria-label="Bulan berikutnya"
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-border-soft text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+
+            <p className="mb-3 mt-4 text-xs font-medium uppercase tracking-wide text-text-tertiary">
+              Tanggal
+            </p>
             <div className="flex gap-2 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {dates.map((d) => {
                 const dateObj = new Date(d + "T00:00:00");
                 const dayName = dateObj.toLocaleDateString("id-ID", { weekday: "short" });
                 const dayNum = dateObj.getDate();
+                const isPast = d < todayStr;
                 return (
                   <button
                     key={d}
-                    onClick={() => setSelectedDate(d)}
+                    onClick={() => !isPast && setSelectedDate(d)}
+                    disabled={isPast}
                     className={cn(
-                      "flex shrink-0 flex-col items-center rounded-2xl px-4 py-3 text-xs font-medium",
+                      "flex shrink-0 flex-col items-center rounded-2xl px-4 py-3 text-xs font-medium transition-colors",
                       selectedDate === d
-                        ? "bg-accent text-black"
-                        : "bg-surface border border-border-soft text-text-secondary"
+                        ? "bg-text-primary text-bg"
+                        : isPast
+                        ? "cursor-not-allowed bg-surface/50 text-text-tertiary/40"
+                        : "bg-surface border border-border-soft text-text-secondary hover:border-accent/40"
                     )}
                   >
-                    <span>{dayNum}</span>
-                    <span className="mt-0.5">{dayName}</span>
+                    <span className="text-sm font-semibold">{dayNum}</span>
+                    <span className="mt-0.5 uppercase">{dayName}</span>
                   </button>
                 );
               })}
             </div>
+
+            <p className="mb-3 mt-6 text-xs font-medium uppercase tracking-wide text-text-tertiary">
+              Waktu
+            </p>
 
             {slotsLoading && (
               <p className="py-10 text-center text-sm text-text-secondary">Memuat slot waktu...</p>

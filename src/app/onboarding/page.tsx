@@ -12,7 +12,7 @@ const ONBOARDING_COOKIE = "glori_onboarded";
 // dimuat, kartu otomatis fallback ke gradient + ikon supaya tetap rapi.
 const SLIDES = [
   { src: "/onboarding/haircut.jpeg", label: "Hair Cut", Icon: Scissors },
-  { src: "/onboarding/shaving.jepg", label: "Shaving", Icon: Droplet },
+  { src: "/onboarding/shaving.jpeg", label: "Shaving", Icon: Droplet },
   { src: "/onboarding/coloring.jpeg", label: "Coloring", Icon: Palette },
   { src: "/onboarding/treatment.jpeg", label: "Treatment", Icon: Sparkles },
 ];

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Booking, BookingStatus, STATUS_LABELS, Service, Staff, Slot } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/Button";
-import { formatTime, formatServicePrice, formatDateShort } from "@/lib/utils";
+import { formatTime, formatServicePrice, formatDateShort, toLocalDateString } from "@/lib/utils";
 import { Plus, X } from "lucide-react";
 
 export default function AdminBookingsPage() {
@@ -113,7 +113,7 @@ function WalkinForm({ onClose, onCreated }: { onClose: () => void; onCreated: ()
   const [phone, setPhone] = useState("");
   const [serviceId, setServiceId] = useState("");
   const [barberId, setBarberId] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(toLocalDateString(new Date()));
   const [slotId, setSlotId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");

@@ -3,12 +3,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { Staff, Slot } from "@/types";
 import { Button } from "@/components/Button";
-import { formatTime } from "@/lib/utils";
+import { formatTime, toLocalDateString } from "@/lib/utils";
 
 export default function AdminSlotPage() {
   const [barbers, setBarbers] = useState<Staff[]>([]);
   const [barberId, setBarberId] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(toLocalDateString(new Date()));
   const [slots, setSlots] = useState<Slot[]>([]);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("18:00");

@@ -3,13 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LayoutDashboard, ListOrdered, CalendarRange, Scissors, Users, BarChart3 } from "lucide-react";
+import { Menu, X, LayoutDashboard, ListOrdered, CalendarRange, CalendarClock, Scissors, Users, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/antrian", label: "Antrian Hari Ini", icon: ListOrdered },
   { href: "/admin/bookings", label: "Semua Booking", icon: CalendarRange },
+  { href: "/admin/slot", label: "Kelola Slot", icon: CalendarClock },
   { href: "/admin/layanan", label: "Kelola Layanan", icon: Scissors },
   { href: "/admin/barber", label: "Kelola Barber", icon: Users },
   { href: "/admin/laporan", label: "Laporan", icon: BarChart3 },

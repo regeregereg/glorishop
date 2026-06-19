@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Booking } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/Button";
-import { formatTime, formatServicePrice } from "@/lib/utils";
+import { formatTime, formatServicePrice, toLocalDateString } from "@/lib/utils";
 import { Play, Check, Star } from "lucide-react";
 
 export default function BarberDashboardPage() {
@@ -14,7 +14,7 @@ export default function BarberDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState<string | null>(null);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalDateString(new Date());
 
   useEffect(() => {
     fetch("/api/me")

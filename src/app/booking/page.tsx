@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Star, Clock } from "lucide-react";
 import { Service, Staff, Slot } from "@/types";
-import { formatServicePrice, formatRupiah, formatTime, formatDateShort, cn } from "@/lib/utils";
+import { formatServicePrice, formatRupiah, formatTime, formatDateShort, toLocalDateString, cn } from "@/lib/utils";
 import { Button } from "@/components/Button";
 
 type Step = "service" | "barber" | "slot" | "confirm";
@@ -76,7 +76,7 @@ function BookingFlow() {
     for (let i = 0; i < 7; i++) {
       const d = new Date(today);
       d.setDate(today.getDate() + i);
-      arr.push(d.toISOString().slice(0, 10));
+      arr.push(toLocalDateString(d));
     }
     setDates(arr);
     setSelectedDate(arr[0]);

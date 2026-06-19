@@ -32,6 +32,20 @@ export function formatDateShort(dateStr: string): string {
   });
 }
 
+// Mengubah objek Date menjadi string "YYYY-MM-DD" berdasarkan tanggal LOKAL
+// (bukan UTC). Jangan gunakan `date.toISOString().slice(0, 10)` untuk ini,
+// karena toISOString() selalu mengonversi ke UTC. Untuk zona waktu WIB
+// (UTC+7), itu menyebabkan tanggal mundur 1 hari setiap kali diakses
+// antara pukul 00:00–06:59 WIB, sehingga tanggal yang dicari tidak pernah
+// cocok dengan tanggal slot yang dibuat admin (akibatnya slot terlihat
+// kosong padahal datanya ada).
+export function toLocalDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, "0");
+  const day = date.getDate().toString().padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function formatTime(timeStr: string): string {
   // timeStr format "HH:MM:SS" atau "HH:MM"
   return timeStr.slice(0, 5);

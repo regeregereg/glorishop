@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Staff } from "@/types";
 import { Button } from "@/components/Button";
+import { ImageUpload } from "@/components/ImageUpload";
 import { Plus, X, Pencil } from "lucide-react";
 
 export default function AdminBarberPage() {
@@ -48,8 +49,13 @@ export default function AdminBarberPage() {
         {barbers.map((b) => (
           <div key={b.id} className="rounded-2xl border border-border-soft bg-surface p-4">
             <div className="flex items-start justify-between">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft font-display font-bold text-accent">
-                {b.name.slice(0, 2).toUpperCase()}
+              <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-accent-soft font-display font-bold text-accent">
+                {b.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={b.photo_url} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  b.name.slice(0, 2).toUpperCase()
+                )}
               </div>
               <button
                 onClick={() => setEditing(b)}
@@ -101,6 +107,7 @@ function BarberForm({
   const [username, setUsername] = useState(barber?.username ?? "");
   const [password, setPassword] = useState("");
   const [bio, setBio] = useState(barber?.bio ?? "");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(barber?.photo_url ?? null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -117,12 +124,12 @@ function BarberForm({
         ? await fetch(`/api/barbers/${barber.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, bio }),
+            body: JSON.stringify({ name, bio, photo_url: photoUrl }),
           })
         : await fetch("/api/barbers", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, username, password, bio }),
+            body: JSON.stringify({ name, username, password, bio, photo_url: photoUrl }),
           });
 
       if (!res.ok) {
@@ -150,6 +157,13 @@ function BarberForm({
         </div>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
+          <ImageUpload
+            value={photoUrl}
+            onChange={setPhotoUrl}
+            folder="barber"
+            shape="circle"
+            label="Foto profil"
+          />
           <input
             placeholder="Nama barber"
             value={name}

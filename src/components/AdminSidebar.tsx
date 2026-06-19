@@ -9,6 +9,7 @@ import {
   CalendarClock,
   Scissors,
   Users,
+  Package,
   BarChart3,
   LogOut,
 } from "lucide-react";
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
   { href: "/admin/slot", label: "Kelola Slot", icon: CalendarClock },
   { href: "/admin/layanan", label: "Kelola Layanan", icon: Scissors },
   { href: "/admin/barber", label: "Kelola Barber", icon: Users },
+  { href: "/admin/produk", label: "Kelola Produk", icon: Package },
   { href: "/admin/laporan", label: "Laporan", icon: BarChart3 },
 ];
 

@@ -18,8 +18,13 @@ export function ServiceCard({ service }: { service: Service }) {
       href={`/layanan/${service.id}`}
       className="flex items-center gap-4 rounded-[var(--radius-card)] border border-border-soft bg-surface p-4 transition-colors hover:border-accent/40"
     >
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-accent-soft text-accent">
-        <Icon size={24} strokeWidth={1.8} />
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-accent-soft text-accent">
+        {service.photo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={service.photo_url} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <Icon size={24} strokeWidth={1.8} />
+        )}
       </div>
       <div className="flex-1">
         <h3 className="font-display text-[15px] font-semibold leading-tight text-text-primary">

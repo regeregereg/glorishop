@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Service, ServiceCategory } from "@/types";
 import { Button } from "@/components/Button";
+import { ImageUpload } from "@/components/ImageUpload";
 import { formatServicePrice } from "@/lib/utils";
 import { Plus, X, Pencil, Trash2 } from "lucide-react";
 
@@ -56,12 +57,20 @@ export default function AdminLayananPage() {
               s.is_active ? "border-border-soft" : "border-border-soft opacity-50"
             }`}
           >
-            <div>
-              <p className="font-semibold text-sm">{s.name}</p>
-              <p className="mt-0.5 text-xs text-text-secondary">
-                {s.category} • {s.duration_minutes} menit • {formatServicePrice(s)}
-                {!s.is_active && " • Nonaktif"}
-              </p>
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-border-soft bg-surface-2">
+                {s.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={s.photo_url} alt="" className="h-full w-full object-cover" />
+                ) : null}
+              </div>
+              <div>
+                <p className="font-semibold text-sm">{s.name}</p>
+                <p className="mt-0.5 text-xs text-text-secondary">
+                  {s.category} • {s.duration_minutes} menit • {formatServicePrice(s)}
+                  {!s.is_active && " • Nonaktif"}
+                </p>
+              </div>
             </div>
             <div className="flex gap-2">
               <button
@@ -109,6 +118,7 @@ function ServiceForm({
   const [name, setName] = useState(service?.name ?? "");
   const [description, setDescription] = useState(service?.description ?? "");
   const [category, setCategory] = useState<ServiceCategory>(service?.category ?? "haircut");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(service?.photo_url ?? null);
   const [priceMode, setPriceMode] = useState<"fixed" | "range">(
     service?.price_min != null ? "range" : "fixed"
   );
@@ -136,6 +146,7 @@ function ServiceForm({
       price: priceMode === "fixed" ? Number(price) : null,
       price_min: priceMode === "range" ? Number(priceMin) : null,
       price_max: priceMode === "range" ? Number(priceMax) : null,
+      photo_url: photoUrl,
     };
 
     try {
@@ -176,6 +187,12 @@ function ServiceForm({
         </div>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
+          <ImageUpload
+            value={photoUrl}
+            onChange={setPhotoUrl}
+            folder="layanan"
+            label="Foto layanan"
+          />
           <input
             placeholder="Nama layanan"
             value={name}

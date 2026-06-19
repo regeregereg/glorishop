@@ -42,8 +42,13 @@ export default async function ServiceDetailPage({
       </header>
 
       <div className="px-5">
-        <div className="flex h-40 items-center justify-center rounded-[var(--radius-card)] bg-gradient-to-br from-surface-2 to-surface border border-border-soft text-accent">
-          <Icon size={56} strokeWidth={1.3} />
+        <div className="flex h-40 items-center justify-center overflow-hidden rounded-[var(--radius-card)] bg-gradient-to-br from-surface-2 to-surface border border-border-soft text-accent">
+          {service.photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={service.photo_url} alt={service.name} className="h-full w-full object-cover" />
+          ) : (
+            <Icon size={56} strokeWidth={1.3} />
+          )}
         </div>
 
         <div className="mt-5">

@@ -143,8 +143,13 @@ export default async function HomePage() {
                 key={b.id}
                 className="flex w-32 shrink-0 flex-col items-center rounded-2xl border border-border-soft bg-surface p-4"
               >
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent-soft font-display font-bold text-accent">
-                  {b.name.slice(0, 2).toUpperCase()}
+                <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-accent-soft font-display font-bold text-accent">
+                  {b.photo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={b.photo_url} alt={b.name} className="h-full w-full object-cover" />
+                  ) : (
+                    b.name.slice(0, 2).toUpperCase()
+                  )}
                 </div>
                 <p className="mt-2 text-center text-sm font-semibold leading-tight">
                   {b.name}

@@ -14,7 +14,7 @@ export default function ProfilPage() {
   );
 
   useEffect(() => {
-    fetch("/api/me")
+    fetch("/api/me", { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => setSession(d.user));
   }, []);

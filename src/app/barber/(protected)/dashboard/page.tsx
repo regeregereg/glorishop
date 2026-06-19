@@ -17,7 +17,7 @@ export default function BarberDashboardPage() {
   const today = toLocalDateString(new Date());
 
   useEffect(() => {
-    fetch("/api/me")
+    fetch("/api/me", { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
         if (d.staff) {

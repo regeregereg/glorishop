@@ -42,8 +42,13 @@ export default async function ProdukPage() {
             key={p.id}
             className="rounded-2xl border border-border-soft bg-surface p-4"
           >
-            <div className="flex h-20 items-center justify-center rounded-xl bg-accent-soft text-accent">
-              <Package size={28} strokeWidth={1.5} />
+            <div className="flex h-20 items-center justify-center overflow-hidden rounded-xl bg-accent-soft text-accent">
+              {p.photo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={p.photo_url} alt={p.name} className="h-full w-full object-cover" />
+              ) : (
+                <Package size={28} strokeWidth={1.5} />
+              )}
             </div>
             <p className="mt-3 text-sm font-semibold leading-tight">{p.name}</p>
             <p className="mt-1 font-display text-sm font-bold text-accent">

@@ -19,7 +19,7 @@ export default function BookingStatusPage() {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/me")
+    fetch("/api/me", { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
         setSession(d.user);

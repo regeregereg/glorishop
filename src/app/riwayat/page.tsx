@@ -24,7 +24,7 @@ export default function RiwayatPage() {
   const [reviewedIds, setReviewedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetch("/api/me")
+    fetch("/api/me", { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
         setSession(d.user);

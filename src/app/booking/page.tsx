@@ -33,7 +33,7 @@ function BookingFlow() {
 
   // load session
   useEffect(() => {
-    fetch("/api/me")
+    fetch("/api/me", { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => setSession(d.user));
   }, []);
@@ -256,8 +256,13 @@ function BookingFlow() {
                     : "border-border-soft hover:border-accent/40"
                 )}
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft text-accent font-display font-bold">
-                  {b.name.slice(0, 2).toUpperCase()}
+                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-accent-soft text-accent font-display font-bold">
+                  {b.photo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={b.photo_url} alt={b.name} className="h-full w-full object-cover" />
+                  ) : (
+                    b.name.slice(0, 2).toUpperCase()
+                  )}
                 </div>
                 <div className="flex-1">
                   <p className="font-display text-sm font-semibold">{b.name}</p>

@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+:root {
+  /* Base surfaces */
+  --bg: #0b0b0c;
+  --surface: #161617;
+  --surface-2: #1e1e20;
+  --border-soft: #2a2a2d;
+
+  /* Text */
+  --text-primary: #f7f5f2;
+  --text-secondary: #9a9a9d;
+  --text-tertiary: #6b6b6e;
+
+  /* Accent — warm amber, lampu salon */
+  --accent: #f2a531;
+  --accent-strong: #e58e0c;
+  --accent-soft: rgba(242, 165, 49, 0.14);
+
+  /* Status colors */
+  --status-pending: #9a9a9d;
+  --status-confirmed: #4d8df0;
+  --status-progress: #f2a531;
+  --status-done: #3fb872;
+  --status-cancelled: #e2554d;
+
+  --radius-card: 22px;
+  --radius-control: 14px;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border-soft: var(--border-soft);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-status-pending: var(--status-pending);
+  --color-status-confirmed: var(--status-confirmed);
+  --color-status-progress: var(--status-progress);
+  --color-status-done: var(--status-done);
+  --color-status-cancelled: var(--status-cancelled);
+
+  --font-display: "Avenir Next", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, .font-display {
+  font-family: var(--font-display), sans-serif;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-soft);
+  border-radius: 10px;
+}
+
+/* Focus visibility for accessibility */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Pulse animation untuk status "sedang dikerjakan" — signature element */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(242, 165, 49, 0.45); }
+  50% { opacity: 0.85; box-shadow: 0 0 0 5px rgba(242, 165, 49, 0); }
+}
+.status-dot-pulse {
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-dot-pulse {
+    animation: none;
+  }
+}

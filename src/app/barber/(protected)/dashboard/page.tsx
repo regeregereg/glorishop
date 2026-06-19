@@ -1,0 +1,143 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { Booking } from "@/types";
+import { StatusBadge } from "@/components/StatusBadge";
+import { Button } from "@/components/Button";
+import { formatTime, formatServicePrice } from "@/lib/utils";
+import { Play, Check, Star } from "lucide-react";
+
+export default function BarberDashboardPage() {
+  const [staffId, setStaffId] = useState<string | null>(null);
+  const [staffName, setStaffName] = useState("");
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actingId, setActingId] = useState<string | null>(null);
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.staff) {
+          setStaffId(d.staff.id);
+          setStaffName(d.staff.name);
+        }
+      });
+  }, []);
+
+  const loadQueue = useCallback(async () => {
+    if (!staffId) return;
+    const res = await fetch(`/api/bookings?barberId=${staffId}&date=${today}`);
+    const data = await res.json();
+    setBookings(data.bookings || []);
+    setLoading(false);
+  }, [staffId, today]);
+
+  useEffect(() => {
+    loadQueue();
+    const interval = setInterval(loadQueue, 15000);
+    return () => clearInterval(interval);
+  }, [loadQueue]);
+
+  async function updateStatus(bookingId: string, status: string) {
+    setActingId(bookingId);
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) loadQueue();
+      else {
+        const data = await res.json();
+        alert(data.error || "Gagal update status.");
+      }
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  const queue = bookings
+    .filter((b) => ["CONFIRMED", "IN_PROGRESS", "PENDING"].includes(b.status))
+    .sort((a, b) => (a.slot?.start_time ?? "").localeCompare(b.slot?.start_time ?? ""));
+
+  return (
+    <div className="px-5 pt-6">
+      <h1 className="font-display text-2xl font-extrabold">Hai, {staffName.split(" ")[0] || "Barber"} 👋</h1>
+      <p className="mt-1 text-sm text-text-secondary">
+        Antrian klien kamu hari ini.
+      </p>
+
+      <div className="mt-5 flex flex-col gap-4">
+        {loading && <p className="py-10 text-center text-sm text-text-secondary">Memuat...</p>}
+
+        {!loading && queue.length === 0 && (
+          <div className="rounded-[var(--radius-card)] border border-border-soft bg-surface px-6 py-12 text-center">
+            <p className="font-display text-sm font-semibold">Belum ada antrian hari ini</p>
+          </div>
+        )}
+
+        {queue.map((b) => (
+          <div
+            key={b.id}
+            className="rounded-[var(--radius-card)] border border-border-soft bg-surface p-5"
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="font-display text-lg font-bold">
+                  {b.user?.name ?? b.walkin_name ?? "Pelanggan"}
+                </p>
+                <p className="mt-1 text-xs text-text-secondary">
+                  {b.service?.name} • {b.slot ? formatTime(b.slot.start_time) : ""}
+                </p>
+              </div>
+              <StatusBadge status={b.status} size="sm" />
+            </div>
+
+            <p className="mt-3 font-display text-sm font-bold text-accent">
+              {b.service ? formatServicePrice(b.service) : ""}
+            </p>
+
+            <div className="mt-4 flex gap-2">
+              {b.status === "PENDING" && (
+                <span className="text-xs text-text-tertiary">
+                  Menunggu konfirmasi admin
+                </span>
+              )}
+              {b.status === "CONFIRMED" && (
+                <Button
+                  size="lg"
+                  fullWidth
+                  icon={<Play size={18} />}
+                  onClick={() => updateStatus(b.id, "IN_PROGRESS")}
+                  disabled={actingId === b.id}
+                >
+                  Mulai
+                </Button>
+              )}
+              {b.status === "IN_PROGRESS" && (
+                <Button
+                  size="lg"
+                  fullWidth
+                  variant="secondary"
+                  icon={<Check size={18} />}
+                  onClick={() => updateStatus(b.id, "DONE")}
+                  disabled={actingId === b.id}
+                >
+                  Selesai
+                </Button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-8 flex items-center gap-2 text-xs text-text-tertiary">
+        <Star size={14} className="fill-accent text-accent" />
+        Lihat riwayat dan rating kamu di tab Riwayat
+      </div>
+    </div>
+  );
+}

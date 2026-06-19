@@ -1,0 +1,56 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getStaffSession } from "@/lib/session";
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const includeInactive = searchParams.get("includeInactive") === "true";
+
+  const supabase = createAdminClient();
+  let query = supabase
+    .from("staff")
+    .select("id, name, photo_url, bio, is_active, created_at")
+    .eq("role", "barber")
+    .order("name", { ascending: true });
+
+  if (!includeInactive) {
+    query = query.eq("is_active", true);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  return NextResponse.json({ barbers: data });
+}
+
+export async function POST(req: NextRequest) {
+  const staffSession = await getStaffSession();
+  if (!staffSession || staffSession.role !== "admin") {
+    return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
+  }
+
+  const bcrypt = (await import("bcryptjs")).default;
+  const body = await req.json();
+  const supabase = createAdminClient();
+
+  const passwordHash = bcrypt.hashSync(body.password || "barber123", 10);
+
+  const { data, error } = await supabase
+    .from("staff")
+    .insert({
+      username: body.username,
+      password_hash: passwordHash,
+      role: "barber",
+      name: body.name,
+      bio: body.bio ?? null,
+      photo_url: body.photo_url ?? null,
+    })
+    .select("id, username, name, role, is_active, created_at")
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  return NextResponse.json({ barber: data });
+}

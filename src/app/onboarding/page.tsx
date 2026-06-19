@@ -11,10 +11,10 @@ const ONBOARDING_COOKIE = "glori_onboarded";
 // bawah ini (haircut.jpg, shaving.jpg, dst). Kalau file belum ada / gagal
 // dimuat, kartu otomatis fallback ke gradient + ikon supaya tetap rapi.
 const SLIDES = [
-  { src: "/onboarding/haircut.jpg", label: "Hair Cut", Icon: Scissors },
-  { src: "/onboarding/shaving.jpg", label: "Shaving", Icon: Droplet },
-  { src: "/onboarding/coloring.jpg", label: "Coloring", Icon: Palette },
-  { src: "/onboarding/treatment.jpg", label: "Treatment", Icon: Sparkles },
+  { src: "/onboarding/haircut.jpeg", label: "Hair Cut", Icon: Scissors },
+  { src: "/onboarding/shaving.jepg", label: "Shaving", Icon: Droplet },
+  { src: "/onboarding/coloring.jpeg", label: "Coloring", Icon: Palette },
+  { src: "/onboarding/treatment.jpeg", label: "Treatment", Icon: Sparkles },
 ];
 
 function finishOnboarding() {
@@ -174,9 +174,9 @@ export default function OnboardingPage() {
       {/* Copy — statis, persis seperti referensi */}
       <div className="relative z-10 mt-7 flex-1 px-6">
         <h1 className="font-display text-[28px] font-extrabold leading-[1.15] text-text-primary">
-          Barber <span className="text-accent">Appointments</span>
+          GLORI <span className="text-accent">Barbershop</span>
           <br />
-          Made Easy
+          Sejak 2020
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-text-secondary">
           Booking janji dengan mudah, jelajahi profil barber, dan lihat menu

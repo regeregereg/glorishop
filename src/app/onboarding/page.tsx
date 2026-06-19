@@ -1,163 +1,201 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import {
-  Scissors,
-  Users,
-  CalendarCheck,
-  Star,
-  Sparkles,
-  Droplet,
-  ArrowUpRight,
-} from "lucide-react";
+import { useRef, useState } from "react";
+import { Scissors, Droplet, Palette, Sparkles, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ONBOARDING_COOKIE = "glori_onboarded";
 
-type Slide = {
-  chip: string;
-  Icon: typeof Scissors;
-  headline: [string, string, string];
-  subtitle: string;
-};
-
-const SLIDES: Slide[] = [
-  {
-    chip: "Hair Cut",
-    Icon: Scissors,
-    headline: ["Barber", "Appointments", "Made Easy"],
-    subtitle:
-      "Booking janji potong rambut, jelajahi profil barber, dan lihat menu layanan dengan mudah.",
-  },
-  {
-    chip: "Pilih Barber",
-    Icon: Users,
-    headline: ["Pilih Barber", "Favoritmu", "Sendiri"],
-    subtitle:
-      "Lihat profil, rating, dan keahlian tiap barber sebelum kamu memutuskan booking.",
-  },
-  {
-    chip: "Tepat Waktu",
-    Icon: CalendarCheck,
-    headline: ["Datang Pas", "Waktunya,", "Tanpa Antri"],
-    subtitle:
-      "Pilih slot jadwal yang kosong, lalu pantau status booking kamu secara langsung.",
-  },
+// Taruh foto kamu di /public/onboarding/ dengan nama file persis seperti di
+// bawah ini (haircut.jpg, shaving.jpg, dst). Kalau file belum ada / gagal
+// dimuat, kartu otomatis fallback ke gradient + ikon supaya tetap rapi.
+const SLIDES = [
+  { src: "/onboarding/haircut.jpg", label: "Hair Cut", Icon: Scissors },
+  { src: "/onboarding/shaving.jpg", label: "Shaving", Icon: Droplet },
+  { src: "/onboarding/coloring.jpg", label: "Coloring", Icon: Palette },
+  { src: "/onboarding/treatment.jpg", label: "Treatment", Icon: Sparkles },
 ];
 
 function finishOnboarding() {
-  document.cookie = `${ONBOARDING_COOKIE}=1; path=/; max-age=${60 * 60 * 24 * 365}`;
+  const todayKey = new Date().toISOString().slice(0, 10);
+  // Cookie cuma perlu hidup ~2 hari — tiap hari baru, middleware akan minta
+  // onboarding lagi karena tanggalnya sudah tidak cocok.
+  document.cookie = `${ONBOARDING_COOKIE}=${todayKey}; path=/; max-age=${60 * 60 * 48}`;
 }
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [index, setIndex] = useState(0);
-  const isLast = index === SLIDES.length - 1;
-  const slide = SLIDES[index];
+  const trackRef = useRef<HTMLDivElement>(null);
+  const dragState = useRef({ active: false, startX: 0, startScroll: 0 });
+  const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function handleNext() {
-    if (isLast) {
-      finishOnboarding();
-      router.push("/");
-      return;
-    }
-    setIndex((i) => i + 1);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [failed, setFailed] = useState<Set<number>>(new Set());
+
+  function markFailed(i: number) {
+    setFailed((prev) => new Set(prev).add(i));
   }
 
-  function handleSkip() {
+  function nearestIndex(): number {
+    const track = trackRef.current;
+    if (!track) return 0;
+    const children = Array.from(track.children) as HTMLElement[];
+    const center = track.scrollLeft + track.clientWidth / 2;
+    let closest = 0;
+    let closestDist = Infinity;
+    children.forEach((child, i) => {
+      const childCenter = child.offsetLeft + child.clientWidth / 2;
+      const dist = Math.abs(childCenter - center);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closest = i;
+      }
+    });
+    return closest;
+  }
+
+  function goToSlide(index: number) {
+    const track = trackRef.current;
+    const child = track?.children[index] as HTMLElement | undefined;
+    if (!track || !child) return;
+    const target = child.offsetLeft - (track.clientWidth - child.clientWidth) / 2;
+    track.scrollTo({ left: target, behavior: "smooth" });
+    setActiveSlide(index);
+  }
+
+  // Geser pakai mouse (drag) di desktop — di HP/tablet swipe sudah jalan
+  // otomatis lewat scroll bawaan browser (CSS scroll-snap).
+  function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.pointerType !== "mouse") return;
+    const track = trackRef.current;
+    if (!track) return;
+    dragState.current = { active: true, startX: e.clientX, startScroll: track.scrollLeft };
+    track.setPointerCapture(e.pointerId);
+    setIsDragging(true);
+  }
+
+  function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!dragState.current.active) return;
+    const track = trackRef.current;
+    if (!track) return;
+    const dx = e.clientX - dragState.current.startX;
+    track.scrollLeft = dragState.current.startScroll - dx;
+  }
+
+  function endDrag() {
+    if (!dragState.current.active) return;
+    dragState.current.active = false;
+    setIsDragging(false);
+    goToSlide(nearestIndex());
+  }
+
+  function handleScroll() {
+    if (scrollTimer.current) clearTimeout(scrollTimer.current);
+    scrollTimer.current = setTimeout(() => {
+      if (!dragState.current.active) setActiveSlide(nearestIndex());
+    }, 80);
+  }
+
+  function handleEnter() {
     finishOnboarding();
     router.push("/");
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-bg px-6 pb-10 pt-6">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-bg pb-10 pt-6">
       {/* Ambient glow di latar belakang biar tidak polos */}
       <div className="pointer-events-none absolute -left-24 top-10 h-64 w-64 rounded-full bg-accent/20 blur-[90px]" />
       <div className="pointer-events-none absolute -right-20 top-64 h-56 w-56 rounded-full bg-accent/10 blur-[80px]" />
 
-      {/* Skip */}
-      <div className="relative z-10 flex justify-end">
-        <button
-          onClick={handleSkip}
-          className="text-xs font-medium text-text-tertiary transition-colors hover:text-text-secondary"
-        >
-          Lewati
-        </button>
+      {/* Carousel foto — bisa digeser pakai tangan (swipe) atau drag mouse */}
+      <div
+        ref={trackRef}
+        onScroll={handleScroll}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={endDrag}
+        onPointerLeave={endDrag}
+        className={cn(
+          "relative z-10 flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth px-[11%] [-ms-overflow-style:none] [scroll-padding-inline:11%] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          isDragging ? "cursor-grabbing" : "cursor-grab"
+        )}
+      >
+        {SLIDES.map((slide, i) => (
+          <div
+            key={slide.label}
+            className="relative h-[360px] w-[78%] shrink-0 select-none overflow-hidden rounded-[28px] border border-border-soft snap-center"
+          >
+            {!failed.has(i) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={slide.src}
+                alt={slide.label}
+                draggable={false}
+                onError={() => markFailed(i)}
+                className="pointer-events-none h-full w-full object-cover"
+              />
+            ) : (
+              <div
+                className={cn(
+                  "flex h-full w-full items-center justify-center",
+                  i % 2 === 0
+                    ? "bg-gradient-to-br from-surface-2 via-surface to-accent-soft"
+                    : "bg-gradient-to-tr from-accent-soft via-surface to-surface-2"
+                )}
+              >
+                <slide.Icon size={64} strokeWidth={1.1} className="text-accent/50" />
+              </div>
+            )}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 to-transparent" />
+            <span className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/45 px-4 py-1.5 text-xs font-semibold text-white backdrop-blur-sm">
+              {slide.label}
+            </span>
+          </div>
+        ))}
       </div>
 
-      {/* Visual stage: kartu bertumpuk ala mockup, full CSS — tanpa foto eksternal */}
-      <div className="relative z-10 mt-6 flex h-[340px] items-center justify-center">
-        {/* Kartu belakang kiri */}
-        <div className="absolute left-2 top-6 h-[260px] w-[120px] -rotate-[10deg] rounded-[26px] border border-border-soft bg-gradient-to-b from-surface-2 to-surface shadow-xl">
-          <div className="flex h-full flex-col items-center justify-center gap-2 opacity-60">
-            <Droplet size={22} className="text-accent" strokeWidth={1.6} />
-          </div>
-        </div>
-        {/* Kartu belakang kanan */}
-        <div className="absolute right-2 top-6 h-[260px] w-[120px] rotate-[10deg] rounded-[26px] border border-border-soft bg-gradient-to-b from-surface-2 to-surface shadow-xl">
-          <div className="flex h-full flex-col items-center justify-center gap-2 opacity-60">
-            <Sparkles size={22} className="text-accent" strokeWidth={1.6} />
-          </div>
-        </div>
-
-        {/* Kartu depan — berubah sesuai slide aktif */}
-        <div
-          key={index}
-          className="animate-[fadeIn_0.35s_ease] relative z-10 flex h-[300px] w-[190px] flex-col items-center justify-between overflow-hidden rounded-[28px] border border-border-soft bg-gradient-to-br from-surface-2 via-surface to-bg p-5 shadow-2xl"
-        >
-          <div className="flex items-center gap-1 self-end rounded-full bg-accent-soft px-2.5 py-1 text-[10px] font-semibold text-accent">
-            <Star size={11} className="fill-accent text-accent" /> 4.9
-          </div>
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-accent-soft">
-            <slide.Icon size={34} className="text-accent" strokeWidth={1.6} />
-          </div>
-          <span className="rounded-full bg-black/40 px-3.5 py-1.5 text-xs font-semibold text-text-primary backdrop-blur-sm">
-            {slide.chip}
-          </span>
-        </div>
-      </div>
-
-      {/* Dot indicators */}
-      <div className="relative z-10 mt-7 flex items-center justify-center gap-1.5">
+      {/* Dot indicators — ikut posisi carousel */}
+      <div className="relative z-10 mt-4 flex items-center justify-center gap-1.5">
         {SLIDES.map((_, i) => (
           <button
             key={i}
             aria-label={`Slide ${i + 1}`}
-            onClick={() => setIndex(i)}
+            onClick={() => goToSlide(i)}
             className={cn(
               "h-1.5 rounded-full transition-all duration-300",
-              i === index ? "w-6 bg-accent" : "w-1.5 bg-border-soft"
+              i === activeSlide ? "w-6 bg-accent" : "w-1.5 bg-border-soft"
             )}
           />
         ))}
       </div>
 
-      {/* Copy */}
-      <div className="relative z-10 mt-7 flex-1">
+      {/* Copy — statis, persis seperti referensi */}
+      <div className="relative z-10 mt-7 flex-1 px-6">
         <h1 className="font-display text-[28px] font-extrabold leading-[1.15] text-text-primary">
-          {slide.headline[0]}{" "}
-          <span className="text-accent">{slide.headline[1]}</span>
+          Barber <span className="text-accent">Appointments</span>
           <br />
-          {slide.headline[2]}
+          Made Easy
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-text-secondary">
-          {slide.subtitle}
+          Booking janji dengan mudah, jelajahi profil barber, dan lihat menu
+          layanan kapan saja.
         </p>
       </div>
 
-      {/* CTA */}
-      <div className="relative z-10 mt-6 flex items-center gap-3">
+      {/* CTA — sekali klik langsung masuk ke aplikasi */}
+      <div className="relative z-10 mt-6 flex items-center gap-3 px-6">
         <button
-          onClick={handleNext}
+          onClick={handleEnter}
           className="flex-1 rounded-full bg-accent py-4 text-sm font-bold text-black transition-transform active:scale-[0.98]"
         >
-          {isLast ? "Booking Now" : "Lanjut"}
+          Booking Now
         </button>
         <button
-          onClick={handleNext}
-          aria-label="Lanjut"
-          className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full bg-surface-2 border border-border-soft text-text-primary transition-transform active:scale-[0.95]"
+          onClick={handleEnter}
+          aria-label="Masuk ke aplikasi"
+          className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full border border-border-soft bg-surface-2 text-text-primary transition-transform active:scale-[0.95]"
         >
           <ArrowUpRight size={20} />
         </button>

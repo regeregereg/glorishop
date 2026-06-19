@@ -5,6 +5,8 @@ import { Product } from "@/types";
 import Link from "next/link";
 import { ChevronLeft, Package } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 async function getProducts() {
   const supabase = createAdminClient();
   const { data } = await supabase

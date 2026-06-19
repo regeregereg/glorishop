@@ -5,6 +5,8 @@ import { Service, ServiceCategory } from "@/types";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 const CATEGORY_LABEL: Record<ServiceCategory, string> = {
   haircut: "Haircut",
   treatment: "Paket Treatment",

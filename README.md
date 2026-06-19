@@ -39,7 +39,7 @@ Tiga area aplikasi:
 1. Di dashboard Supabase, buka **Project Settings** (ikon gear) → **API**
 2. Catat 3 nilai berikut:
    - **Project URL** → contoh: `https://xxxxxxxxxxxx.supabase.co`
-   - **anon public key** → key panjang di bagian "Project API keys"                           
+   - **anon public key** → key panjang di bagian "Project API keys"
    - **service_role key** → key rahasia di bagian yang sama (klik "Reveal" untuk melihat)
 
 ### d. Isi Environment Variables
@@ -53,7 +53,7 @@ Tiga area aplikasi:
    NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
    NEXT_PUBLIC_SUPABASE_ANON_KEY=isi-dengan-anon-key
    SUPABASE_SERVICE_ROLE_KEY=isi-dengan-service-role-key
-   SESSION_SECRET=ganti-dengan-string-acak-panjang-minimal-32-karakter susansusilowati09_regyanelka09
+   SESSION_SECRET=ganti-dengan-string-acak-panjang-minimal-32-karakter
    ```
    Untuk `SESSION_SECRET`, isi dengan string acak apa saja (minimal 32 karakter) — ini dipakai untuk mengamankan sesi login. Contoh cara generate cepat:
    ```bash

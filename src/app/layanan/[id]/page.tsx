@@ -6,6 +6,8 @@ import Link from "next/link";
 import { ChevronLeft, Clock, Scissors, Sparkles, Palette } from "lucide-react";
 import { notFound } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 const CATEGORY_ICON = { haircut: Scissors, treatment: Sparkles, colouring: Palette, product: Scissors };
 const CATEGORY_LABEL = { haircut: "Haircut", treatment: "Paket Treatment", colouring: "Colouring", product: "Produk" };
 

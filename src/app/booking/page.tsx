@@ -28,6 +28,8 @@ function BookingFlow() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [session, setSession] = useState<{ id: string; name: string } | null | undefined>(undefined);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsError, setSlotsError] = useState("");
 
   // load session
   useEffect(() => {
@@ -87,9 +89,22 @@ function BookingFlow() {
     const url = barberId
       ? `/api/slots?barberId=${barberId}&date=${selectedDate}`
       : `/api/slots?date=${selectedDate}`;
+    setSlotsLoading(true);
+    setSlotsError("");
     fetch(url)
-      .then((r) => r.json())
-      .then((d) => setSlots(d.slots || []));
+      .then(async (r) => {
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({}));
+          throw new Error(d.error || `Gagal memuat slot (status ${r.status})`);
+        }
+        return r.json();
+      })
+      .then((d) => setSlots(d.slots || []))
+      .catch((err) => {
+        setSlots([]);
+        setSlotsError(err.message || "Gagal memuat slot. Coba lagi.");
+      })
+      .finally(() => setSlotsLoading(false));
   }, [step, selectedDate, selectedBarber]);
 
   function goNext() {
@@ -281,33 +296,59 @@ function BookingFlow() {
               })}
             </div>
 
-            <div className="mt-5 grid grid-cols-3 gap-2.5">
-              {availableSlots.map((slot) => (
+            {slotsLoading && (
+              <p className="py-10 text-center text-sm text-text-secondary">Memuat slot waktu...</p>
+            )}
+
+            {!slotsLoading && slotsError && (
+              <div className="mt-5 rounded-2xl border border-status-cancelled/30 bg-status-cancelled/10 px-4 py-4 text-center">
+                <p className="text-sm text-status-cancelled">{slotsError}</p>
                 <button
-                  key={slot.id}
-                  onClick={() => {
-                    setSelectedSlot(slot);
-                    goNext();
-                  }}
-                  className={cn(
-                    "rounded-xl border px-3 py-3 text-center text-sm font-semibold transition-colors",
-                    selectedSlot?.id === slot.id
-                      ? "border-accent bg-accent text-black"
-                      : "border-border-soft bg-surface text-text-primary hover:border-accent/40"
-                  )}
+                  onClick={() => setSelectedDate((d) => d)}
+                  className="mt-2 text-xs font-medium text-accent underline"
                 >
-                  {formatTime(slot.start_time)}
-                  {!selectedBarber || selectedBarber === "any" ? (
-                    <span className="mt-0.5 block text-[10px] font-normal text-text-tertiary">
-                      {barberForSlot(slot.barber_id)?.name ?? ""}
-                    </span>
-                  ) : null}
+                  Coba lagi
                 </button>
-              ))}
-            </div>
-            {availableSlots.length === 0 && (
+              </div>
+            )}
+
+            {!slotsLoading && !slotsError && (
+              <div className="mt-5 grid grid-cols-3 gap-2.5">
+                {availableSlots.map((slot) => (
+                  <button
+                    key={slot.id}
+                    onClick={() => {
+                      setSelectedSlot(slot);
+                      goNext();
+                    }}
+                    className={cn(
+                      "rounded-xl border px-3 py-3 text-center text-sm font-semibold transition-colors",
+                      selectedSlot?.id === slot.id
+                        ? "border-accent bg-accent text-black"
+                        : "border-border-soft bg-surface text-text-primary hover:border-accent/40"
+                    )}
+                  >
+                    {formatTime(slot.start_time)}
+                    {!selectedBarber || selectedBarber === "any" ? (
+                      <span className="mt-0.5 block text-[10px] font-normal text-text-tertiary">
+                        {barberForSlot(slot.barber_id)?.name ?? ""}
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {!slotsLoading && !slotsError && slots.length === 0 && (
               <p className="py-10 text-center text-sm text-text-secondary">
-                Tidak ada slot tersedia di tanggal ini. Coba pilih tanggal lain.
+                Belum ada slot waktu yang dibuat untuk tanggal ini. Silakan pilih tanggal lain
+                atau hubungi barbershop langsung.
+              </p>
+            )}
+
+            {!slotsLoading && !slotsError && slots.length > 0 && availableSlots.length === 0 && (
+              <p className="py-10 text-center text-sm text-text-secondary">
+                Semua slot di tanggal ini sudah penuh dibooking. Coba pilih tanggal lain.
               </p>
             )}
           </div>

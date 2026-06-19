@@ -7,6 +7,8 @@ import { Service, Staff } from "@/types";
 import { Star, MapPin, Bell } from "lucide-react";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 async function getData() {
   const supabase = createAdminClient();
   const [{ data: services }, { data: barbers }] = await Promise.all([

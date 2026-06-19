@@ -49,10 +49,22 @@ export async function POST(req: NextRequest) {
     is_available: true,
   }));
 
+  const { error: upsertError } = await supabase
+    .from("slots")
+    .upsert(rows, { onConflict: "barber_id,date,start_time", ignoreDuplicates: true });
+
+  if (upsertError) {
+    return NextResponse.json({ error: upsertError.message }, { status: 500 });
+  }
+
+  // Ambil ulang semua slot untuk barber+tanggal ini, karena upsert dengan
+  // ignoreDuplicates tidak mengembalikan baris yang sudah ada sebelumnya.
   const { data, error } = await supabase
     .from("slots")
-    .upsert(rows, { onConflict: "barber_id,date,start_time", ignoreDuplicates: true })
-    .select("*");
+    .select("*")
+    .eq("barber_id", barber_id)
+    .eq("date", date)
+    .order("start_time", { ascending: true });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

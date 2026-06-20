@@ -4,8 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { Booking, BookingStatus, STATUS_LABELS, Service, Staff, Slot } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/Button";
-import { formatTime, formatServicePrice, formatDateShort, toLocalDateString } from "@/lib/utils";
-import { Plus, X } from "lucide-react";
+import { formatTime, getBookingServiceNames, getBookingPriceLabel, formatDateShort, toLocalDateString } from "@/lib/utils";
+import { Plus, X, Check } from "lucide-react";
 
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -73,13 +73,13 @@ export default function AdminBookingsPage() {
                 <td className="px-4 py-3 font-medium">
                   {b.user?.name ?? b.walkin_name ?? "—"}
                 </td>
-                <td className="px-4 py-3 text-text-secondary">{b.service?.name ?? "—"}</td>
+                <td className="px-4 py-3 text-text-secondary">{getBookingServiceNames(b)}</td>
                 <td className="px-4 py-3 text-text-secondary">{b.barber?.name ?? "—"}</td>
                 <td className="px-4 py-3 text-text-secondary">
                   {b.slot ? `${formatDateShort(b.slot.date)} ${formatTime(b.slot.start_time)}` : "—"}
                 </td>
                 <td className="px-4 py-3 text-accent font-semibold">
-                  {b.service ? formatServicePrice(b.service) : "—"}
+                  {getBookingPriceLabel(b)}
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={b.status} size="sm" />
@@ -111,7 +111,7 @@ function WalkinForm({ onClose, onCreated }: { onClose: () => void; onCreated: ()
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [serviceId, setServiceId] = useState("");
+  const [serviceIds, setServiceIds] = useState<string[]>([]);
   const [barberId, setBarberId] = useState("");
   const [date, setDate] = useState(toLocalDateString(new Date()));
   const [slotId, setSlotId] = useState("");
@@ -130,11 +130,17 @@ function WalkinForm({ onClose, onCreated }: { onClose: () => void; onCreated: ()
       .then((d) => setSlots((d.slots || []).filter((s: Slot) => s.is_available)));
   }, [barberId, date]);
 
+  function toggleService(id: string) {
+    setServiceIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (!name || !serviceId || !slotId) {
-      setError("Lengkapi semua data wajib.");
+    if (!name || serviceIds.length === 0 || !slotId) {
+      setError("Lengkapi semua data wajib (minimal 1 layanan).");
       return;
     }
     setSubmitting(true);
@@ -143,7 +149,7 @@ function WalkinForm({ onClose, onCreated }: { onClose: () => void; onCreated: ()
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          service_id: serviceId,
+          service_ids: serviceIds,
           slot_id: slotId,
           barber_id: barberId,
           created_by_admin: true,
@@ -167,7 +173,7 @@ function WalkinForm({ onClose, onCreated }: { onClose: () => void; onCreated: ()
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-md rounded-[var(--radius-card)] border border-border-soft bg-surface p-6">
+      <div className="w-full max-w-md rounded-[var(--radius-card)] border border-border-soft bg-surface p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg font-bold">Booking Walk-in</h2>
           <button onClick={onClose} className="text-text-secondary">
@@ -188,18 +194,40 @@ function WalkinForm({ onClose, onCreated }: { onClose: () => void; onCreated: ()
             onChange={(e) => setPhone(e.target.value)}
             className="rounded-xl border border-border-soft bg-surface-2 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
           />
-          <select
-            value={serviceId}
-            onChange={(e) => setServiceId(e.target.value)}
-            className="rounded-xl border border-border-soft bg-surface-2 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
-          >
-            <option value="">Pilih layanan</option>
-            {services.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+
+          <div>
+            <p className="mb-1.5 text-xs font-medium text-text-secondary">
+              Layanan (boleh pilih lebih dari satu)
+            </p>
+            <div className="flex max-h-48 flex-col gap-1.5 overflow-y-auto rounded-xl border border-border-soft bg-surface-2 p-2">
+              {services.map((s) => {
+                const checked = serviceIds.includes(s.id);
+                return (
+                  <button
+                    type="button"
+                    key={s.id}
+                    onClick={() => toggleService(s.id)}
+                    className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
+                      checked ? "bg-accent/15 text-text-primary" : "text-text-secondary hover:bg-surface"
+                    }`}
+                  >
+                    <div
+                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 ${
+                        checked ? "border-accent bg-accent text-black" : "border-border-soft"
+                      }`}
+                    >
+                      {checked && <Check size={10} strokeWidth={3} />}
+                    </div>
+                    {s.name}
+                  </button>
+                );
+              })}
+              {services.length === 0 && (
+                <p className="px-2 py-2 text-xs text-text-tertiary">Memuat layanan...</p>
+              )}
+            </div>
+          </div>
+
           <select
             value={barberId}
             onChange={(e) => setBarberId(e.target.value)}
@@ -231,6 +259,11 @@ function WalkinForm({ onClose, onCreated }: { onClose: () => void; onCreated: ()
               </option>
             ))}
           </select>
+          <p className="text-xs text-text-tertiary">
+            Catatan: untuk booking dengan banyak layanan yang totalnya lebih lama dari
+            satu slot, pastikan slot-slot berikutnya juga masih kosong (sistem akan
+            mengunci beberapa slot berurutan secara otomatis).
+          </p>
 
           {error && (
             <p className="rounded-xl bg-status-cancelled/10 px-3 py-2 text-xs text-status-cancelled">

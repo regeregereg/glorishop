@@ -127,16 +127,21 @@ export async function POST(req: NextRequest) {
     .from("bookings")
     .update({ status: "PENDING" })
     .eq("id", bookingId)
-    .select("*, service:services(*), barber:staff(id, name, photo_url), slot:slots(*)")
+    .select("*, service:services(*), services:booking_services(*, service:services(*)), barber:staff(id, name, photo_url), slot:slots(*)")
     .single();
 
   if (updateBookingError) {
     return NextResponse.json({ error: updateBookingError.message }, { status: 500 });
   }
 
+  const serviceLabel =
+    Array.isArray(updatedBooking.services) && updatedBooking.services.length > 0
+      ? updatedBooking.services.map((s: { service_name: string }) => s.service_name).join(", ")
+      : updatedBooking.service?.name ?? "layanan";
+
   await supabase.from("notifications").insert({
     type: "bukti_pembayaran_baru",
-    message: `Bukti transfer baru diunggah untuk booking ${updatedBooking.service?.name ?? "layanan"}. Mohon segera diverifikasi.`,
+    message: `Bukti transfer baru diunggah untuk booking ${serviceLabel}. Mohon segera diverifikasi.`,
   });
 
   return NextResponse.json({ booking: updatedBooking, payment: updatedPayment });

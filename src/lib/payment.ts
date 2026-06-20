@@ -16,6 +16,14 @@ export function getServiceBasePrice(service: Pick<Service, "price" | "price_min"
 }
 
 /**
+ * Versi multi-layanan dari getServiceBasePrice: jumlahkan harga acuan dari
+ * semua layanan yang dipilih pelanggan dalam satu booking.
+ */
+export function getServicesBasePrice(services: Pick<Service, "price" | "price_min">[]): number {
+  return services.reduce((sum, s) => sum + getServiceBasePrice(s), 0);
+}
+
+/**
  * Hitung nominal yang wajib dibayar di muka berdasarkan jenis pembayaran.
  */
 export function calculatePaymentAmount(
@@ -33,4 +41,40 @@ export function getPaymentExpiryDate(fromDate: Date = new Date()): Date {
 
 export function isPaymentExpired(expiresAt: string): boolean {
   return new Date(expiresAt).getTime() < Date.now();
+}
+
+/**
+ * Hitung total harga sebuah booking untuk keperluan laporan/statistik.
+ * Urutan prioritas:
+ * 1. booking.final_price (kalau admin/barber sudah set harga final gabungan secara manual)
+ * 2. jumlah booking_services[].final_price kalau SEMUA baris sudah punya final_price
+ * 3. jumlah harga acuan (price / price_min) dari booking_services (multi-layanan)
+ * 4. fallback ke relasi service tunggal lama (booking lama / belum migrasi)
+ */
+export function getBookingTotalPrice(booking: {
+  final_price?: number | null;
+  services?: { final_price?: number | null; service_price?: number | null; service_price_min?: number | null }[];
+  service?: { price?: number | null; price_min?: number | null } | null;
+}): number {
+  if (booking.final_price != null) return booking.final_price;
+
+  if (booking.services && booking.services.length > 0) {
+    const allHaveFinal = booking.services.every((s) => s.final_price != null);
+    if (allHaveFinal) {
+      return booking.services.reduce((sum, s) => sum + (s.final_price ?? 0), 0);
+    }
+    return booking.services.reduce((sum, s) => {
+      if (s.final_price != null) return sum + s.final_price;
+      if (s.service_price != null) return sum + s.service_price;
+      if (s.service_price_min != null) return sum + s.service_price_min;
+      return sum;
+    }, 0);
+  }
+
+  if (booking.service) {
+    if (booking.service.price != null) return booking.service.price;
+    if (booking.service.price_min != null) return booking.service.price_min;
+  }
+
+  return 0;
 }

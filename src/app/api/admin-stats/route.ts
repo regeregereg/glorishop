@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStaffSession } from "@/lib/session";
+import { getBookingTotalPrice } from "@/lib/payment";
 
 export async function GET() {
   const staff = await getStaffSession();
@@ -13,17 +14,16 @@ export async function GET() {
 
   const { data: todayBookings } = await supabase
     .from("bookings")
-    .select("*, service:services(*), barber:staff(id, name), slot:slots(*), user:users(id, name)")
+    .select(
+      "*, service:services(*), services:booking_services(*), barber:staff(id, name), slot:slots(*), user:users(id, name)"
+    )
     .order("created_at", { ascending: false });
 
   const filteredToday = (todayBookings ?? []).filter((b) => b.slot?.date === today);
 
   const omsetHariIni = filteredToday
     .filter((b) => b.status === "DONE")
-    .reduce((sum, b) => {
-      const price = b.final_price ?? b.service?.price ?? b.service?.price_min ?? 0;
-      return sum + price;
-    }, 0);
+    .reduce((sum, b) => sum + getBookingTotalPrice(b), 0);
 
   const pendingCount = filteredToday.filter((b) => b.status === "PENDING").length;
   const activeCount = filteredToday.filter((b) =>

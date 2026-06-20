@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStaffSession } from "@/lib/session";
+import { getBookingTotalPrice } from "@/lib/payment";
 
 export async function GET(req: NextRequest) {
   const staff = await getStaffSession();
@@ -16,27 +17,53 @@ export async function GET(req: NextRequest) {
 
   const { data: bookings } = await supabase
     .from("bookings")
-    .select("*, service:services(*), barber:staff(id, name), slot:slots(*)")
+    .select("*, service:services(*), services:booking_services(*), barber:staff(id, name), slot:slots(*)")
     .eq("status", "DONE");
 
   const filtered = (bookings ?? []).filter(
     (b) => b.slot && b.slot.date >= from && b.slot.date <= to
   );
 
-  const totalOmset = filtered.reduce((sum, b) => {
-    const price = b.final_price ?? b.service?.price ?? b.service?.price_min ?? 0;
-    return sum + price;
-  }, 0);
+  const totalOmset = filtered.reduce((sum, b) => sum + getBookingTotalPrice(b), 0);
 
+  // Layanan populer dihitung PER LAYANAN INDIVIDUAL, bukan per booking —
+  // supaya booking yang berisi beberapa layanan sekaligus (mis. Haircut +
+  // Creambath) ikut menambah hitungan & omset untuk MASING-MASING layanan
+  // tersebut, bukan cuma layanan pertamanya saja.
   const serviceCounts: Record<string, { name: string; count: number; revenue: number }> = {};
   for (const b of filtered) {
-    if (!b.service) continue;
-    const key = b.service.id;
-    if (!serviceCounts[key]) {
-      serviceCounts[key] = { name: b.service.name, count: 0, revenue: 0 };
+    const rows =
+      b.services && b.services.length > 0
+        ? b.services.map(
+            (s: {
+              service_id: string;
+              service_name: string;
+              final_price: number | null;
+              service_price: number | null;
+              service_price_min: number | null;
+            }) => ({
+              id: s.service_id,
+              name: s.service_name,
+              revenue: s.final_price ?? s.service_price ?? s.service_price_min ?? 0,
+            })
+          )
+        : b.service
+          ? [
+              {
+                id: b.service.id,
+                name: b.service.name,
+                revenue: b.final_price ?? b.service.price ?? b.service.price_min ?? 0,
+              },
+            ]
+          : [];
+
+    for (const row of rows) {
+      if (!serviceCounts[row.id]) {
+        serviceCounts[row.id] = { name: row.name, count: 0, revenue: 0 };
+      }
+      serviceCounts[row.id].count += 1;
+      serviceCounts[row.id].revenue += row.revenue;
     }
-    serviceCounts[key].count += 1;
-    serviceCounts[key].revenue += b.final_price ?? b.service.price ?? b.service.price_min ?? 0;
   }
   const popularServices = Object.values(serviceCounts).sort((a, b) => b.count - a.count);
 
@@ -48,7 +75,7 @@ export async function GET(req: NextRequest) {
       barberCounts[key] = { name: b.barber.name, count: 0, revenue: 0 };
     }
     barberCounts[key].count += 1;
-    barberCounts[key].revenue += b.final_price ?? b.service?.price ?? b.service?.price_min ?? 0;
+    barberCounts[key].revenue += getBookingTotalPrice(b);
   }
   const barberPerformance = Object.values(barberCounts).sort((a, b) => b.revenue - a.revenue);
 
@@ -56,8 +83,7 @@ export async function GET(req: NextRequest) {
   const dailyRevenue: Record<string, number> = {};
   for (const b of filtered) {
     if (!b.slot) continue;
-    const price = b.final_price ?? b.service?.price ?? b.service?.price_min ?? 0;
-    dailyRevenue[b.slot.date] = (dailyRevenue[b.slot.date] ?? 0) + price;
+    dailyRevenue[b.slot.date] = (dailyRevenue[b.slot.date] ?? 0) + getBookingTotalPrice(b);
   }
   const dailyRevenueArray = Object.entries(dailyRevenue)
     .map(([date, total]) => ({ date, total }))

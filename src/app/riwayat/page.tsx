@@ -5,7 +5,7 @@ import { Booking } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/Button";
-import { formatDateIndo, formatServicePrice } from "@/lib/utils";
+import { formatDateIndo, getBookingServiceNames, getBookingPriceLabel } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { Star, History } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -93,7 +93,7 @@ export default function RiwayatPage() {
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="font-display text-base font-bold">{b.service?.name}</p>
+                  <p className="font-display text-base font-bold">{getBookingServiceNames(b)}</p>
                   <p className="mt-1 text-xs text-text-secondary">{b.barber?.name}</p>
                 </div>
                 <StatusBadge status={b.status} size="sm" />
@@ -104,7 +104,7 @@ export default function RiwayatPage() {
               <div className="my-4 h-px bg-border-soft" />
               <div className="flex items-center justify-between">
                 <p className="font-display text-sm font-bold text-accent">
-                  {b.service ? formatServicePrice(b.service) : ""}
+                  {getBookingPriceLabel(b)}
                 </p>
                 {b.status === "DONE" && !reviewedIds.has(b.id) && (
                   <Button size="sm" variant="secondary" onClick={() => setReviewingId(b.id)}>

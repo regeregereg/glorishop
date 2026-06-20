@@ -26,7 +26,7 @@ export async function PATCH(
 
   const { data: payment, error: paymentError } = await supabase
     .from("payments")
-    .select("*, booking:bookings(*, service:services(*), user:users(id, name, phone))")
+    .select("*, booking:bookings(*, service:services(*), services:booking_services(*, service:services(*)), user:users(id, name, phone))")
     .eq("id", id)
     .single();
 
@@ -56,17 +56,18 @@ export async function PATCH(
       .from("bookings")
       .update({ status: "CONFIRMED" })
       .eq("id", payment.booking_id)
-      .select("*, service:services(*), barber:staff(id, name, photo_url), slot:slots(*), user:users(id, name, phone)")
+      .select("*, service:services(*), services:booking_services(*, service:services(*)), barber:staff(id, name, photo_url), slot:slots(*), user:users(id, name, phone)")
       .single();
     if (updateBookingError) {
       return NextResponse.json({ error: updateBookingError.message }, { status: 500 });
     }
 
     if (updatedBooking.user_id) {
+      const serviceLabel = formatBookingServiceNames(updatedBooking.services, updatedBooking.service);
       await supabase.from("notifications").insert({
         user_id: updatedBooking.user_id,
         type: "pembayaran_confirmed",
-        message: `Pembayaran kamu sudah diverifikasi! Booking ${updatedBooking.service?.name ?? ""} dikonfirmasi. Datang jam ${
+        message: `Pembayaran kamu sudah diverifikasi! Booking ${serviceLabel} dikonfirmasi. Datang jam ${
           updatedBooking.slot ? updatedBooking.slot.start_time.slice(0, 5) : ""
         }.`,
       });
@@ -96,17 +97,31 @@ export async function PATCH(
   // (trg_release_slot). Kita ambil ulang datanya untuk respons & notifikasi.
   const { data: updatedBooking } = await supabase
     .from("bookings")
-    .select("*, service:services(*), barber:staff(id, name, photo_url), slot:slots(*), user:users(id, name, phone)")
+    .select("*, service:services(*), services:booking_services(*, service:services(*)), barber:staff(id, name, photo_url), slot:slots(*), user:users(id, name, phone)")
     .eq("id", payment.booking_id)
     .single();
 
   if (updatedBooking?.user_id) {
+    const serviceLabel = formatBookingServiceNames(updatedBooking.services, updatedBooking.service);
     await supabase.from("notifications").insert({
       user_id: updatedBooking.user_id,
       type: "pembayaran_rejected",
-      message: `Bukti transfer untuk booking ${updatedBooking.service?.name ?? ""} ditolak: ${rejectionReason}. Booking dibatalkan, silakan booking ulang.`,
+      message: `Bukti transfer untuk booking ${serviceLabel} ditolak: ${rejectionReason}. Booking dibatalkan, silakan booking ulang.`,
     });
   }
 
   return NextResponse.json({ booking: updatedBooking });
+}
+
+// Gabungkan nama-nama layanan dari booking_services jadi satu baris teks
+// untuk pesan notifikasi. Fallback ke relasi service tunggal (kolom lama)
+// kalau booking_services kosong (mis. booking lama sebelum migration ini).
+function formatBookingServiceNames(
+  services: { service_name?: string }[] | undefined,
+  fallbackService: { name?: string } | undefined
+): string {
+  if (services && services.length > 0) {
+    return services.map((s) => s.service_name).filter(Boolean).join(", ");
+  }
+  return fallbackService?.name ?? "layanan";
 }

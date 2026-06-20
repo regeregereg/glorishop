@@ -72,20 +72,52 @@ export async function PATCH(
   }
 
   const updatePayload: Record<string, unknown> = { status: newStatus };
+  // final_price (total gabungan, kolom lama) — tetap didukung untuk kompatibilitas.
   if (body.final_price !== undefined) updatePayload.final_price = body.final_price;
 
   const { data: updated, error: updateError } = await supabase
     .from("bookings")
     .update(updatePayload)
     .eq("id", id)
-    .select("*, service:services(*), barber:staff(id, name, photo_url), slot:slots(*), user:users(id, name, phone)")
+    .select(
+      "*, service:services(*), services:booking_services(*, service:services(*)), barber:staff(id, name, photo_url), slot:slots(*), user:users(id, name, phone)"
+    )
     .single();
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
+  // final_prices: { [booking_service_id]: number } — barber/admin konfirmasi
+  // harga final PER LAYANAN satu-satu (terutama untuk layanan dengan range
+  // harga seperti Colour/Bleaching). Dikirim terpisah dari final_price total
+  // supaya tidak menabrak alur lama yang masih kirim final_price tunggal.
+  if (body.final_prices && typeof body.final_prices === "object") {
+    const entries = Object.entries(body.final_prices as Record<string, number>);
+    for (const [bookingServiceId, price] of entries) {
+      await supabase
+        .from("booking_services")
+        .update({ final_price: price })
+        .eq("id", bookingServiceId)
+        .eq("booking_id", id);
+    }
+    // Ambil ulang booking_services terbaru setelah update harga final per layanan.
+    const { data: refreshedServices } = await supabase
+      .from("booking_services")
+      .select("*, service:services(*)")
+      .eq("booking_id", id)
+      .order("sort_order", { ascending: true });
+    if (refreshedServices) {
+      updated.services = refreshedServices;
+    }
+  } else if (Array.isArray(updated.services)) {
+    updated.services = [...updated.services].sort((a, c) => a.sort_order - c.sort_order);
+  }
+
   // Catat notifikasi terkait perubahan status
+  const serviceNamesForNotif = Array.isArray(updated.services) && updated.services.length > 0
+    ? updated.services.map((s: { service_name: string }) => s.service_name).join(", ")
+    : updated.service?.name ?? "";
   const notifMap: Partial<Record<BookingStatus, string>> = {
     CONFIRMED: `Booking kamu dikonfirmasi! Datang jam ${updated.slot ? updated.slot.start_time.slice(0, 5) : ""}.`,
     CANCELLED_ADMIN: "Maaf, booking kamu tidak bisa dipenuhi. Silakan pilih waktu lain.",
@@ -99,6 +131,7 @@ export async function PATCH(
       message: notifMap[newStatus],
     });
   }
+  void serviceNamesForNotif; // tersedia untuk keperluan notifikasi lebih detail di masa depan
 
   return NextResponse.json({ booking: updated });
 }

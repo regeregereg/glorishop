@@ -1,10 +1,18 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, Star, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Star, Clock, Check } from "lucide-react";
 import { Service, Staff, Slot } from "@/types";
-import { formatServicePrice, formatRupiah, formatTime, formatDateShort, toLocalDateString, cn } from "@/lib/utils";
+import {
+  formatServiceListPrice,
+  formatRupiah,
+  formatTime,
+  formatDateShort,
+  toLocalDateString,
+  totalServiceDuration,
+  cn,
+} from "@/lib/utils";
 import { Button } from "@/components/Button";
 
 type Step = "service" | "barber" | "slot" | "confirm" | "payment";
@@ -26,7 +34,12 @@ function BookingFlow() {
     return d;
   });
 
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  // Beberapa layanan bisa dipilih sekaligus (mis. Haircut + Creambath),
+  // sama seperti memilih beberapa barang saat checkout. Dipakai sebagai Set
+  // supaya gampang toggle on/off per kartu layanan, tapi urutan pilih
+  // pelanggan tetap dijaga lewat selectedServiceOrder di bawah.
+  const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string>>(new Set());
+  const [selectedServiceOrder, setSelectedServiceOrder] = useState<string[]>([]);
   const [selectedBarber, setSelectedBarber] = useState<Staff | "any" | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [paymentTypeChoice, setPaymentTypeChoice] = useState<PaymentTypeChoice>("DP");
@@ -76,8 +89,8 @@ function BookingFlow() {
         if (preselectId) {
           const found = (d.services || []).find((s: Service) => s.id === preselectId);
           if (found) {
-            setSelectedService(found);
-            setStep("barber");
+            setSelectedServiceIds(new Set([found.id]));
+            setSelectedServiceOrder([found.id]);
           }
         }
       });
@@ -162,6 +175,44 @@ function BookingFlow() {
       .finally(() => setSlotsLoading(false));
   }, [step, selectedDate, selectedBarber]);
 
+  // Daftar objek Service lengkap dari id-id yang dipilih, urut sesuai urutan dipilih.
+  const selectedServices = useMemo(
+    () =>
+      selectedServiceOrder
+        .map((id) => services.find((s) => s.id === id))
+        .filter((s): s is Service => !!s),
+    [selectedServiceOrder, services]
+  );
+
+  const totalDurationMin = useMemo(
+    () => totalServiceDuration(selectedServices),
+    [selectedServices]
+  );
+
+  // Berapa slot berurutan yang dibutuhkan untuk total durasi semua layanan
+  // yang dipilih (slot dibuat per-blok waktu, mis. tiap 30 menit).
+  const slotsNeededCount = useMemo(() => {
+    if (selectedServices.length === 0 || slots.length === 0) return 1;
+    const sample = slots[0];
+    const slotLengthMin =
+      timeToMinutes(sample.end_time) - timeToMinutes(sample.start_time) || 30;
+    return Math.max(1, Math.ceil(totalDurationMin / slotLengthMin));
+  }, [selectedServices.length, slots, totalDurationMin]);
+
+  function toggleService(service: Service) {
+    setSelectedServiceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(service.id)) {
+        next.delete(service.id);
+        setSelectedServiceOrder((order) => order.filter((id) => id !== service.id));
+      } else {
+        next.add(service.id);
+        setSelectedServiceOrder((order) => [...order, service.id]);
+      }
+      return next;
+    });
+  }
+
   function goNext() {
     if (step === "service") setStep("barber");
     else if (step === "barber") setStep("slot");
@@ -186,7 +237,7 @@ function BookingFlow() {
   }
 
   async function handleCreateBooking() {
-    if (!selectedService || !selectedSlot) return;
+    if (selectedServices.length === 0 || !selectedSlot) return;
     setSubmitting(true);
     setError("");
     try {
@@ -194,7 +245,7 @@ function BookingFlow() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          service_id: selectedService.id,
+          service_ids: selectedServiceOrder,
           slot_id: selectedSlot.id,
           barber_id: selectedSlot.barber_id,
           payment_type: paymentTypeChoice,
@@ -276,34 +327,43 @@ function BookingFlow() {
       </div>
 
       <div className="px-5 pt-5">
-        {/* STEP: SERVICE */}
+        {/* STEP: SERVICE — pilih beberapa layanan sekaligus, seperti checkout */}
         {step === "service" && (
           <div className="flex flex-col gap-3">
-            {services.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => {
-                  setSelectedService(s);
-                  goNext();
-                }}
-                className={cn(
-                  "flex items-center justify-between rounded-2xl border bg-surface px-4 py-4 text-left transition-colors",
-                  selectedService?.id === s.id
-                    ? "border-accent"
-                    : "border-border-soft hover:border-accent/40"
-                )}
-              >
-                <div>
-                  <p className="font-display text-sm font-semibold">{s.name}</p>
-                  <p className="mt-1 flex items-center gap-1 text-xs text-text-secondary">
-                    <Clock size={12} /> {s.duration_minutes} menit
+            <p className="text-xs text-text-secondary">
+              Pilih satu atau beberapa layanan sekaligus untuk janji temu ini.
+            </p>
+            {services.map((s) => {
+              const checked = selectedServiceIds.has(s.id);
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => toggleService(s)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-2xl border bg-surface px-4 py-4 text-left transition-colors",
+                    checked ? "border-accent" : "border-border-soft hover:border-accent/40"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
+                      checked ? "border-accent bg-accent text-black" : "border-border-soft"
+                    )}
+                  >
+                    {checked && <Check size={13} strokeWidth={3} />}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-display text-sm font-semibold">{s.name}</p>
+                    <p className="mt-1 flex items-center gap-1 text-xs text-text-secondary">
+                      <Clock size={12} /> {s.duration_minutes} menit
+                    </p>
+                  </div>
+                  <p className="font-display text-sm font-bold text-accent">
+                    {formatServiceListPrice([s])}
                   </p>
-                </div>
-                <p className="font-display text-sm font-bold text-accent">
-                  {formatServicePrice(s)}
-                </p>
-              </button>
-            ))}
+                </button>
+              );
+            })}
             {services.length === 0 && (
               <p className="py-10 text-center text-sm text-text-secondary">Memuat layanan...</p>
             )}
@@ -399,6 +459,19 @@ function BookingFlow() {
               </div>
             )}
 
+            {/* Ringkasan layanan terpilih + total durasi, supaya pelanggan
+                ingat berapa banyak slot yang akan dipakai */}
+            {selectedServices.length > 0 && (
+              <div className="mb-4 rounded-2xl border border-border-soft bg-surface-2 px-4 py-3">
+                <p className="text-xs text-text-secondary">
+                  {selectedServices.length} layanan dipilih • total {totalDurationMin} menit
+                </p>
+                <p className="mt-1 text-xs text-text-tertiary">
+                  {selectedServices.map((s) => s.name).join(" + ")}
+                </p>
+              </div>
+            )}
+
             {/* Header bulan dengan navigasi maju/mundur */}
             <div className="flex items-center justify-between">
               <p className="font-display text-sm font-semibold capitalize">{monthLabel}</p>
@@ -428,24 +501,23 @@ function BookingFlow() {
               </div>
             </div>
 
-            <p className="mb-3 mt-4 text-xs font-medium uppercase tracking-wide text-text-tertiary">
-              Tanggal
-            </p>
-            <div className="flex gap-2 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {/* Date picker horizontal scroll */}
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
               {dates.map((d) => {
                 const dateObj = new Date(d + "T00:00:00");
-                const dayName = dateObj.toLocaleDateString("id-ID", { weekday: "short" });
                 const dayNum = dateObj.getDate();
+                const dayName = dateObj.toLocaleDateString("id-ID", { weekday: "short" });
                 const isPast = d < todayStr;
+                const isSelected = d === selectedDate;
                 return (
                   <button
                     key={d}
                     onClick={() => !isPast && setSelectedDate(d)}
                     disabled={isPast}
                     className={cn(
-                      "flex shrink-0 flex-col items-center rounded-2xl px-4 py-3 text-xs font-medium transition-colors",
-                      selectedDate === d
-                        ? "bg-text-primary text-bg"
+                      "flex shrink-0 flex-col items-center justify-center rounded-xl px-3.5 py-2.5 text-center transition-colors",
+                      isSelected
+                        ? "bg-accent text-black"
                         : isPast
                         ? "cursor-not-allowed bg-surface/50 text-text-tertiary/40"
                         : "bg-surface border border-border-soft text-text-secondary hover:border-accent/40"
@@ -480,29 +552,49 @@ function BookingFlow() {
 
             {!slotsLoading && !slotsError && (
               <div className="mt-5 grid grid-cols-3 gap-2.5">
-                {availableSlots.map((slot) => (
-                  <button
-                    key={slot.id}
-                    onClick={() => {
-                      setSelectedSlot(slot);
-                      goNext();
-                    }}
-                    className={cn(
-                      "rounded-xl border px-3 py-3 text-center text-sm font-semibold transition-colors",
-                      selectedSlot?.id === slot.id
-                        ? "border-accent bg-accent text-black"
-                        : "border-border-soft bg-surface text-text-primary hover:border-accent/40"
-                    )}
-                  >
-                    {formatTime(slot.start_time)}
-                    {!selectedBarber || selectedBarber === "any" ? (
-                      <span className="mt-0.5 block text-[10px] font-normal text-text-tertiary">
-                        {barberForSlot(slot.barber_id)?.name ?? ""}
-                      </span>
-                    ) : null}
-                  </button>
-                ))}
+                {availableSlots.map((slot) => {
+                  // Untuk total durasi lebih dari 1 slot, slot ini hanya valid
+                  // dipilih kalau ada cukup slot berurutan SETELAHNYA yang juga
+                  // masih tersedia (tanpa jeda), supaya semua layanan kebagian waktu.
+                  const hasEnoughFollowingSlots = hasConsecutiveAvailability(
+                    slots,
+                    slot,
+                    slotsNeededCount
+                  );
+                  return (
+                    <button
+                      key={slot.id}
+                      disabled={!hasEnoughFollowingSlots}
+                      onClick={() => {
+                        setSelectedSlot(slot);
+                        goNext();
+                      }}
+                      className={cn(
+                        "rounded-xl border px-3 py-3 text-center text-sm font-semibold transition-colors",
+                        !hasEnoughFollowingSlots
+                          ? "cursor-not-allowed border-border-soft/50 bg-surface/50 text-text-tertiary/40"
+                          : selectedSlot?.id === slot.id
+                          ? "border-accent bg-accent text-black"
+                          : "border-border-soft bg-surface text-text-primary hover:border-accent/40"
+                      )}
+                    >
+                      {formatTime(slot.start_time)}
+                      {!selectedBarber || selectedBarber === "any" ? (
+                        <span className="mt-0.5 block text-[10px] font-normal text-text-tertiary">
+                          {barberForSlot(slot.barber_id)?.name ?? ""}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
               </div>
+            )}
+
+            {!slotsLoading && !slotsError && slotsNeededCount > 1 && availableSlots.length > 0 && (
+              <p className="mt-3 text-xs text-text-tertiary">
+                Total layanan kamu butuh sekitar {totalDurationMin} menit, jadi beberapa slot
+                berurutan akan dipakai sekaligus.
+              </p>
             )}
 
             {!slotsLoading && !slotsError && slots.length === 0 && (
@@ -521,11 +613,22 @@ function BookingFlow() {
         )}
 
         {/* STEP: CONFIRM */}
-        {step === "confirm" && selectedService && selectedSlot && (
+        {step === "confirm" && selectedServices.length > 0 && selectedSlot && (
           <div className="flex flex-col gap-4">
             <div className="rounded-[var(--radius-card)] border border-border-soft bg-surface p-5">
-              <p className="text-xs text-text-secondary">Layanan</p>
-              <p className="font-display mt-1 text-base font-bold">{selectedService.name}</p>
+              <p className="text-xs text-text-secondary">
+                Layanan ({selectedServices.length})
+              </p>
+              <div className="mt-2 flex flex-col gap-2">
+                {selectedServices.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between gap-3">
+                    <p className="font-display text-sm font-semibold">{s.name}</p>
+                    <p className="shrink-0 text-xs font-medium text-text-secondary">
+                      {formatServiceListPrice([s])}
+                    </p>
+                  </div>
+                ))}
+              </div>
 
               <div className="my-4 h-px bg-border-soft" />
 
@@ -542,12 +645,15 @@ function BookingFlow() {
               <p className="font-display mt-1 text-sm font-semibold">
                 {formatDateShort(selectedSlot.date)} • {formatTime(selectedSlot.start_time)}
               </p>
+              <p className="mt-1 text-xs text-text-tertiary">
+                Estimasi durasi total: {totalDurationMin} menit
+              </p>
 
               <div className="my-4 h-px bg-border-soft" />
 
-              <p className="text-xs text-text-secondary">Estimasi Harga</p>
+              <p className="text-xs text-text-secondary">Estimasi Total Harga</p>
               <p className="font-display mt-1 text-base font-bold text-accent">
-                {formatServicePrice(selectedService)}
+                {formatServiceListPrice(selectedServices)}
               </p>
             </div>
 
@@ -566,7 +672,7 @@ function BookingFlow() {
         )}
 
         {/* STEP: PAYMENT */}
-        {step === "payment" && selectedService && selectedSlot && (
+        {step === "payment" && selectedServices.length > 0 && selectedSlot && (
           <div className="flex flex-col gap-4">
             {!createdBooking ? (
               <>
@@ -577,7 +683,11 @@ function BookingFlow() {
 
                 {(() => {
                   const dpPercent = Number(paymentSettings?.dp_percentage ?? 50) || 50;
-                  const basePrice = selectedService.price ?? selectedService.price_min ?? 0;
+                  const basePrice = selectedServices.reduce((sum, s) => {
+                    if (s.price != null) return sum + s.price;
+                    if (s.price_min != null) return sum + s.price_min;
+                    return sum;
+                  }, 0);
                   const dpAmount = Math.ceil((basePrice * dpPercent) / 100);
                   return (
                     <div className="flex flex-col gap-3">
@@ -700,6 +810,20 @@ function BookingFlow() {
         )}
       </div>
 
+      {/* Tombol "Lanjut" untuk step SERVICE — beda dari step lain karena
+          memilih layanan bersifat multi-select, jadi tidak otomatis pindah
+          step tiap kali satu kartu ditekan (supaya pelanggan bisa pilih
+          beberapa layanan dulu sebelum lanjut). */}
+      {step === "service" && (
+        <div className="fixed bottom-0 left-0 right-0 border-t border-border-soft bg-surface/95 px-5 py-4 backdrop-blur-lg">
+          <Button size="lg" fullWidth onClick={goNext} disabled={selectedServiceIds.size === 0}>
+            {selectedServiceIds.size === 0
+              ? "Pilih minimal 1 layanan"
+              : `Lanjut (${selectedServiceIds.size} layanan dipilih)`}
+          </Button>
+        </div>
+      )}
+
       {step === "confirm" && (
         <div className="fixed bottom-0 left-0 right-0 border-t border-border-soft bg-surface/95 px-5 py-4 backdrop-blur-lg">
           <Button size="lg" fullWidth onClick={handleConfirm} disabled={submitting}>
@@ -725,6 +849,35 @@ function BookingFlow() {
       )}
     </div>
   );
+}
+
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
+// Cek apakah dari slot tertentu, ada cukup slot berurutan (tanpa jeda waktu,
+// semua masih is_available) untuk menampung neededCount blok slot. Dipakai
+// supaya pelanggan tidak bisa memilih slot yang akhirnya bentrok/tidak
+// cukup untuk total durasi semua layanan yang sudah dipilih.
+function hasConsecutiveAvailability(allSlots: Slot[], startSlot: Slot, neededCount: number): boolean {
+  if (neededCount <= 1) return true;
+  const sameBarberDate = allSlots
+    .filter((s) => s.barber_id === startSlot.barber_id && s.date === startSlot.date)
+    .sort((a, b) => a.start_time.localeCompare(b.start_time));
+  const startIdx = sameBarberDate.findIndex((s) => s.id === startSlot.id);
+  if (startIdx === -1) return false;
+
+  let count = 1;
+  let i = startIdx;
+  while (count < neededCount) {
+    const current = sameBarberDate[i];
+    const next = sameBarberDate[i + 1];
+    if (!next || !next.is_available || next.start_time !== current.end_time) return false;
+    count += 1;
+    i += 1;
+  }
+  return true;
 }
 
 export default function BookingPage() {

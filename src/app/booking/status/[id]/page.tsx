@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { Booking } from "@/types";
 import { Button } from "@/components/Button";
-import { formatRupiah, formatDateIndo, formatTime } from "@/lib/utils";
+import { formatRupiah, formatDateIndo, formatTime, getBookingServiceNames } from "@/lib/utils";
 
 export default function BookingPaymentDetailPage() {
   const params = useParams<{ id: string }>();
@@ -101,7 +101,7 @@ export default function BookingPaymentDetailPage() {
             <div className="rounded-[var(--radius-card)] border border-border-soft bg-surface p-5">
               <p className="text-xs text-text-secondary">Layanan</p>
               <p className="font-display mt-1 text-base font-bold">
-                {booking.service?.name ?? "Layanan"}
+                {getBookingServiceNames(booking)}
               </p>
               {booking.slot && (
                 <p className="mt-1 text-xs text-text-tertiary">

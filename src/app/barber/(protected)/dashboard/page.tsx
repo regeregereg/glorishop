@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Booking } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/Button";
-import { formatTime, formatServicePrice, toLocalDateString } from "@/lib/utils";
+import { formatTime, getBookingServiceNames, getBookingPriceLabel, toLocalDateString } from "@/lib/utils";
 import { Play, Check, Star } from "lucide-react";
 
 export default function BarberDashboardPage() {
@@ -90,14 +90,14 @@ export default function BarberDashboardPage() {
                   {b.user?.name ?? b.walkin_name ?? "Pelanggan"}
                 </p>
                 <p className="mt-1 text-xs text-text-secondary">
-                  {b.service?.name} • {b.slot ? formatTime(b.slot.start_time) : ""}
+                  {getBookingServiceNames(b)} • {b.slot ? formatTime(b.slot.start_time) : ""}
                 </p>
               </div>
               <StatusBadge status={b.status} size="sm" />
             </div>
 
             <p className="mt-3 font-display text-sm font-bold text-accent">
-              {b.service ? formatServicePrice(b.service) : ""}
+              {getBookingPriceLabel(b)}
             </p>
 
             <div className="mt-4 flex gap-2">

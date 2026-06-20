@@ -6,7 +6,7 @@ import { Booking } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/Button";
-import { formatDateIndo, formatTime, formatServicePrice, formatRupiah } from "@/lib/utils";
+import { formatDateIndo, formatTime, getBookingServiceNames, getBookingPriceLabel, formatRupiah } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { Clock } from "lucide-react";
 
@@ -102,7 +102,7 @@ export default function BookingStatusPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="font-display text-base font-bold">
-                    {b.service?.name ?? "Layanan"}
+                    {getBookingServiceNames(b)}
                   </p>
                   <p className="mt-1 text-xs text-text-secondary">
                     {b.barber?.name ?? "Barber"} •{" "}
@@ -145,7 +145,7 @@ export default function BookingStatusPage() {
 
               <div className="flex items-center justify-between gap-2">
                 <p className="font-display text-sm font-bold text-accent">
-                  {b.service ? formatServicePrice(b.service) : ""}
+                  {getBookingPriceLabel(b)}
                 </p>
                 <div className="flex items-center gap-2">
                   {b.status === "WAITING_PAYMENT" && (

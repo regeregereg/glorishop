@@ -99,6 +99,30 @@ export interface Payment {
   updated_at: string;
 }
 
+// Satu baris layanan di dalam sebuah booking. Booking sekarang bisa punya
+// BEBERAPA layanan sekaligus (mis. Haircut + Creambath dalam satu janji
+// temu), jadi ini relasi 1-ke-banyak dari bookings -> booking_services.
+export interface BookingService {
+  id: string;
+  booking_id: string;
+  service_id: string;
+  // snapshot data layanan saat booking dibuat (tidak berubah meski admin
+  // mengubah harga/nama layanan aslinya di kemudian hari)
+  service_name: string;
+  service_price: number | null;
+  service_price_min: number | null;
+  service_price_max: number | null;
+  duration_minutes: number;
+  // harga final per layanan, dikonfirmasi barber satu-satu (terutama untuk
+  // layanan dengan range harga seperti Colour/Bleaching)
+  final_price: number | null;
+  sort_order: number;
+  created_at: string;
+  // relasi (joined, opsional) — data layanan saat ini (bisa beda dari snapshot
+  // kalau admin sudah edit layanan setelah booking ini dibuat)
+  service?: Service;
+}
+
 export interface Booking {
   id: string;
   user_id: string | null;
@@ -114,7 +138,8 @@ export interface Booking {
   created_at: string;
   updated_at: string;
   // relasi (joined, opsional)
-  service?: Service;
+  service?: Service; // layanan utama/pertama saja — dipertahankan untuk kompatibilitas kode lama
+  services?: BookingService[]; // SEMUA layanan yang dipilih di booking ini — pakai ini untuk tampilan baru
   barber?: Staff;
   slot?: Slot;
   user?: AppUser;

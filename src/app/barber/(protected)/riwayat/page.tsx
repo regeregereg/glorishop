@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Booking, Review } from "@/types";
-import { formatDateIndo, formatServicePrice } from "@/lib/utils";
+import { formatDateIndo, getBookingServiceNames, getBookingPriceLabel } from "@/lib/utils";
 import { Star, TrendingUp } from "lucide-react";
 
 export default function BarberRiwayatPage() {
@@ -78,13 +78,13 @@ export default function BarberRiwayatPage() {
             className="flex items-center justify-between rounded-2xl border border-border-soft bg-surface p-4"
           >
             <div>
-              <p className="text-sm font-semibold">{b.service?.name}</p>
+              <p className="text-sm font-semibold">{getBookingServiceNames(b)}</p>
               <p className="mt-0.5 text-xs text-text-secondary">
                 {b.user?.name ?? b.walkin_name} • {b.slot ? formatDateIndo(b.slot.date) : ""}
               </p>
             </div>
             <p className="text-sm font-bold text-accent">
-              {b.service ? formatServicePrice(b.service) : ""}
+              {getBookingPriceLabel(b)}
             </p>
           </div>
         ))}

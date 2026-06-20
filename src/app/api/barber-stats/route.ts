@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const [{ data: bookings }, { data: reviews }] = await Promise.all([
     supabase
       .from("bookings")
-      .select("*, service:services(*), user:users(id, name)")
+      .select("*, service:services(*), services:booking_services(*), user:users(id, name)")
       .eq("barber_id", barberId)
       .eq("status", "DONE")
       .order("updated_at", { ascending: false }),

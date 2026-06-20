@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Booking } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/Button";
-import { formatRupiah, formatTime } from "@/lib/utils";
+import { formatRupiah, formatTime, getBookingServiceNames } from "@/lib/utils";
 import { Wallet, Clock, Users, CheckCircle2, Megaphone } from "lucide-react";
 import Link from "next/link";
 
@@ -76,7 +76,7 @@ export default function AdminDashboardPage() {
                     {b.user?.name ?? b.walkin_name ?? "Pelanggan"}
                   </p>
                   <p className="mt-0.5 text-xs text-text-secondary">
-                    {b.service?.name} • {b.barber?.name} •{" "}
+                    {getBookingServiceNames(b)} • {b.barber?.name} •{" "}
                     {b.slot ? formatTime(b.slot.start_time) : ""}
                   </p>
                 </div>

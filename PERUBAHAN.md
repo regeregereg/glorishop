@@ -50,5 +50,52 @@ mengisinya, dan tampilan customer masih pakai icon/inisial sebagai placeholder.
 3. Selesai — admin sekarang bisa upload foto lewat menu Kelola Layanan,
    Kelola Barber, dan Kelola Produk.
 
-Tidak perlu mengubah `.env` apapun; upload memakai koneksi Supabase yang
-sudah ada (`SUPABASE_SERVICE_ROLE_KEY`).
+## 3. Fitur: Pilih beberapa layanan sekaligus saat booking (multi-layanan)
+
+Sebelumnya satu booking hanya bisa berisi **satu** layanan. Sekarang
+pelanggan bisa pilih beberapa layanan sekaligus dalam satu janji temu
+(mis. Haircut + Creambath), persis seperti memilih beberapa barang saat
+checkout di e-commerce.
+
+**Perubahan database:**
+- Tabel baru `booking_services` (lihat `supabase/migration_multi_service.sql`)
+  — relasi 1 booking ke banyak layanan, lengkap dengan snapshot nama/harga
+  layanan saat booking dibuat (supaya riwayat lama tidak ikut berubah kalau
+  admin mengubah harga layanan di kemudian hari), dan `final_price` per
+  layanan untuk layanan dengan range harga (Colour/Bleaching) yang
+  dikonfirmasi barber satu per satu.
+- Kolom `bookings.service_id` (lama) **tetap dipertahankan** dan otomatis
+  disinkronkan ke layanan pertama lewat trigger database, supaya tidak ada
+  kode lama yang rusak.
+- Backfill otomatis: booking lama yang sudah ada akan dipindahkan datanya ke
+  `booking_services` saat migration dijalankan.
+
+**Perubahan logika booking:**
+- Total **harga** booking = jumlah harga semua layanan yang dipilih.
+- Total **durasi** booking = jumlah durasi semua layanan yang dipilih. Karena
+  slot waktu dibuat per-blok (mis. tiap 30 menit), sistem otomatis mengunci
+  **beberapa slot berurutan** milik barber yang sama kalau total durasi
+  layanan lebih panjang dari satu slot. Kalau slot berikutnya tidak cukup
+  tersedia/berurutan, slot tersebut tidak bisa dipilih (ditandai nonaktif di
+  halaman booking).
+- Pembayaran (DP/Lunas) dihitung dari total harga gabungan semua layanan.
+
+**Yang diubah di kode:**
+- `src/app/booking/page.tsx` — step "Pilih Layanan" sekarang berupa checklist
+  (centang) multi-pilih, bukan radio-button satu pilihan.
+- `src/app/api/bookings/route.ts` — menerima `service_ids` (array). Field lama
+  `service_id` (tunggal) masih didukung untuk kompatibilitas mundur.
+- `src/app/admin/(protected)/bookings/page.tsx` — form booking walk-in oleh
+  admin juga sudah bisa pilih beberapa layanan sekaligus.
+- Semua halaman yang menampilkan ringkasan booking (riwayat, status booking,
+  dashboard admin/barber, antrian, laporan) sekarang menampilkan **daftar**
+  nama layanan dan total harga, bukan cuma 1 layanan.
+
+## Langkah setup di Supabase (WAJIB sebelum fitur multi-layanan bisa jalan)
+
+1. Buka project Supabase kamu → **SQL Editor** → **New query**.
+2. Copy-paste isi file `supabase/migration_multi_service.sql`, lalu **Run**.
+   File ini aman dijalankan ulang dan otomatis memindahkan data booking lama
+   ke struktur baru.
+3. Selesai — pelanggan sekarang bisa pilih beberapa layanan sekaligus di
+   halaman booking.

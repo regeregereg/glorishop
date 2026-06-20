@@ -300,7 +300,7 @@ export default function OnboardingPage() {
         </div>
 
         <p className="mt-3 text-center text-[11px] text-text-tertiary">
-          Tidak perlu daftar dulu · Langsung booking
+          Daftar menggunakan no Wa · Langsung booking
         </p>
       </div>
     </div>

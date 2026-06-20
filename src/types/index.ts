@@ -1,6 +1,7 @@
 // Tipe data utama — mencerminkan skema di supabase/schema.sql
 
 export type BookingStatus =
+  | "WAITING_PAYMENT"
   | "PENDING"
   | "CONFIRMED"
   | "IN_PROGRESS"
@@ -8,6 +9,10 @@ export type BookingStatus =
   | "CANCELLED_USER"
   | "CANCELLED_ADMIN"
   | "NO_SHOW";
+
+export type PaymentStatus = "WAITING_PROOF" | "PENDING_REVIEW" | "CONFIRMED" | "REJECTED";
+
+export type PaymentType = "DP" | "FULL";
 
 export type ServiceCategory = "haircut" | "treatment" | "colouring" | "product";
 
@@ -77,6 +82,23 @@ export interface Slot {
   created_at: string;
 }
 
+export interface Payment {
+  id: string;
+  booking_id: string;
+  payment_type: PaymentType;
+  amount: number;
+  service_price: number | null;
+  proof_url: string | null;
+  proof_uploaded_at: string | null;
+  status: PaymentStatus;
+  rejection_reason: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  expires_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Booking {
   id: string;
   user_id: string | null;
@@ -96,6 +118,7 @@ export interface Booking {
   barber?: Staff;
   slot?: Slot;
   user?: AppUser;
+  payment?: Payment;
 }
 
 export interface Review {
@@ -119,11 +142,19 @@ export interface AppNotification {
 }
 
 export const STATUS_LABELS: Record<BookingStatus, string> = {
-  PENDING: "Menunggu",
+  WAITING_PAYMENT: "Menunggu Pembayaran",
+  PENDING: "Menunggu Verifikasi",
   CONFIRMED: "Dikonfirmasi",
   IN_PROGRESS: "Sedang dikerjakan",
   DONE: "Selesai",
   CANCELLED_USER: "Dibatalkan (User)",
   CANCELLED_ADMIN: "Dibatalkan (Admin)",
   NO_SHOW: "Tidak datang",
+};
+
+export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
+  WAITING_PROOF: "Menunggu Bukti Transfer",
+  PENDING_REVIEW: "Menunggu Verifikasi Admin",
+  CONFIRMED: "Pembayaran Terverifikasi",
+  REJECTED: "Pembayaran Ditolak",
 };

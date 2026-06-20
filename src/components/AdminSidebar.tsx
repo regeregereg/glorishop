@@ -11,6 +11,8 @@ import {
   Users,
   Package,
   BarChart3,
+  Wallet,
+  Settings,
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,11 +21,13 @@ const NAV_ITEMS = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/antrian", label: "Antrian Hari Ini", icon: ListOrdered },
   { href: "/admin/bookings", label: "Semua Booking", icon: CalendarRange },
+  { href: "/admin/pembayaran", label: "Verifikasi Pembayaran", icon: Wallet },
   { href: "/admin/slot", label: "Kelola Slot", icon: CalendarClock },
   { href: "/admin/layanan", label: "Kelola Layanan", icon: Scissors },
   { href: "/admin/barber", label: "Kelola Barber", icon: Users },
   { href: "/admin/produk", label: "Kelola Produk", icon: Package },
   { href: "/admin/laporan", label: "Laporan", icon: BarChart3 },
+  { href: "/admin/pengaturan", label: "Pengaturan", icon: Settings },
 ];
 
 export function AdminSidebar({ adminName }: { adminName: string }) {

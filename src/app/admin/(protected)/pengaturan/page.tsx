@@ -1,0 +1,113 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { ImageUpload } from "@/components/ImageUpload";
+import { Button } from "@/components/Button";
+
+export default function AdminSettingsPage() {
+  const [qrisUrl, setQrisUrl] = useState<string | null>(null);
+  const [accountName, setAccountName] = useState("");
+  const [dpPercentage, setDpPercentage] = useState("50");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => {
+        setQrisUrl(d.settings?.qris_image_url ?? null);
+        setAccountName(d.settings?.payment_account_name ?? "");
+        setDpPercentage(d.settings?.dp_percentage ?? "50");
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    setSaved(false);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qris_image_url: qrisUrl,
+          payment_account_name: accountName,
+          dp_percentage: dpPercentage,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Gagal menyimpan pengaturan.");
+        return;
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <h1 className="font-display text-2xl font-extrabold">Pengaturan Pembayaran</h1>
+      <p className="mt-1 text-sm text-text-secondary">
+        Atur QRIS statis dan ketentuan DP yang dipakai di seluruh flow booking.
+      </p>
+
+      {loading ? (
+        <p className="mt-8 text-sm text-text-secondary">Memuat...</p>
+      ) : (
+        <div className="mt-6 flex max-w-md flex-col gap-5 rounded-[var(--radius-card)] border border-border-soft bg-surface p-5">
+          <div>
+            <p className="mb-1.5 text-sm font-medium text-text-secondary">QRIS Pembayaran</p>
+            <p className="mb-3 text-xs text-text-tertiary">
+              Gambar QR statis ini akan ditampilkan ke semua pelanggan saat checkout. Pastikan
+              QR sudah benar sebelum disimpan.
+            </p>
+            <ImageUpload
+              value={qrisUrl}
+              onChange={setQrisUrl}
+              folder="layanan"
+              label=""
+              shape="square"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-text-secondary">
+              Nama Rekening / Merchant
+            </label>
+            <input
+              value={accountName}
+              onChange={(e) => setAccountName(e.target.value)}
+              placeholder="Contoh: Glori Barbershop"
+              className="w-full rounded-xl border border-border-soft bg-surface-2 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-text-secondary">
+              Persentase DP (%)
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={dpPercentage}
+              onChange={(e) => setDpPercentage(e.target.value)}
+              className="w-full rounded-xl border border-border-soft bg-surface-2 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+            />
+            <p className="mt-1.5 text-xs text-text-tertiary">
+              Berlaku untuk booking baru. Pelanggan tetap bisa pilih bayar lunas.
+            </p>
+          </div>
+
+          <Button onClick={handleSave} disabled={saving} fullWidth>
+            {saving ? "Menyimpan..." : saved ? "Tersimpan!" : "Simpan Pengaturan"}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}

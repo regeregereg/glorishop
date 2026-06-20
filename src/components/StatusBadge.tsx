@@ -2,6 +2,7 @@ import { BookingStatus, STATUS_LABELS } from "@/types";
 import { cn } from "@/lib/utils";
 
 const STATUS_STYLES: Record<BookingStatus, { dot: string; text: string; bg: string }> = {
+  WAITING_PAYMENT: { dot: "bg-status-pending", text: "text-status-pending", bg: "bg-white/5" },
   PENDING: { dot: "bg-status-pending", text: "text-status-pending", bg: "bg-white/5" },
   CONFIRMED: { dot: "bg-status-confirmed", text: "text-status-confirmed", bg: "bg-status-confirmed/10" },
   IN_PROGRESS: { dot: "bg-status-progress", text: "text-status-progress", bg: "bg-status-progress/10" },

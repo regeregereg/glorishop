@@ -60,7 +60,7 @@ export default function BarberDashboardPage() {
   }
 
   const queue = bookings
-    .filter((b) => ["CONFIRMED", "IN_PROGRESS", "PENDING"].includes(b.status))
+    .filter((b) => ["WAITING_PAYMENT", "CONFIRMED", "IN_PROGRESS", "PENDING"].includes(b.status))
     .sort((a, b) => (a.slot?.start_time ?? "").localeCompare(b.slot?.start_time ?? ""));
 
   return (
@@ -101,6 +101,11 @@ export default function BarberDashboardPage() {
             </p>
 
             <div className="mt-4 flex gap-2">
+              {b.status === "WAITING_PAYMENT" && (
+                <span className="text-xs text-text-tertiary">
+                  Menunggu pembayaran pelanggan
+                </span>
+              )}
               {b.status === "PENDING" && (
                 <span className="text-xs text-text-tertiary">
                   Menunggu konfirmasi admin

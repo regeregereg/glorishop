@@ -44,6 +44,28 @@ export default function AdminAntrianPage() {
     }
   }
 
+  // Untuk booking pelanggan yang punya bukti transfer (payment.status === PENDING_REVIEW),
+  // konfirmasi/tolak harus lewat endpoint /api/payments/[id] (bukan PATCH bookings langsung),
+  // supaya nominal pembayaran ikut diverifikasi & trigger pelepasan slot tetap konsisten.
+  async function decidePayment(booking: Booking, action: "CONFIRM" | "REJECT") {
+    if (!booking.payment) return;
+    setActingId(booking.id);
+    try {
+      const res = await fetch(`/api/payments/${booking.payment.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (res.ok) load();
+      else {
+        const data = await res.json();
+        alert(data.error || "Gagal update pembayaran.");
+      }
+    } finally {
+      setActingId(null);
+    }
+  }
+
   const grouped = bookings
     .filter((b) => !["CANCELLED_USER", "CANCELLED_ADMIN"].includes(b.status))
     .reduce<Record<string, Booking[]>>((acc, b) => {
@@ -90,7 +112,32 @@ export default function AdminAntrianPage() {
                       {b.service ? formatServicePrice(b.service) : ""}
                     </p>
 
-                    {b.status === "PENDING" && (
+                    {b.status === "PENDING" && b.payment && (
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          size="sm"
+                          fullWidth
+                          icon={<Check size={15} />}
+                          onClick={() => decidePayment(b, "CONFIRM")}
+                          disabled={actingId === b.id}
+                        >
+                          Konfirmasi
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          fullWidth
+                          icon={<X size={15} />}
+                          onClick={() => decidePayment(b, "REJECT")}
+                          disabled={actingId === b.id}
+                        >
+                          Tolak
+                        </Button>
+                      </div>
+                    )}
+                    {b.status === "PENDING" && !b.payment && (
+                      // Walk-in dari admin: tidak ada flow pembayaran online,
+                      // langsung konfirmasi/tolak biasa.
                       <div className="mt-3 flex gap-2">
                         <Button
                           size="sm"
@@ -112,6 +159,11 @@ export default function AdminAntrianPage() {
                           Tolak
                         </Button>
                       </div>
+                    )}
+                    {b.status === "WAITING_PAYMENT" && (
+                      <p className="mt-3 text-xs text-status-pending">
+                        Menunggu pelanggan mengunggah bukti transfer.
+                      </p>
                     )}
                     {b.status === "CONFIRMED" && (
                       <Button

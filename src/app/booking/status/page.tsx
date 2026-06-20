@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Booking } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/Button";
-import { formatDateIndo, formatTime, formatServicePrice } from "@/lib/utils";
+import { formatDateIndo, formatTime, formatServicePrice, formatRupiah } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { Clock } from "lucide-react";
 
-const ACTIVE_STATUSES = ["PENDING", "CONFIRMED", "IN_PROGRESS"];
+const ACTIVE_STATUSES = ["WAITING_PAYMENT", "PENDING", "CONFIRMED", "IN_PROGRESS"];
 
 export default function BookingStatusPage() {
   const router = useRouter();
@@ -117,22 +118,54 @@ export default function BookingStatusPage() {
                 </p>
               )}
 
+              {b.payment && (
+                <div className="mt-3 rounded-xl bg-surface-2 px-3.5 py-2.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-text-secondary">
+                      {b.payment.payment_type === "FULL" ? "Bayar Lunas" : "DP"}
+                    </span>
+                    <span className="font-semibold text-text-primary">
+                      {formatRupiah(b.payment.amount)}
+                    </span>
+                  </div>
+                  {b.status === "WAITING_PAYMENT" && (
+                    <p className="mt-1 text-xs text-status-pending">
+                      Belum ada bukti transfer. Selesaikan sebelum waktu habis.
+                    </p>
+                  )}
+                  {b.status === "PENDING" && (
+                    <p className="mt-1 text-xs text-status-pending">
+                      Bukti transfer terkirim, menunggu verifikasi admin.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="my-4 h-px bg-border-soft" />
 
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <p className="font-display text-sm font-bold text-accent">
                   {b.service ? formatServicePrice(b.service) : ""}
                 </p>
-                {(b.status === "PENDING" || b.status === "CONFIRMED") && (
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() => handleCancel(b.id)}
-                    disabled={cancellingId === b.id}
-                  >
-                    {cancellingId === b.id ? "Membatalkan..." : "Batalkan"}
-                  </Button>
-                )}
+                <div className="flex items-center gap-2">
+                  {b.status === "WAITING_PAYMENT" && (
+                    <Link href={`/booking/status/${b.id}`}>
+                      <Button size="sm">Bayar Sekarang</Button>
+                    </Link>
+                  )}
+                  {(b.status === "WAITING_PAYMENT" ||
+                    b.status === "PENDING" ||
+                    b.status === "CONFIRMED") && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => handleCancel(b.id)}
+                      disabled={cancellingId === b.id}
+                    >
+                      {cancellingId === b.id ? "Membatalkan..." : "Batalkan"}
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           ))}

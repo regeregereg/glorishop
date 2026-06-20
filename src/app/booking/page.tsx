@@ -2,13 +2,13 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { ChevronLeft, ChevronRight, Star, Clock } from "lucide-react";
 import { Service, Staff, Slot } from "@/types";
 import { formatServicePrice, formatRupiah, formatTime, formatDateShort, toLocalDateString, cn } from "@/lib/utils";
 import { Button } from "@/components/Button";
 
-type Step = "service" | "barber" | "slot" | "confirm";
+type Step = "service" | "barber" | "slot" | "confirm" | "payment";
+type PaymentTypeChoice = "DP" | "FULL";
 
 function BookingFlow() {
   const router = useRouter();
@@ -29,6 +29,7 @@ function BookingFlow() {
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedBarber, setSelectedBarber] = useState<Staff | "any" | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+  const [paymentTypeChoice, setPaymentTypeChoice] = useState<PaymentTypeChoice>("DP");
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -36,11 +37,33 @@ function BookingFlow() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState("");
 
+  // data setting publik (QRIS, dll) + booking yang baru dibuat (menunggu bukti transfer)
+  const [paymentSettings, setPaymentSettings] = useState<{
+    qris_image_url: string | null;
+    payment_account_name: string | null;
+    dp_percentage: string | null;
+  } | null>(null);
+  const [createdBooking, setCreatedBooking] = useState<{
+    id: string;
+    payment: { id: string; amount: number; payment_type: PaymentTypeChoice; expires_at: string } | null;
+  } | null>(null);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [uploadingProof, setUploadingProof] = useState(false);
+  const [uploadDone, setUploadDone] = useState(false);
+
   // load session
   useEffect(() => {
     fetch("/api/me", { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => setSession(d.user));
+  }, []);
+
+  // load setting pembayaran publik (QRIS, nama rekening, persentase DP)
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => setPaymentSettings(d.settings || null))
+      .catch(() => setPaymentSettings(null));
   }, []);
 
   // load services
@@ -143,20 +166,26 @@ function BookingFlow() {
     if (step === "service") setStep("barber");
     else if (step === "barber") setStep("slot");
     else if (step === "slot") setStep("confirm");
+    else if (step === "confirm") setStep("payment");
   }
 
   function goBack() {
     if (step === "barber") setStep("service");
     else if (step === "slot") setStep("barber");
     else if (step === "confirm") setStep("slot");
+    else if (step === "payment" && !createdBooking) setStep("confirm");
     else router.back();
   }
 
-  async function handleConfirm() {
+  function handleConfirm() {
     if (session === null) {
       router.push(`/login?next=/booking`);
       return;
     }
+    setStep("payment");
+  }
+
+  async function handleCreateBooking() {
     if (!selectedService || !selectedSlot) return;
     setSubmitting(true);
     setError("");
@@ -168,6 +197,7 @@ function BookingFlow() {
           service_id: selectedService.id,
           slot_id: selectedSlot.id,
           barber_id: selectedSlot.barber_id,
+          payment_type: paymentTypeChoice,
         }),
       });
       const data = await res.json();
@@ -175,11 +205,37 @@ function BookingFlow() {
         setError(data.error || "Gagal membuat booking.");
         return;
       }
-      router.push("/booking/status");
+      setCreatedBooking(data.booking);
     } catch {
       setError("Terjadi kesalahan. Coba lagi.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleUploadProof() {
+    if (!proofFile || !createdBooking) return;
+    setUploadingProof(true);
+    setError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", proofFile);
+      formData.append("booking_id", createdBooking.id);
+      const res = await fetch("/api/payments/upload-proof", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Gagal mengunggah bukti transfer.");
+        return;
+      }
+      setUploadDone(true);
+      setTimeout(() => router.push("/booking/status"), 1200);
+    } catch {
+      setError("Gagal mengunggah bukti transfer. Coba lagi.");
+    } finally {
+      setUploadingProof(false);
     }
   }
 
@@ -200,17 +256,18 @@ function BookingFlow() {
           {step === "barber" && "Pilih Barber"}
           {step === "slot" && "Pilih Tanggal & Waktu"}
           {step === "confirm" && "Konfirmasi Booking"}
+          {step === "payment" && "Pembayaran"}
         </h1>
       </header>
 
       {/* Step indicator */}
       <div className="flex gap-1.5 px-5 pt-4">
-        {(["service", "barber", "slot", "confirm"] as Step[]).map((s) => (
+        {(["service", "barber", "slot", "confirm", "payment"] as Step[]).map((s) => (
           <div
             key={s}
             className={cn(
               "h-1 flex-1 rounded-full",
-              s === step || ["service", "barber", "slot", "confirm"].indexOf(s) < ["service", "barber", "slot", "confirm"].indexOf(step)
+              s === step || ["service", "barber", "slot", "confirm", "payment"].indexOf(s) < ["service", "barber", "slot", "confirm", "payment"].indexOf(step)
                 ? "bg-accent"
                 : "bg-border-soft"
             )}
@@ -507,12 +564,162 @@ function BookingFlow() {
             )}
           </div>
         )}
+
+        {/* STEP: PAYMENT */}
+        {step === "payment" && selectedService && selectedSlot && (
+          <div className="flex flex-col gap-4">
+            {!createdBooking ? (
+              <>
+                <p className="text-sm text-text-secondary">
+                  Pilih jenis pembayaran untuk mengamankan slot kamu. Booking akan
+                  diverifikasi admin setelah bukti transfer diunggah.
+                </p>
+
+                {(() => {
+                  const dpPercent = Number(paymentSettings?.dp_percentage ?? 50) || 50;
+                  const basePrice = selectedService.price ?? selectedService.price_min ?? 0;
+                  const dpAmount = Math.ceil((basePrice * dpPercent) / 100);
+                  return (
+                    <div className="flex flex-col gap-3">
+                      <button
+                        onClick={() => setPaymentTypeChoice("DP")}
+                        className={cn(
+                          "flex items-center justify-between rounded-2xl border bg-surface px-4 py-4 text-left transition-colors",
+                          paymentTypeChoice === "DP" ? "border-accent" : "border-border-soft hover:border-accent/40"
+                        )}
+                      >
+                        <div>
+                          <p className="font-display text-sm font-semibold">DP {dpPercent}%</p>
+                          <p className="mt-0.5 text-xs text-text-secondary">
+                            Sisa dibayar di tempat setelah layanan selesai.
+                          </p>
+                        </div>
+                        <p className="font-display text-sm font-bold text-accent">
+                          {formatRupiah(dpAmount)}
+                        </p>
+                      </button>
+
+                      <button
+                        onClick={() => setPaymentTypeChoice("FULL")}
+                        className={cn(
+                          "flex items-center justify-between rounded-2xl border bg-surface px-4 py-4 text-left transition-colors",
+                          paymentTypeChoice === "FULL" ? "border-accent" : "border-border-soft hover:border-accent/40"
+                        )}
+                      >
+                        <div>
+                          <p className="font-display text-sm font-semibold">Bayar Lunas</p>
+                          <p className="mt-0.5 text-xs text-text-secondary">
+                            Bayar penuh sekarang, tidak ada tagihan susulan.
+                          </p>
+                        </div>
+                        <p className="font-display text-sm font-bold text-accent">
+                          {formatRupiah(basePrice)}
+                        </p>
+                      </button>
+                    </div>
+                  );
+                })()}
+
+                <p className="text-xs text-text-tertiary">
+                  Setelah lanjut, kamu akan diberi 30 menit untuk mengirim bukti transfer
+                  sebelum slot ini dilepas kembali.
+                </p>
+
+                {error && (
+                  <p className="rounded-xl bg-status-cancelled/10 px-4 py-3 text-sm text-status-cancelled">
+                    {error}
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="rounded-[var(--radius-card)] border border-border-soft bg-surface p-5 text-center">
+                  <p className="text-xs text-text-secondary">Total yang harus dibayar</p>
+                  <p className="font-display mt-1 text-2xl font-bold text-accent">
+                    {formatRupiah(createdBooking.payment?.amount ?? 0)}
+                  </p>
+                  <p className="mt-1 text-xs text-text-tertiary">
+                    {createdBooking.payment?.payment_type === "FULL" ? "Bayar Lunas" : "Down Payment (DP)"}
+                  </p>
+                </div>
+
+                <div className="flex flex-col items-center gap-3 rounded-[var(--radius-card)] border border-border-soft bg-surface p-5">
+                  {paymentSettings?.qris_image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={paymentSettings.qris_image_url}
+                      alt="QRIS Glori Barbershop"
+                      className="h-56 w-56 rounded-xl object-contain"
+                    />
+                  ) : (
+                    <p className="py-10 text-center text-sm text-text-secondary">
+                      QRIS belum diatur admin. Silakan hubungi barbershop langsung untuk
+                      info pembayaran.
+                    </p>
+                  )}
+                  <p className="text-xs text-text-secondary">
+                    Scan QRIS di atas lewat e-wallet atau m-banking, lalu unggah bukti
+                    transfer di bawah.
+                  </p>
+                </div>
+
+                {!uploadDone ? (
+                  <div className="rounded-[var(--radius-card)] border border-border-soft bg-surface p-5">
+                    <p className="mb-2 text-sm font-medium text-text-secondary">
+                      Unggah Bukti Transfer
+                    </p>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/avif,application/pdf"
+                      onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
+                      className="block w-full text-sm text-text-secondary file:mr-3 file:rounded-xl file:border file:border-border-soft file:bg-surface-2 file:px-3.5 file:py-2 file:text-xs file:font-medium file:text-text-primary"
+                    />
+                    {proofFile && (
+                      <p className="mt-2 text-xs text-text-tertiary">{proofFile.name}</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="rounded-[var(--radius-card)] border border-status-confirmed/30 bg-status-confirmed/10 px-4 py-5 text-center">
+                    <p className="text-sm font-semibold text-status-confirmed">
+                      Bukti transfer terkirim!
+                    </p>
+                    <p className="mt-1 text-xs text-text-secondary">
+                      Admin akan memverifikasi pembayaranmu. Mengalihkan ke status booking...
+                    </p>
+                  </div>
+                )}
+
+                {error && (
+                  <p className="rounded-xl bg-status-cancelled/10 px-4 py-3 text-sm text-status-cancelled">
+                    {error}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {step === "confirm" && (
         <div className="fixed bottom-0 left-0 right-0 border-t border-border-soft bg-surface/95 px-5 py-4 backdrop-blur-lg">
           <Button size="lg" fullWidth onClick={handleConfirm} disabled={submitting}>
-            {submitting ? "Memproses..." : session === null ? "Login & Booking" : "Konfirmasi Booking"}
+            {session === null ? "Login & Lanjutkan" : "Lanjut ke Pembayaran"}
+          </Button>
+        </div>
+      )}
+
+      {step === "payment" && !createdBooking && (
+        <div className="fixed bottom-0 left-0 right-0 border-t border-border-soft bg-surface/95 px-5 py-4 backdrop-blur-lg">
+          <Button size="lg" fullWidth onClick={handleCreateBooking} disabled={submitting}>
+            {submitting ? "Memproses..." : "Buat Booking & Tampilkan QRIS"}
+          </Button>
+        </div>
+      )}
+
+      {step === "payment" && createdBooking && !uploadDone && (
+        <div className="fixed bottom-0 left-0 right-0 border-t border-border-soft bg-surface/95 px-5 py-4 backdrop-blur-lg">
+          <Button size="lg" fullWidth onClick={handleUploadProof} disabled={uploadingProof || !proofFile}>
+            {uploadingProof ? "Mengunggah..." : "Kirim Bukti Transfer"}
           </Button>
         </div>
       )}

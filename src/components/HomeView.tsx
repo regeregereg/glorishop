@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Service, Staff } from "@/types";
 import { ServiceCard } from "@/components/ServiceCard";
+import { ServiceGridCard } from "@/components/ServiceGridCard";
 import { LinkButton } from "@/components/Button";
 import { cn, initials, formatRupiah } from "@/lib/utils";
 
@@ -78,6 +79,48 @@ export function HomeView({
       b.name.toLowerCase().includes(query.trim().toLowerCase())
     );
   }, [barbers, query]);
+
+  // 4 layanan utama buat grid showcase di Home: haircut dewasa, haircut anak,
+  // botak licin, shaver. Dicocokkan dari nama layanan yang ada (case-insensitive,
+  // partial match), supaya tetap pas walau penamaan di admin sedikit berbeda.
+  const featuredServices = useMemo(() => {
+    const KEYWORDS = [
+      ["dewasa"],
+      ["anak"],
+      ["botak", "licin"],
+      ["shaver", "cukur"],
+    ];
+
+    const used = new Set<string>();
+    const picked: Service[] = [];
+
+    for (const keywords of KEYWORDS) {
+      const match = services.find(
+        (s) =>
+          !used.has(s.id) &&
+          keywords.some((kw) => s.name.toLowerCase().includes(kw))
+      );
+      if (match) {
+        picked.push(match);
+        used.add(match.id);
+      }
+    }
+
+    // Kalau belum genap 4 (misal admin belum pakai penamaan itu), isi sisanya
+    // dari layanan kategori haircut lain, lalu layanan apa pun, berdasar sort_order.
+    if (picked.length < 4) {
+      const rest = services
+        .filter((s) => !used.has(s.id))
+        .sort((a, b) => a.sort_order - b.sort_order);
+      for (const s of rest) {
+        if (picked.length >= 4) break;
+        picked.push(s);
+        used.add(s.id);
+      }
+    }
+
+    return picked;
+  }, [services]);
 
   function toggleLike(id: string) {
     setLiked((prev) => {
@@ -275,6 +318,20 @@ export function HomeView({
                 </Link>
               );
             })}
+          </div>
+        </section>
+      )}
+
+      {/* Layanan Utama — grid showcase 2 kolom */}
+      {!query.trim() && category === "all" && featuredServices.length > 0 && (
+        <section className="mt-6 px-5">
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-base font-bold">Layanan Utama</h2>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            {featuredServices.map((s) => (
+              <ServiceGridCard key={s.id} service={s} />
+            ))}
           </div>
         </section>
       )}

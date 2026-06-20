@@ -1,9 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatServicePrice } from "@/lib/utils";
 import { LinkButton } from "@/components/Button";
+import { BackButton } from "@/components/BackButton";
 import { Service } from "@/types";
-import Link from "next/link";
-import { ChevronLeft, Clock, Scissors, Sparkles, Palette } from "lucide-react";
+import { Clock, Scissors, Sparkles, Palette } from "lucide-react";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -32,12 +32,7 @@ export default async function ServiceDetailPage({
   return (
     <div className="min-h-screen bg-bg pb-10">
       <header className="flex items-center gap-3 px-5 py-4">
-        <Link
-          href="/layanan"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-border-soft text-text-secondary"
-        >
-          <ChevronLeft size={18} />
-        </Link>
+        <BackButton fallbackHref="/layanan" />
         <h1 className="font-display text-lg font-bold">Detail Layanan</h1>
       </header>
 

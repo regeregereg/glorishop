@@ -11,10 +11,10 @@ const ONBOARDING_COOKIE = "glori_onboarded";
 // bawah ini (haircut.jpg, shaving.jpg, dst). Kalau file belum ada / gagal
 // dimuat, kartu otomatis fallback ke gradient + ikon supaya tetap rapi.
 const SLIDES = [
-  { src: "/onboarding/haircut.jpeg", label: "Hair Cut", Icon: Scissors },
-  { src: "/onboarding/shaving.jpeg", label: "Shaving", Icon: Droplet },
-  { src: "/onboarding/coloring.jpeg", label: "Coloring", Icon: Palette },
-  { src: "/onboarding/treatment.jpeg", label: "Treatment", Icon: Sparkles },
+  { src: "/onboarding/haircut.jpeg", label: "Hair Cut", Icon: Scissors, cta: "Book a Cut →" },
+  { src: "/onboarding/shaving.jpeg", label: "Shaving", Icon: Droplet, cta: "Get a Shave →" },
+  { src: "/onboarding/coloring.jpeg", label: "Coloring", Icon: Palette, cta: "Try Color →" },
+  { src: "/onboarding/treatment.jpeg", label: "Treatment", Icon: Sparkles, cta: "Treat Yourself →" },
 ];
 
 function finishOnboarding() {
@@ -148,6 +148,10 @@ export default function OnboardingPage() {
                 <slide.Icon size={64} strokeWidth={1.1} className="text-accent/50" />
               </div>
             )}
+            {/* CTA badge — pojok kanan atas, unik tiap kartu */}
+            <span className="absolute right-3 top-3 rounded-full bg-accent px-3 py-1 text-[11px] font-bold text-black shadow-sm">
+              {slide.cta}
+            </span>
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 to-transparent" />
             <span className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/45 px-4 py-1.5 text-xs font-semibold text-white backdrop-blur-sm">
               {slide.label}

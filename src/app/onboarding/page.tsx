@@ -15,28 +15,28 @@ const SLIDES = [
     src: "/onboarding/haircut.jpeg",
     label: "Hair Cut",
     Icon: Scissors,
-    cta: "Book a Cut →",
+    cta: "Look Sharp",
     desc: "Presisi tinggi, hasil sempurna",
   },
   {
     src: "/onboarding/shaving.jpeg",
     label: "Shaving",
     Icon: Droplet,
-    cta: "Get a Shave →",
+    cta: "Feel Clean",
     desc: "Cukur klasik, rasa premium",
   },
   {
     src: "/onboarding/coloring.jpeg",
     label: "Coloring",
     Icon: Palette,
-    cta: "Try Color →",
+    cta: "Go Bold",
     desc: "Warna tahan lama & natural",
   },
   {
     src: "/onboarding/treatment.jpeg",
     label: "Treatment",
     Icon: Sparkles,
-    cta: "Treat Yourself →",
+    cta: "Stay Fresh",
     desc: "Perawatan rambut profesional",
   },
 ];
@@ -197,13 +197,18 @@ export default function OnboardingPage() {
             {/* Gradient overlay bawah — lebih dalam & dramatis */}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
 
-            {/* CTA badge — pojok kanan atas, unik tiap slide */}
-            <span
-              className="absolute right-3 top-3 rounded-full px-3 py-1 text-[11px] font-bold text-black"
-              style={{ background: "#f2a531", boxShadow: "0 2px 8px rgba(242,165,49,0.45)" }}
-            >
-              {slide.cta}
-            </span>
+            {/* CTA editorial — pojok kanan atas, gaya magazine bold */}
+            <div className="absolute right-4 top-4 text-right">
+              {slide.cta.split(" ").map((word, wi) => (
+                <div
+                  key={wi}
+                  className="block font-display font-extrabold leading-[1.05] text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]"
+                  style={{ fontSize: "clamp(18px, 5.5vw, 26px)" }}
+                >
+                  {word}
+                </div>
+              ))}
+            </div>
 
             {/* Info bawah kartu — label + deskripsi singkat */}
             <div className="absolute bottom-4 left-4 right-4">

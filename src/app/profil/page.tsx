@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/Button";
+import { NotificationToggle } from "@/components/NotificationToggle";
 import { initials } from "@/lib/utils";
 import { LogOut, Phone, User as UserIcon } from "lucide-react";
+import Link from "next/link";
 
 export default function ProfilPage() {
   const router = useRouter();
@@ -80,6 +82,10 @@ export default function ProfilPage() {
               </button>
             </div>
 
+            <div className="mt-3">
+              <NotificationToggle />
+            </div>
+
             <Button
               variant="secondary"
               fullWidth
@@ -97,7 +103,7 @@ export default function ProfilPage() {
         <p>Staff Glori Barbershop?</p>
         <div className="mt-2 flex justify-center gap-4">
           <a href="/admin/login" className="text-accent">Login Admin</a>
-          <a href="/barber/login" className="text-accent">Login Barber</a>
+          <Link href="/barber/login" className="text-accent">Login Barber</Link>
         </div>
       </div>
 

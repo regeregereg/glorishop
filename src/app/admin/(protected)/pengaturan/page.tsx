@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ImageUpload } from "@/components/ImageUpload";
 import { Button } from "@/components/Button";
+import { NotificationToggle } from "@/components/NotificationToggle";
 
 export default function AdminSettingsPage() {
   const [qrisUrl, setQrisUrl] = useState<string | null>(null);
@@ -108,6 +109,16 @@ export default function AdminSettingsPage() {
           </Button>
         </div>
       )}
+
+      <div className="mt-8 max-w-md">
+        <h2 className="font-display text-lg font-bold">Notifikasi</h2>
+        <p className="mt-1 text-sm text-text-secondary">
+          Aktifkan untuk dapat notifikasi langsung di perangkat ini setiap ada booking baru masuk.
+        </p>
+        <div className="mt-3">
+          <NotificationToggle />
+        </div>
+      </div>
     </div>
   );
 }

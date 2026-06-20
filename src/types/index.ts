@@ -57,6 +57,19 @@ export interface BarberPortfolio {
   created_at: string;
 }
 
+// Satu device/browser yang sudah mengizinkan web push notification
+// (lihat supabase/migration_push_notifications.sql)
+export interface PushSubscriptionRecord {
+  id: string;
+  user_id: string | null;
+  staff_id: string | null;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  user_agent: string | null;
+  created_at: string;
+}
+
 export interface Service {
   id: string;
   name: string;

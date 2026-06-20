@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserSession, getStaffSession } from "@/lib/session";
 import { getServicesBasePrice, calculatePaymentAmount, getPaymentExpiryDate } from "@/lib/payment";
+import { sendPushToAllAdmins } from "@/lib/push";
 import { PaymentType, Service } from "@/types";
 
 // Cari slot-slot BERURUTAN milik barber yang sama, di tanggal yang sama,
@@ -335,10 +336,26 @@ export async function POST(req: NextRequest) {
 
   // Notifikasi ke admin (in-app log; pengiriman WA aktual ditangani modul Fonnte/Wablas terpisah)
   const serviceNamesForNotif = orderedServices.map((s) => s.name).join(", ");
+  const adminNotifMessage = `Ada booking baru dari ${booking.walkin_name ?? userSession?.name ?? "pelanggan"} untuk ${serviceNamesForNotif || "layanan"}.`;
   await supabase.from("notifications").insert({
     type: "booking_baru",
-    message: `Ada booking baru dari ${booking.walkin_name ?? userSession?.name ?? "pelanggan"} untuk ${serviceNamesForNotif || "layanan"}.`,
+    message: adminNotifMessage,
   });
+
+  // Web push (gratis, lewat VAPID — lihat src/lib/push.ts) ke semua admin
+  // yang sudah mengaktifkan notifikasi. Dibungkus try/catch supaya kegagalan
+  // pengiriman push TIDAK menggagalkan pembuatan booking itu sendiri.
+  try {
+    await sendPushToAllAdmins({
+      title: "Booking Baru — Glori Barbershop",
+      body: adminNotifMessage,
+      url: "/admin/bookings",
+      tag: `booking-baru-${booking.id}`,
+    });
+  } catch {
+    // VAPID belum dikonfigurasi atau gagal kirim — diamkan, notifikasi
+    // in-app di atas tetap tersimpan sebagai fallback.
+  }
 
   return NextResponse.json({
     booking: { ...booking, services: insertedServices ?? bookingServiceRows, payment },

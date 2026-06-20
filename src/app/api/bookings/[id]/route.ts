@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserSession, getStaffSession } from "@/lib/session";
 import { BookingStatus } from "@/types";
+import { sendPushToTarget } from "@/lib/push";
 
 export async function PATCH(
   req: NextRequest,
@@ -130,6 +131,25 @@ export async function PATCH(
       type: `booking_${newStatus.toLowerCase()}`,
       message: notifMap[newStatus],
     });
+
+    // Web push (gratis, lewat VAPID — lihat src/lib/push.ts) sebagai
+    // pelengkap notifikasi in-app. Dibungkus try/catch supaya kegagalan
+    // pengiriman push (mis. belum ada subscription, VAPID belum diset)
+    // TIDAK menggagalkan update status booking itu sendiri.
+    try {
+      await sendPushToTarget(
+        { userId: updated.user_id },
+        {
+          title: "Glori Barbershop",
+          body: notifMap[newStatus]!,
+          url: "/booking/status",
+          tag: `booking-${updated.id}`,
+        }
+      );
+    } catch {
+      // VAPID belum dikonfigurasi atau gagal kirim — diamkan, notifikasi
+      // in-app di atas tetap tersimpan sebagai fallback.
+    }
   }
   void serviceNamesForNotif; // tersedia untuk keperluan notifikasi lebih detail di masa depan
 

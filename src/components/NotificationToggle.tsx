@@ -74,6 +74,15 @@ export function NotificationToggle() {
       }
 
       const registration = await navigator.serviceWorker.ready;
+
+      // Kalau ada subscription lama yang "nyangkut" di browser (mis. dari
+      // percobaan sebelumnya yang gagal di tengah jalan), bersihkan dulu
+      // supaya tidak konflik saat membuat subscription baru.
+      const staleSubscription = await registration.pushManager.getSubscription();
+      if (staleSubscription) {
+        await staleSubscription.unsubscribe();
+      }
+
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
@@ -93,8 +102,14 @@ export function NotificationToggle() {
       }
 
       setIsSubscribed(true);
-    } catch {
-      setError("Gagal mengaktifkan notifikasi. Coba lagi.");
+    } catch (err) {
+      console.error("Push subscribe error:", err);
+      const message = err instanceof Error ? err.message : "";
+      setError(
+        message
+          ? `Gagal mengaktifkan notifikasi: ${message}`
+          : "Gagal mengaktifkan notifikasi. Coba lagi."
+      );
     } finally {
       setBusy(false);
     }

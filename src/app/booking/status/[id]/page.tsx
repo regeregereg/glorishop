@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { Booking } from "@/types";
 import { Button } from "@/components/Button";
+import { PageSpinner } from "@/components/PageSpinner";
+import { ErrorState } from "@/components/ErrorState";
 import { formatRupiah, formatDateIndo, formatTime, getBookingServiceNames } from "@/lib/utils";
 
 export default function BookingPaymentDetailPage() {
@@ -12,6 +14,7 @@ export default function BookingPaymentDetailPage() {
   const router = useRouter();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [qrisUrl, setQrisUrl] = useState<string | null>(null);
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -26,20 +29,30 @@ export default function BookingPaymentDetailPage() {
   }, []);
 
   async function load() {
-    const me = await fetch("/api/me", { cache: "no-store" }).then((r) => r.json());
-    if (!me.user) {
-      router.push(`/login?next=/booking/status/${params.id}`);
-      return;
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const meRes = await fetch("/api/me", { cache: "no-store" });
+      if (!meRes.ok) throw new Error("Gagal memuat sesi pengguna");
+      const me = await meRes.json();
+      if (!me.user) {
+        router.push(`/login?next=/booking/status/${params.id}`);
+        return;
+      }
+      const bookingsRes = await fetch(`/api/bookings?userId=${me.user.id}`);
+      if (!bookingsRes.ok) throw new Error("Gagal memuat data booking");
+      const data = await bookingsRes.json();
+      const found = (data.bookings || []).find((b: Booking) => b.id === params.id);
+      if (!found) {
+        router.push("/booking/status");
+        return;
+      }
+      setBooking(found);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
     }
-    const bookingsRes = await fetch(`/api/bookings?userId=${me.user.id}`);
-    const data = await bookingsRes.json();
-    const found = (data.bookings || []).find((b: Booking) => b.id === params.id);
-    if (!found) {
-      router.push("/booking/status");
-      return;
-    }
-    setBooking(found);
-    setLoading(false);
   }
 
   useEffect(() => {
@@ -86,17 +99,23 @@ export default function BookingPaymentDetailPage() {
       </header>
 
       <div className="px-5 pt-5">
-        {loading && (
-          <p className="py-10 text-center text-sm text-text-secondary">Memuat...</p>
+        {loading && <PageSpinner label="Memuat data booking..." />}
+
+        {!loading && loadError && (
+          <ErrorState
+            title="Gagal memuat booking"
+            message="Periksa koneksi internet kamu, lalu coba lagi."
+            onRetry={load}
+          />
         )}
 
-        {!loading && booking && booking.status !== "WAITING_PAYMENT" && (
+        {!loading && !loadError && booking && booking.status !== "WAITING_PAYMENT" && (
           <p className="rounded-xl bg-accent-soft px-4 py-3 text-sm text-accent">
             Booking ini sudah tidak menunggu pembayaran (status: {booking.status}).
           </p>
         )}
 
-        {!loading && booking && booking.status === "WAITING_PAYMENT" && (
+        {!loading && !loadError && booking && booking.status === "WAITING_PAYMENT" && (
           <div className="flex flex-col gap-4">
             <div className="rounded-[var(--radius-card)] border border-border-soft bg-surface p-5">
               <p className="text-xs text-text-secondary">Layanan</p>

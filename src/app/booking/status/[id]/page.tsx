@@ -133,12 +133,12 @@ export default function BookingPaymentDetailPage() {
 
             {!uploadDone ? (
               <div className="rounded-[var(--radius-card)] border border-border-soft bg-surface p-5">
-                <p className="mb-2 text-sm font-medium text-text-secondary">Unggah Bukti Transfer</p>
+                <p className="mb-2 text-sm font-semibold text-text-secondary">Unggah Bukti Transfer</p>
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/avif,application/pdf"
                   onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
-                  className="block w-full text-sm text-text-secondary file:mr-3 file:rounded-xl file:border file:border-border-soft file:bg-surface-2 file:px-3.5 file:py-2 file:text-xs file:font-medium file:text-text-primary"
+                  className="block w-full text-sm text-text-secondary file:mr-3 file:rounded-xl file:border file:border-border-soft file:bg-surface-2 file:px-3.5 file:py-2 file:text-xs file:font-semibold file:text-text-primary"
                 />
                 {proofFile && <p className="mt-2 text-xs text-text-tertiary">{proofFile.name}</p>}
               </div>

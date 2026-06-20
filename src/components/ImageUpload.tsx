@@ -75,7 +75,7 @@ export function ImageUpload({
   return (
     <div>
       {label && (
-        <label className="mb-1.5 block text-sm font-medium text-text-secondary">
+        <label className="mb-1.5 block text-sm font-semibold text-text-secondary">
           {label}
         </label>
       )}
@@ -106,7 +106,7 @@ export function ImageUpload({
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={uploading}
-            className="rounded-xl border border-border-soft bg-surface-2 px-3.5 py-2 text-xs font-medium text-text-primary hover:border-accent/40 disabled:opacity-50"
+            className="rounded-xl border border-border-soft bg-surface-2 px-3.5 py-2 text-xs font-semibold text-text-primary hover:border-accent/40 disabled:opacity-50"
           >
             {uploading ? "Mengunggah..." : value ? "Ganti foto" : "Unggah foto"}
           </button>
@@ -115,7 +115,7 @@ export function ImageUpload({
               type="button"
               onClick={handleRemove}
               disabled={uploading}
-              className="flex items-center gap-1 px-1 text-xs font-medium text-status-cancelled disabled:opacity-50"
+              className="flex items-center gap-1 px-1 text-xs font-semibold text-status-cancelled disabled:opacity-50"
             >
               <X size={12} /> Hapus foto
             </button>

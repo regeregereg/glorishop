@@ -157,7 +157,7 @@ export default function AdminSlotPage() {
             {slots.map((s) => (
               <div
                 key={s.id}
-                className={`rounded-xl border px-3 py-2.5 text-center text-xs font-medium ${
+                className={`rounded-xl border px-3 py-2.5 text-center text-xs font-semibold ${
                   s.is_available
                     ? "border-status-done/30 bg-status-done/10 text-status-done"
                     : "border-status-cancelled/30 bg-status-cancelled/10 text-status-cancelled"

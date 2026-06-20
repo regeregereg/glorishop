@@ -61,7 +61,7 @@ export default function AdminSettingsPage() {
       ) : (
         <div className="mt-6 flex max-w-md flex-col gap-5 rounded-[var(--radius-card)] border border-border-soft bg-surface p-5">
           <div>
-            <p className="mb-1.5 text-sm font-medium text-text-secondary">QRIS Pembayaran</p>
+            <p className="mb-1.5 text-sm font-semibold text-text-secondary">QRIS Pembayaran</p>
             <p className="mb-3 text-xs text-text-tertiary">
               Gambar QR statis ini akan ditampilkan ke semua pelanggan saat checkout. Pastikan
               QR sudah benar sebelum disimpan.
@@ -76,7 +76,7 @@ export default function AdminSettingsPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-text-secondary">
+            <label className="mb-1.5 block text-sm font-semibold text-text-secondary">
               Nama Rekening / Merchant
             </label>
             <input
@@ -88,7 +88,7 @@ export default function AdminSettingsPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-text-secondary">
+            <label className="mb-1.5 block text-sm font-semibold text-text-secondary">
               Persentase DP (%)
             </label>
             <input

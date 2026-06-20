@@ -59,7 +59,7 @@ export function AdminSidebar({ adminName }: { adminName: string }) {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
                 active
                   ? "bg-accent-soft text-accent"
                   : "text-text-secondary hover:bg-white/5 hover:text-text-primary"
@@ -77,7 +77,7 @@ export function AdminSidebar({ adminName }: { adminName: string }) {
         <p className="px-3 text-sm font-semibold">{adminName}</p>
         <button
           onClick={handleLogout}
-          className="mt-3 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-status-cancelled hover:bg-status-cancelled/10"
+          className="mt-3 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-status-cancelled hover:bg-status-cancelled/10"
         >
           <LogOut size={16} /> Keluar
         </button>

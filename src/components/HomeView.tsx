@@ -340,7 +340,7 @@ export function HomeView({
       <section className="mt-7 px-5">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-base font-bold">Layanan</h2>
-          <Link href="/layanan" className="text-xs font-medium text-accent">
+          <Link href="/layanan" className="text-xs font-semibold text-accent">
             Lihat semua
           </Link>
         </div>

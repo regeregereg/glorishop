@@ -162,7 +162,7 @@ export function NotificationToggle() {
             <Bell size={18} className="text-text-tertiary" />
           )}
           <div>
-            <p className="text-sm font-medium text-text-primary">
+            <p className="text-sm font-semibold text-text-primary">
               {isSubscribed ? "Notifikasi aktif" : "Aktifkan Notifikasi"}
             </p>
             <p className="mt-0.5 text-xs text-text-secondary">

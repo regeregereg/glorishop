@@ -79,7 +79,7 @@ export default function AdminBarberPage() {
             <p className="mt-0.5 text-xs text-text-secondary">@{b.username}</p>
             <button
               onClick={() => toggleActive(b)}
-              className={`mt-3 w-full rounded-xl px-3 py-2 text-xs font-medium ${
+              className={`mt-3 w-full rounded-xl px-3 py-2 text-xs font-semibold ${
                 b.is_active
                   ? "bg-status-done/10 text-status-done"
                   : "bg-status-cancelled/10 text-status-cancelled"
@@ -375,7 +375,7 @@ function BarberPortfolioModal({
                 ) : (
                   <>
                     <ImagePlus size={20} />
-                    <span className="text-[10px] font-medium">Tambah foto</span>
+                    <span className="text-[10px] font-semibold">Tambah foto</span>
                   </>
                 )}
                 <input

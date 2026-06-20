@@ -47,7 +47,7 @@ export default async function ServiceDetailPage({
         </div>
 
         <div className="mt-5">
-          <span className="text-xs font-medium uppercase tracking-wide text-accent">
+          <span className="text-xs font-semibold uppercase tracking-wide text-accent">
             {CATEGORY_LABEL[service.category]}
           </span>
           <h2 className="font-display mt-1 text-2xl font-extrabold">{service.name}</h2>

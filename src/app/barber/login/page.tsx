@@ -55,7 +55,7 @@ export default function BarberLoginPage() {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-text-secondary">
+            <label className="mb-1.5 block text-sm font-semibold text-text-secondary">
               Username
             </label>
             <input
@@ -68,7 +68,7 @@ export default function BarberLoginPage() {
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-text-secondary">
+            <label className="mb-1.5 block text-sm font-semibold text-text-secondary">
               Password
             </label>
             <input

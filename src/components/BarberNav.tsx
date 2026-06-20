@@ -24,7 +24,7 @@ export function BarberNav() {
         <Link
           href="/barber/dashboard"
           className={cn(
-            "flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[11px] font-medium",
+            "flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[11px] font-semibold",
             pathname.startsWith("/barber/dashboard") ? "text-accent" : "text-text-tertiary"
           )}
         >
@@ -34,7 +34,7 @@ export function BarberNav() {
         <Link
           href="/barber/riwayat"
           className={cn(
-            "flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[11px] font-medium",
+            "flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[11px] font-semibold",
             pathname.startsWith("/barber/riwayat") ? "text-accent" : "text-text-tertiary"
           )}
         >
@@ -43,7 +43,7 @@ export function BarberNav() {
         </Link>
         <button
           onClick={handleLogout}
-          className="flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[11px] font-medium text-status-cancelled"
+          className="flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[11px] font-semibold text-status-cancelled"
         >
           <LogOut size={20} />
           Keluar

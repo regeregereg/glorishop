@@ -62,7 +62,7 @@ function LoginForm() {
 
         <form onSubmit={handleSubmit} className="mt-7 flex flex-col gap-4">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-text-secondary">
+            <label className="mb-1.5 block text-sm font-semibold text-text-secondary">
               Nama Lengkap
             </label>
             <input
@@ -75,7 +75,7 @@ function LoginForm() {
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-text-secondary">
+            <label className="mb-1.5 block text-sm font-semibold text-text-secondary">
               Nomor WhatsApp
             </label>
             <input

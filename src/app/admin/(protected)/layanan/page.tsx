@@ -229,7 +229,7 @@ function ServiceForm({
             <button
               type="button"
               onClick={() => setPriceMode("fixed")}
-              className={`flex-1 rounded-xl px-3 py-2 text-xs font-medium ${
+              className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold ${
                 priceMode === "fixed" ? "bg-accent text-black" : "border border-border-soft text-text-secondary"
               }`}
             >
@@ -238,7 +238,7 @@ function ServiceForm({
             <button
               type="button"
               onClick={() => setPriceMode("range")}
-              className={`flex-1 rounded-xl px-3 py-2 text-xs font-medium ${
+              className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold ${
                 priceMode === "range" ? "bg-accent text-black" : "border border-border-soft text-text-secondary"
               }`}
             >

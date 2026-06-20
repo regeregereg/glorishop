@@ -122,7 +122,7 @@ function Lightbox({
     >
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3">
-        <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white/80 backdrop-blur-md">
+        <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/80 backdrop-blur-md">
           {index + 1} / {photos.length}
         </span>
         <button

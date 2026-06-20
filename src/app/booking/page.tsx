@@ -530,7 +530,7 @@ function BookingFlow() {
               })}
             </div>
 
-            <p className="mb-3 mt-6 text-xs font-medium uppercase tracking-wide text-text-tertiary">
+            <p className="mb-3 mt-6 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
               Waktu
             </p>
 
@@ -543,7 +543,7 @@ function BookingFlow() {
                 <p className="text-sm text-status-cancelled">{slotsError}</p>
                 <button
                   onClick={() => setSelectedDate((d) => d)}
-                  className="mt-2 text-xs font-medium text-accent underline"
+                  className="mt-2 text-xs font-semibold text-accent underline"
                 >
                   Coba lagi
                 </button>
@@ -623,7 +623,7 @@ function BookingFlow() {
                 {selectedServices.map((s) => (
                   <div key={s.id} className="flex items-center justify-between gap-3">
                     <p className="font-display text-sm font-semibold">{s.name}</p>
-                    <p className="shrink-0 text-xs font-medium text-text-secondary">
+                    <p className="shrink-0 text-xs font-semibold text-text-secondary">
                       {formatServiceListPrice([s])}
                     </p>
                   </div>
@@ -775,14 +775,14 @@ function BookingFlow() {
 
                 {!uploadDone ? (
                   <div className="rounded-[var(--radius-card)] border border-border-soft bg-surface p-5">
-                    <p className="mb-2 text-sm font-medium text-text-secondary">
+                    <p className="mb-2 text-sm font-semibold text-text-secondary">
                       Unggah Bukti Transfer
                     </p>
                     <input
                       type="file"
                       accept="image/jpeg,image/png,image/webp,image/avif,application/pdf"
                       onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
-                      className="block w-full text-sm text-text-secondary file:mr-3 file:rounded-xl file:border file:border-border-soft file:bg-surface-2 file:px-3.5 file:py-2 file:text-xs file:font-medium file:text-text-primary"
+                      className="block w-full text-sm text-text-secondary file:mr-3 file:rounded-xl file:border file:border-border-soft file:bg-surface-2 file:px-3.5 file:py-2 file:text-xs file:font-semibold file:text-text-primary"
                     />
                     {proofFile && (
                       <p className="mt-2 text-xs text-text-tertiary">{proofFile.name}</p>

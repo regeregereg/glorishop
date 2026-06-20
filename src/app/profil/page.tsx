@@ -68,14 +68,14 @@ export default function ProfilPage() {
             <div className="mt-5 flex flex-col gap-2">
               <button
                 onClick={() => router.push("/booking/status")}
-                className="flex items-center justify-between rounded-2xl border border-border-soft bg-surface px-4 py-3.5 text-sm font-medium"
+                className="flex items-center justify-between rounded-2xl border border-border-soft bg-surface px-4 py-3.5 text-sm font-semibold"
               >
                 Status Booking Aktif
                 <span className="text-text-tertiary">→</span>
               </button>
               <button
                 onClick={() => router.push("/riwayat")}
-                className="flex items-center justify-between rounded-2xl border border-border-soft bg-surface px-4 py-3.5 text-sm font-medium"
+                className="flex items-center justify-between rounded-2xl border border-border-soft bg-surface px-4 py-3.5 text-sm font-semibold"
               >
                 Riwayat Kunjungan
                 <span className="text-text-tertiary">→</span>

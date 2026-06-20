@@ -44,7 +44,7 @@ export default function AdminBookingsPage() {
           <button
             key={s}
             onClick={() => setStatusFilter(s)}
-            className={`shrink-0 rounded-full px-4 py-2 text-xs font-medium ${
+            className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold ${
               statusFilter === s
                 ? "bg-accent text-black"
                 : "border border-border-soft bg-surface text-text-secondary"
@@ -70,7 +70,7 @@ export default function AdminBookingsPage() {
           <tbody>
             {filtered.map((b) => (
               <tr key={b.id} className="border-b border-border-soft last:border-0">
-                <td className="px-4 py-3 font-medium">
+                <td className="px-4 py-3 font-semibold">
                   {b.user?.name ?? b.walkin_name ?? "—"}
                 </td>
                 <td className="px-4 py-3 text-text-secondary">{getBookingServiceNames(b)}</td>
@@ -196,7 +196,7 @@ function WalkinForm({ onClose, onCreated }: { onClose: () => void; onCreated: ()
           />
 
           <div>
-            <p className="mb-1.5 text-xs font-medium text-text-secondary">
+            <p className="mb-1.5 text-xs font-semibold text-text-secondary">
               Layanan (boleh pilih lebih dari satu)
             </p>
             <div className="flex max-h-48 flex-col gap-1.5 overflow-y-auto rounded-xl border border-border-soft bg-surface-2 p-2">

@@ -212,7 +212,7 @@ export default function OnboardingPage() {
 
             {/* Info bawah kartu — label + deskripsi singkat */}
             <div className="absolute bottom-4 left-4 right-4">
-              <p className="text-[11px] font-medium text-white/60">{slide.desc}</p>
+              <p className="text-[11px] font-semibold text-white/60">{slide.desc}</p>
               <span className="mt-0.5 inline-block text-[15px] font-bold text-white">
                 {slide.label}
               </span>
@@ -248,15 +248,7 @@ export default function OnboardingPage() {
         <h1 className="font-display text-[32px] font-extrabold leading-[1.1] text-text-primary">
           Tampil Terbaik,{" "}
           <br />
-          <span
-            style={{
-              backgroundImage: "linear-gradient(90deg, #f2a531 0%, #e58e0c 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
-            Booking Mudah.
-          </span>
+          <span className="text-accent">Booking Mudah.</span>
         </h1>
 
         <p className="mt-3 text-[14px] leading-relaxed text-text-secondary">
@@ -287,11 +279,7 @@ export default function OnboardingPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleEnter}
-            className="flex-1 rounded-full py-[15px] text-[15px] font-bold text-black transition-all duration-200 active:scale-[0.97]"
-            style={{
-              background: "linear-gradient(135deg, #f2a531 0%, #e58e0c 100%)",
-              boxShadow: "0 4px 20px rgba(242,165,49,0.35)",
-            }}
+            className="flex-1 rounded-full bg-accent py-[15px] text-[15px] font-bold text-black transition-all duration-200 active:scale-[0.97]"
           >
             Booking Sekarang
           </button>

@@ -61,7 +61,7 @@ export default function AdminDashboardPage() {
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-base font-bold">Booking Terbaru</h2>
-            <Link href="/admin/bookings" className="text-xs font-medium text-accent">
+            <Link href="/admin/bookings" className="text-xs font-semibold text-accent">
               Lihat semua
             </Link>
           </div>

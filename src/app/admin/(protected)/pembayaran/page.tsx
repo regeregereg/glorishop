@@ -115,7 +115,7 @@ export default function AdminPaymentsPage() {
       <div className="mt-5 flex gap-2">
         <button
           onClick={() => setTab("PENDING_REVIEW")}
-          className={`rounded-full px-4 py-2 text-xs font-medium ${
+          className={`rounded-full px-4 py-2 text-xs font-semibold ${
             tab === "PENDING_REVIEW"
               ? "bg-accent text-black"
               : "border border-border-soft bg-surface text-text-secondary"
@@ -125,7 +125,7 @@ export default function AdminPaymentsPage() {
         </button>
         <button
           onClick={() => setTab("RIWAYAT")}
-          className={`rounded-full px-4 py-2 text-xs font-medium ${
+          className={`rounded-full px-4 py-2 text-xs font-semibold ${
             tab === "RIWAYAT"
               ? "bg-accent text-black"
               : "border border-border-soft bg-surface text-text-secondary"
@@ -151,7 +151,7 @@ export default function AdminPaymentsPage() {
           <tbody>
             {list.map((b) => (
               <tr key={b.id} className="border-b border-border-soft last:border-0">
-                <td className="px-4 py-3 font-medium">{b.user?.name ?? "—"}</td>
+                <td className="px-4 py-3 font-semibold">{b.user?.name ?? "—"}</td>
                 <td className="px-4 py-3 text-text-secondary">{b.service?.name ?? "—"}</td>
                 <td className="px-4 py-3 text-text-secondary">
                   {b.slot ? `${formatDateShort(b.slot.date)} ${formatTime(b.slot.start_time)}` : "—"}
@@ -166,7 +166,7 @@ export default function AdminPaymentsPage() {
                   {b.payment?.proof_url ? (
                     <button
                       onClick={() => openProof(b.payment!.id)}
-                      className="flex items-center gap-1 text-xs font-medium text-accent underline"
+                      className="flex items-center gap-1 text-xs font-semibold text-accent underline"
                     >
                       <Eye size={13} /> Lihat
                     </button>
@@ -202,8 +202,8 @@ export default function AdminPaymentsPage() {
                     <span
                       className={
                         b.payment?.status === "CONFIRMED"
-                          ? "text-status-confirmed text-xs font-medium"
-                          : "text-status-cancelled text-xs font-medium"
+                          ? "text-status-confirmed text-xs font-semibold"
+                          : "text-status-cancelled text-xs font-semibold"
                       }
                     >
                       {b.payment?.status === "CONFIRMED" ? "Diterima" : "Ditolak"}

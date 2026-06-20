@@ -16,6 +16,7 @@ import {
 import { Service, Staff } from "@/types";
 import { ServiceCard } from "@/components/ServiceCard";
 import { ServiceGridCard } from "@/components/ServiceGridCard";
+import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
 import { LinkButton } from "@/components/Button";
 import { cn, initials, formatRupiah } from "@/lib/utils";
 
@@ -261,16 +262,10 @@ export function HomeView({
                       className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                   ) : (
-                    <div
-                      className={cn(
-                        "absolute inset-0 flex items-center justify-center",
-                        i % 2 === 0
-                          ? "bg-gradient-to-br from-surface-2 via-surface to-accent-soft"
-                          : "bg-gradient-to-tr from-accent-soft via-surface to-surface-2"
-                      )}
-                    >
-                      <Scissors size={56} strokeWidth={1} className="text-accent/40" />
-                    </div>
+                    <PhotoPlaceholder
+                      icon={<Scissors size={56} strokeWidth={1} />}
+                      className="absolute inset-0"
+                    />
                   )}
 
                   {/* Gradient overlay biar teks terbaca */}

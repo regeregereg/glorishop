@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { Scissors, Droplet, Palette, Sparkles, ArrowUpRight, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
 
 const ONBOARDING_COOKIE = "glori_onboarded";
 
@@ -182,16 +183,7 @@ export default function OnboardingPage() {
                 className="pointer-events-none h-full w-full object-cover transition-transform duration-700"
               />
             ) : (
-              <div
-                className={cn(
-                  "flex h-full w-full items-center justify-center",
-                  i % 2 === 0
-                    ? "bg-gradient-to-br from-surface-2 via-surface to-accent-soft"
-                    : "bg-gradient-to-tr from-accent-soft via-surface to-surface-2"
-                )}
-              >
-                <slide.Icon size={64} strokeWidth={1.1} className="text-accent/50" />
-              </div>
+              <PhotoPlaceholder icon={<slide.Icon size={64} strokeWidth={1.1} />} />
             )}
 
             {/* Gradient overlay bawah — lebih dalam & dramatis */}

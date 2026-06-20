@@ -2,6 +2,7 @@ import { Service } from "@/types";
 import { formatServicePrice } from "@/lib/utils";
 import { Clock, Scissors, Sparkles, Palette } from "lucide-react";
 import Link from "next/link";
+import { PhotoPlaceholder } from "./PhotoPlaceholder";
 
 const CATEGORY_ICON = {
   haircut: Scissors,
@@ -18,12 +19,12 @@ export function ServiceCard({ service }: { service: Service }) {
       href={`/layanan/${service.id}`}
       className="flex items-center gap-4 rounded-[var(--radius-card)] border border-border-soft bg-surface p-4 transition-colors hover:border-accent/40"
     >
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-accent-soft text-accent">
+      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl">
         {service.photo_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={service.photo_url} alt="" className="h-full w-full object-cover" />
         ) : (
-          <Icon size={24} strokeWidth={1.8} />
+          <PhotoPlaceholder icon={<Icon size={20} strokeWidth={1.6} />} />
         )}
       </div>
       <div className="flex-1">

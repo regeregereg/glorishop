@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus, Scissors, Sparkles, Palette } from "lucide-react";
 import { Service } from "@/types";
 import { formatServicePrice } from "@/lib/utils";
+import { PhotoPlaceholder } from "./PhotoPlaceholder";
 
 const CATEGORY_ICON = {
   haircut: Scissors,
@@ -28,9 +29,7 @@ export function ServiceGridCard({ service }: { service: Service }) {
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-accent-soft">
-            <Icon size={32} strokeWidth={1.5} className="text-accent/50" />
-          </div>
+          <PhotoPlaceholder icon={<Icon size={32} strokeWidth={1.5} />} />
         )}
       </div>
 

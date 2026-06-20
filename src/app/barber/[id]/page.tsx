@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { initials } from "@/lib/utils";
 import { LinkButton } from "@/components/Button";
 import { PortfolioGallery } from "@/components/PortfolioGallery";
+import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
 import { BarberPortfolio } from "@/types";
 import Link from "next/link";
 import { ChevronLeft, Star, Scissors } from "lucide-react";
@@ -76,11 +77,14 @@ export default async function BarberProfilePage({
             className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-surface-2 via-surface to-accent-soft">
-            <span className="font-display text-7xl font-extrabold text-accent/30">
-              {initials(barber.name)}
-            </span>
-          </div>
+          <PhotoPlaceholder
+            icon={
+              <span className="font-display text-7xl font-extrabold">
+                {initials(barber.name)}
+              </span>
+            }
+            className="absolute inset-0"
+          />
         )}
 
         {/* Gradient overlay supaya teks & tombol terbaca di atas foto */}

@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatRupiah } from "@/lib/utils";
 import { BottomNav } from "@/components/BottomNav";
+import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
 import { Product } from "@/types";
 import Link from "next/link";
 import { ChevronLeft, Package } from "lucide-react";
@@ -42,12 +43,12 @@ export default async function ProdukPage() {
             key={p.id}
             className="rounded-2xl border border-border-soft bg-surface p-4"
           >
-            <div className="flex h-20 items-center justify-center overflow-hidden rounded-xl bg-accent-soft text-accent">
+            <div className="h-20 overflow-hidden rounded-xl">
               {p.photo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={p.photo_url} alt={p.name} className="h-full w-full object-cover" />
               ) : (
-                <Package size={28} strokeWidth={1.5} />
+                <PhotoPlaceholder icon={<Package size={28} strokeWidth={1.5} />} />
               )}
             </div>
             <p className="mt-3 text-sm font-semibold leading-tight">{p.name}</p>

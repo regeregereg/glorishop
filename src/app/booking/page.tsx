@@ -14,6 +14,7 @@ import {
   cn,
 } from "@/lib/utils";
 import { Button } from "@/components/Button";
+import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
 
 type Step = "service" | "barber" | "slot" | "confirm" | "payment";
 type PaymentTypeChoice = "DP" | "FULL";
@@ -438,11 +439,13 @@ function BookingFlow() {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-surface-2 via-surface to-accent-soft">
-                    <span className="font-display text-3xl font-bold text-accent/60">
-                      {selectedBarber.name.slice(0, 2).toUpperCase()}
-                    </span>
-                  </div>
+                  <PhotoPlaceholder
+                    icon={
+                      <span className="font-display text-3xl font-bold">
+                        {selectedBarber.name.slice(0, 2).toUpperCase()}
+                      </span>
+                    }
+                  />
                 )}
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 to-transparent" />
                 <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">

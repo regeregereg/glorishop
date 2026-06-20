@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Staff } from "@/types";
+import { Staff, BarberPortfolio } from "@/types";
 import { Button } from "@/components/Button";
 import { ImageUpload } from "@/components/ImageUpload";
-import { Plus, X, Pencil } from "lucide-react";
+import { Plus, X, Pencil, Images, Trash2, Loader2, ImagePlus } from "lucide-react";
 
 export default function AdminBarberPage() {
   const [barbers, setBarbers] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Staff | "new" | null>(null);
+  const [portfolioFor, setPortfolioFor] = useState<Staff | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/barbers?includeInactive=true");
@@ -57,12 +58,22 @@ export default function AdminBarberPage() {
                   b.name.slice(0, 2).toUpperCase()
                 )}
               </div>
-              <button
-                onClick={() => setEditing(b)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-soft text-text-secondary"
-              >
-                <Pencil size={13} />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setPortfolioFor(b)}
+                  title="Kelola portofolio"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-soft text-text-secondary"
+                >
+                  <Images size={13} />
+                </button>
+                <button
+                  onClick={() => setEditing(b)}
+                  title="Edit barber"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-soft text-text-secondary"
+                >
+                  <Pencil size={13} />
+                </button>
+              </div>
             </div>
             <p className="mt-3 font-semibold text-sm">{b.name}</p>
             <p className="mt-0.5 text-xs text-text-secondary">@{b.username}</p>
@@ -88,6 +99,13 @@ export default function AdminBarberPage() {
           barber={editing === "new" ? null : editing}
           onClose={() => setEditing(null)}
           onSaved={load}
+        />
+      )}
+
+      {portfolioFor && (
+        <BarberPortfolioModal
+          barber={portfolioFor}
+          onClose={() => setPortfolioFor(null)}
         />
       )}
     </div>
@@ -205,6 +223,178 @@ function BarberForm({
             {submitting ? "Menyimpan..." : "Simpan"}
           </Button>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function BarberPortfolioModal({
+  barber,
+  onClose,
+}: {
+  barber: Staff;
+  onClose: () => void;
+}) {
+  const [photos, setPhotos] = useState<BarberPortfolio[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res = await fetch(`/api/barbers/${barber.id}/portfolio`);
+    const data = await res.json();
+    setPhotos(data.portfolio || []);
+    setLoading(false);
+  }, [barber.id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError("");
+
+    if (!["image/jpeg", "image/png", "image/webp", "image/avif"].includes(file.type)) {
+      setError("Format harus JPG, PNG, WEBP, atau AVIF.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Ukuran file maksimal 5MB.");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", "portfolio");
+
+      const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok) {
+        setError(uploadData.error || "Gagal mengunggah foto.");
+        return;
+      }
+
+      const saveRes = await fetch(`/api/barbers/${barber.id}/portfolio`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photo_url: uploadData.url }),
+      });
+      const saveData = await saveRes.json();
+      if (!saveRes.ok) {
+        setError(saveData.error || "Gagal menyimpan foto ke portofolio.");
+        return;
+      }
+
+      setPhotos((prev) => [...prev, saveData.photo]);
+    } catch {
+      setError("Gagal mengunggah foto. Coba lagi.");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  async function handleDelete(photoId: string) {
+    setDeletingId(photoId);
+    setError("");
+    try {
+      const res = await fetch(`/api/barbers/${barber.id}/portfolio/${photoId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || "Gagal menghapus foto.");
+        return;
+      }
+      setPhotos((prev) => prev.filter((p) => p.id !== photoId));
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-[var(--radius-card)] border border-border-soft bg-surface p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-display text-lg font-bold">Portofolio</h2>
+            <p className="mt-0.5 text-xs text-text-secondary">
+              Hasil cukur karya {barber.name}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-text-secondary">
+            <X size={20} />
+          </button>
+        </div>
+
+        {error && (
+          <p className="mt-3 rounded-xl bg-status-cancelled/10 px-3 py-2 text-xs text-status-cancelled">
+            {error}
+          </p>
+        )}
+
+        <div className="mt-4 flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex justify-center py-10">
+              <Loader2 size={22} className="animate-spin text-text-secondary" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2.5">
+              {photos.map((p) => (
+                <div key={p.id} className="group relative aspect-square overflow-hidden rounded-xl border border-border-soft">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p.photo_url} alt="" className="h-full w-full object-cover" />
+                  <button
+                    onClick={() => handleDelete(p.id)}
+                    disabled={deletingId === p.id}
+                    aria-label="Hapus foto"
+                    className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white disabled:opacity-50"
+                  >
+                    {deletingId === p.id ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Trash2 size={13} />
+                    )}
+                  </button>
+                </div>
+              ))}
+
+              <label
+                className={`flex aspect-square cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-border-soft bg-surface-2 text-text-secondary/60 hover:border-accent/40 ${
+                  uploading ? "pointer-events-none opacity-50" : ""
+                }`}
+              >
+                {uploading ? (
+                  <Loader2 size={20} className="animate-spin" />
+                ) : (
+                  <>
+                    <ImagePlus size={20} />
+                    <span className="text-[10px] font-medium">Tambah foto</span>
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/avif"
+                  onChange={handleFileSelect}
+                  disabled={uploading}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          )}
+
+          {!loading && photos.length === 0 && (
+            <p className="mt-2 text-center text-xs text-text-tertiary">
+              Belum ada foto. Tambahkan foto pertama lewat kotak di atas.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

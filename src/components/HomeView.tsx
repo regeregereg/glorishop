@@ -206,7 +206,7 @@ export function HomeView({
               const isLiked = liked.has(b.id);
               return (
                 <Link
-                  href={`/booking?barberId=${b.id}`}
+                  href={`/barber/${b.id}`}
                   key={b.id}
                   className="group relative block h-48 overflow-hidden rounded-[var(--radius-card)] border border-border-soft"
                 >

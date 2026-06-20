@@ -47,6 +47,16 @@ export interface WorkSchedule {
   is_day_off: boolean;
 }
 
+// Satu foto hasil kerja barber di galeri portofolio (foto polos, tanpa
+// tag layanan — lihat supabase/migration_portfolio.sql)
+export interface BarberPortfolio {
+  id: string;
+  barber_id: string;
+  photo_url: string;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface Service {
   id: string;
   name: string;

@@ -251,7 +251,7 @@ export default function OnboardingPage() {
         <h1 className="font-display text-[32px] font-extrabold leading-[1.1] text-text-primary">
           Tampil Terbaik,{" "}
           <br />
-          <span className="text-accent">Booking Mudah.</span>
+          <span className="text-order-gradient">Booking Mudah.</span>
         </h1>
 
         <p className="mt-3 text-[14px] leading-relaxed text-text-secondary">

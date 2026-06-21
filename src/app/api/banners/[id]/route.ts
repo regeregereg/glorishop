@@ -15,9 +15,17 @@ export async function PATCH(
   const body = await req.json();
 
   const supabase = createAdminClient();
+  // Kolom yang boleh diubah dibatasi eksplisit (bukan update(body) langsung)
+  // — pola yang sama dipakai di endpoint products/services/barbers, supaya
+  // body request tidak bisa diam-diam menimpa kolom lain yang tidak
+  // seharusnya bisa diubah lewat endpoint ini kalau tabel ini nanti
+  // bertambah kolom baru.
   const { data, error } = await supabase
     .from("banners")
-    .update(body)
+    .update({
+      sort_order: body.sort_order,
+      is_active: body.is_active,
+    })
     .eq("id", id)
     .select("*")
     .single();

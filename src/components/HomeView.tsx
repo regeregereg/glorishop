@@ -366,7 +366,7 @@ export function HomeView({
       {/* Banner Promo / Event */}
       {banners.length > 0 && (
         <section className="mt-7 px-5">
-          <div className="overflow-hidden rounded-[var(--radius-card)] border border-border-soft">
+          <div className="overflow-hidden rounded-[var(--radius-card)]">
             <BannerCarousel banners={banners} />
           </div>
         </section>

@@ -282,7 +282,7 @@ export default function OnboardingPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleEnter}
-            className="btn-order-gradient flex-1 rounded-full py-[15px] text-[15px] font-bold text-white transition-all duration-200 active:scale-[0.97]"
+            className="flex-1 rounded-full bg-gradient-to-r from-accent-order-from to-accent-order-to py-[15px] text-[15px] font-bold text-white shadow-[0_4px_20px_-2px_var(--accent-order-glow)] transition-all duration-200 active:scale-[0.97]"
           >
             Booking Sekarang
           </button>

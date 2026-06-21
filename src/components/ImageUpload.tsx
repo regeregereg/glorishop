@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Image from "next/image";
 import { ImagePlus, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -88,8 +89,7 @@ export function ImageUpload({
           )}
         >
           {value ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={value} alt="" className="h-full w-full object-cover" />
+            <Image src={value} alt="" fill sizes="80px" className="object-cover" />
           ) : (
             <ImagePlus size={22} className="text-text-secondary/50" />
           )}

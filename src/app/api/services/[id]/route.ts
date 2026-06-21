@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStaffSession } from "@/lib/session";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 export async function PATCH(
   req: NextRequest,
@@ -24,6 +25,15 @@ export async function PATCH(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // Paksa halaman home/daftar layanan/detail layanan ini segar lagi
+  // sekarang, supaya perubahan admin (nama/harga/foto) langsung kelihatan
+  // tanpa harus menunggu cache 60 detik habis sendiri.
+  revalidateTag("services", "max");
+  revalidateTag("home-data", "max");
+  revalidatePath("/layanan");
+  revalidatePath(`/layanan/${id}`);
+
   return NextResponse.json({ service: data });
 }
 
@@ -43,5 +53,11 @@ export async function DELETE(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  revalidateTag("services", "max");
+  revalidateTag("home-data", "max");
+  revalidatePath("/layanan");
+  revalidatePath(`/layanan/${id}`);
+
   return NextResponse.json({ ok: true });
 }

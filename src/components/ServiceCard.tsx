@@ -2,6 +2,7 @@ import { Service } from "@/types";
 import { formatServicePrice } from "@/lib/utils";
 import { Clock, Scissors, Sparkles, Palette } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { PhotoPlaceholder } from "./PhotoPlaceholder";
 
 const CATEGORY_ICON = {
@@ -19,10 +20,15 @@ export function ServiceCard({ service }: { service: Service }) {
       href={`/layanan/${service.id}`}
       className="flex items-center gap-4 rounded-[var(--radius-card)] border border-border-soft bg-surface p-4 transition-colors hover:border-accent/40"
     >
-      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl">
+      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl">
         {service.photo_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={service.photo_url} alt="" className="h-full w-full object-cover" />
+          <Image
+            src={service.photo_url}
+            alt=""
+            fill
+            sizes="56px"
+            className="object-cover"
+          />
         ) : (
           <PhotoPlaceholder icon={<Icon size={20} strokeWidth={1.6} />} />
         )}

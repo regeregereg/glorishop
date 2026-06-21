@@ -16,13 +16,20 @@ export async function GET(req: NextRequest) {
   const [{ data: bookings }, { data: reviews }] = await Promise.all([
     supabase
       .from("bookings")
-      .select("*, service:services(*), services:booking_services(*), user:users(id, name)")
+      .select(
+        // Hanya kolom yang benar-benar dipakai di halaman riwayat barber
+        // (langsung atau lewat getBookingServiceNames/getBookingPriceLabel
+        // di src/lib/utils.ts) — sebelumnya "*" mengambil semua kolom
+        // termasuk yang tidak ditampilkan (notes, created_by_admin, dll),
+        // menambah ukuran response tanpa manfaat.
+        "id, status, updated_at, walkin_name, service:services(name, price, price_min, price_max), services:booking_services(service_name, service_price, service_price_min, service_price_max), user:users(id, name), slot:slots(date)"
+      )
       .eq("barber_id", barberId)
       .eq("status", "DONE")
       .order("updated_at", { ascending: false }),
     supabase
       .from("reviews")
-      .select("*")
+      .select("id, rating, comment, created_at")
       .eq("barber_id", barberId)
       .order("created_at", { ascending: false }),
   ]);

@@ -274,6 +274,11 @@ export default function AdminPaymentsPage() {
               <p className="py-10 text-center text-sm text-text-secondary">Memuat...</p>
             )}
             {!previewLoading && previewUrl && (
+              // Sengaja TIDAK pakai next/image: proof_url adalah signed URL
+              // sementara (TTL 5 menit) dari bucket privat, dan filenya bisa
+              // berupa PDF (lihat accept type saat upload) — next/image hanya
+              // mendukung gambar dan tidak cocok dioptimasi untuk URL yang
+              // memang dirancang temporary/privat seperti ini.
               // eslint-disable-next-line @next/next/no-img-element
               <img src={previewUrl} alt="Bukti transfer" className="w-full rounded-xl object-contain" />
             )}

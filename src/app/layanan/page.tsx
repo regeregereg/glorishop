@@ -5,7 +5,11 @@ import { Service, ServiceCategory } from "@/types";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
-export const dynamic = "force-dynamic";
+// Halaman ini TIDAK membaca data per-user (tidak ada sesi/cookie personal
+// yang ditampilkan), isinya sama untuk semua pengunjung — jadi aman dicache
+// 60 detik. Setiap admin mengubah layanan, cache ini langsung di-invalidate
+// otomatis lewat revalidatePath di endpoint admin terkait.
+export const revalidate = 60;
 
 const CATEGORY_LABEL: Record<ServiceCategory, string> = {
   haircut: "Haircut",

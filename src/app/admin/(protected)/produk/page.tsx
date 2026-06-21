@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import { Product } from "@/types";
 import { Button } from "@/components/Button";
 import { ImageUpload } from "@/components/ImageUpload";
@@ -84,10 +85,9 @@ export default function AdminProdukPage() {
             }`}
           >
             <div className="flex items-start justify-between">
-              <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-accent-soft text-accent">
+              <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-accent-soft text-accent">
                 {p.photo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.photo_url} alt="" className="h-full w-full object-cover" />
+                  <Image src={p.photo_url} alt="" fill sizes="56px" className="object-cover" />
                 ) : (
                   <Package size={22} strokeWidth={1.5} />
                 )}

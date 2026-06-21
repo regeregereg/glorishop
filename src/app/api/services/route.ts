@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStaffSession } from "@/lib/session";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -46,5 +47,13 @@ export async function POST(req: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // Layanan baru harus langsung muncul di halaman publik (home, daftar
+  // layanan, dipakai juga sebagai sumber data cache home) — paksa segar lagi
+  // sekarang, jangan tunggu sampai cache 60 detik habis sendiri.
+  revalidateTag("services", "max");
+  revalidateTag("home-data", "max");
+  revalidatePath("/layanan");
+
   return NextResponse.json({ service: data });
 }

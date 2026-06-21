@@ -5,10 +5,15 @@ import { PortfolioGallery } from "@/components/PortfolioGallery";
 import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
 import { BarberPortfolio } from "@/types";
 import Link from "next/link";
+import Image from "next/image";
 import { ChevronLeft, Star, Scissors } from "lucide-react";
 import { notFound } from "next/navigation";
 
-export const dynamic = "force-dynamic";
+// Halaman ini TIDAK membaca data per-user, isinya sama untuk semua
+// pengunjung — aman dicache 60 detik dengan invalidation otomatis saat
+// admin mengubah profil/portofolio barber ini (lihat revalidatePath di
+// endpoint admin terkait).
+export const revalidate = 60;
 
 interface BarberProfile {
   id: string;
@@ -70,11 +75,13 @@ export default async function BarberProfilePage({
       {/* Hero: foto profil full-bleed */}
       <div className="relative h-[58vh] min-h-[340px] w-full overflow-hidden">
         {barber.photo_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={barber.photo_url}
             alt={barber.name}
-            className="absolute inset-0 h-full w-full object-cover"
+            fill
+            sizes="100vw"
+            priority
+            className="object-cover"
           />
         ) : (
           <PhotoPlaceholder

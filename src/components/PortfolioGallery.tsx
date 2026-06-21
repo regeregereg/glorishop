@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { X, ChevronLeft, ChevronRight, ImageOff } from "lucide-react";
 import { BarberPortfolio } from "@/types";
 
@@ -28,15 +29,20 @@ export function PortfolioGallery({
     <>
       <div className="mt-3 grid grid-cols-2 gap-2.5">
         {portfolio.map((p, i) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <div
             key={p.id}
-            src={p.photo_url}
-            alt={`Hasil karya ${barberName}`}
-            loading="lazy"
             onClick={() => setOpenIndex(i)}
-            className="aspect-square w-full cursor-pointer rounded-2xl border border-border-soft object-cover transition-transform active:scale-[0.97]"
-          />
+            className="relative aspect-square w-full cursor-pointer overflow-hidden rounded-2xl border border-border-soft transition-transform active:scale-[0.97]"
+          >
+            <Image
+              src={p.photo_url}
+              alt={`Hasil karya ${barberName}`}
+              fill
+              sizes="(max-width: 640px) 50vw, 280px"
+              loading="lazy"
+              className="object-cover"
+            />
+          </div>
         ))}
       </div>
 
@@ -136,12 +142,13 @@ function Lightbox({
 
       {/* Image */}
       <div className="relative flex flex-1 items-center justify-center overflow-hidden px-2">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           key={current.id}
           src={current.photo_url}
           alt={`Hasil karya ${barberName}`}
-          className="max-h-full max-w-full select-none rounded-xl object-contain"
+          fill
+          sizes="100vw"
+          className="select-none rounded-xl object-contain"
         />
 
         {photos.length > 1 && (

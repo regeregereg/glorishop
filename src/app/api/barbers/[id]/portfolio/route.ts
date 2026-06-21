@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStaffSession } from "@/lib/session";
+import { revalidatePath } from "next/cache";
 
 // GET  /api/barbers/[id]/portfolio        -> publik, dipakai halaman profil barber
 // POST /api/barbers/[id]/portfolio        -> admin only, tambah satu foto ke galeri
@@ -68,5 +69,9 @@ export async function POST(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // Galeri portofolio tampil di halaman publik profil barber ini.
+  revalidatePath(`/barber/${id}`);
+
   return NextResponse.json({ photo: data });
 }

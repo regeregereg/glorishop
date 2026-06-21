@@ -3,10 +3,14 @@ import { formatServicePrice } from "@/lib/utils";
 import { LinkButton } from "@/components/Button";
 import { BackButton } from "@/components/BackButton";
 import { Service } from "@/types";
+import Image from "next/image";
 import { Clock, Scissors, Sparkles, Palette } from "lucide-react";
 import { notFound } from "next/navigation";
 
-export const dynamic = "force-dynamic";
+// Halaman ini TIDAK membaca data per-user, isinya sama untuk semua
+// pengunjung — aman dicache 60 detik dengan invalidation otomatis saat
+// admin mengubah layanan ini (lihat revalidatePath di endpoint admin terkait).
+export const revalidate = 60;
 
 const CATEGORY_ICON = { haircut: Scissors, treatment: Sparkles, colouring: Palette, product: Scissors };
 const CATEGORY_LABEL = { haircut: "Haircut", treatment: "Paket Treatment", colouring: "Colouring", product: "Produk" };
@@ -37,10 +41,16 @@ export default async function ServiceDetailPage({
       </header>
 
       <div className="px-5">
-        <div className="flex h-40 items-center justify-center overflow-hidden rounded-[var(--radius-card)] bg-gradient-to-br from-surface-2 to-surface border border-border-soft text-accent">
+        <div className="relative flex h-40 items-center justify-center overflow-hidden rounded-[var(--radius-card)] bg-gradient-to-br from-surface-2 to-surface border border-border-soft text-accent">
           {service.photo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={service.photo_url} alt={service.name} className="h-full w-full object-cover" />
+            <Image
+              src={service.photo_url}
+              alt={service.name}
+              fill
+              sizes="(max-width: 640px) 100vw, 480px"
+              priority
+              className="object-cover"
+            />
           ) : (
             <Icon size={56} strokeWidth={1.3} />
           )}

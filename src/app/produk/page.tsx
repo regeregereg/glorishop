@@ -4,9 +4,13 @@ import { BottomNav } from "@/components/BottomNav";
 import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
 import { Product } from "@/types";
 import Link from "next/link";
+import Image from "next/image";
 import { ChevronLeft, Package } from "lucide-react";
 
-export const dynamic = "force-dynamic";
+// Halaman ini TIDAK membaca data per-user, isinya sama untuk semua
+// pengunjung — aman dicache 60 detik dengan invalidation otomatis saat
+// admin mengubah produk (lihat revalidatePath di endpoint admin terkait).
+export const revalidate = 60;
 
 async function getProducts() {
   const supabase = createAdminClient();
@@ -43,10 +47,15 @@ export default async function ProdukPage() {
             key={p.id}
             className="rounded-2xl border border-border-soft bg-surface p-4"
           >
-            <div className="h-20 overflow-hidden rounded-xl">
+            <div className="relative h-20 overflow-hidden rounded-xl">
               {p.photo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={p.photo_url} alt={p.name} className="h-full w-full object-cover" />
+                <Image
+                  src={p.photo_url}
+                  alt={p.name}
+                  fill
+                  sizes="(max-width: 640px) 50vw, 220px"
+                  className="object-cover"
+                />
               ) : (
                 <PhotoPlaceholder icon={<Package size={28} strokeWidth={1.5} />} />
               )}

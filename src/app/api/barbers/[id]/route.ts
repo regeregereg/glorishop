@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStaffSession } from "@/lib/session";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 export async function PATCH(
   req: NextRequest,
@@ -29,5 +30,12 @@ export async function PATCH(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // Profil barber (foto/nama/bio) bisa muncul di home + halaman profil
+  // publiknya sendiri — paksa segar lagi sekarang.
+  revalidateTag("barbers", "max");
+  revalidateTag("home-data", "max");
+  revalidatePath(`/barber/${id}`);
+
   return NextResponse.json({ barber: data });
 }

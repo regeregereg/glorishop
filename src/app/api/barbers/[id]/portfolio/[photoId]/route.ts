@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStaffSession } from "@/lib/session";
+import { revalidatePath } from "next/cache";
 
 // DELETE /api/barbers/[id]/portfolio/[photoId] -> admin only
 
@@ -25,5 +26,8 @@ export async function DELETE(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  revalidatePath(`/barber/${id}`);
+
   return NextResponse.json({ ok: true });
 }

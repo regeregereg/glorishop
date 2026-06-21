@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Plus, Scissors, Sparkles, Palette } from "lucide-react";
 import { Service } from "@/types";
 import { formatServicePrice } from "@/lib/utils";
@@ -22,11 +23,12 @@ export function ServiceGridCard({ service }: { service: Service }) {
       {/* Gambar */}
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface-2">
         {service.photo_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={service.photo_url}
             alt={service.name}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            fill
+            sizes="(max-width: 640px) 50vw, 240px"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
           <PhotoPlaceholder icon={<Icon size={32} strokeWidth={1.5} />} />

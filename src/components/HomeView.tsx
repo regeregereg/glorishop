@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Search,
   Bell,
@@ -138,10 +139,9 @@ export function HomeView({
       <header className="px-5 pt-6 pb-4">
         <div className="flex items-center justify-between">
           <Link href="/profil" className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent-soft font-display text-sm font-bold text-accent">
+            <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent-soft font-display text-sm font-bold text-accent">
               {avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                <Image src={avatarUrl} alt="" fill sizes="44px" className="object-cover" />
               ) : (
                 initials(sessionName || "Glori Barbershop")
               )}
@@ -255,11 +255,13 @@ export function HomeView({
                   className="group relative block h-48 overflow-hidden rounded-[var(--radius-card)] border border-border-soft"
                 >
                   {b.photo_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Image
                       src={b.photo_url}
                       alt={b.name}
-                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      fill
+                      sizes="(max-width: 640px) 100vw, 480px"
+                      priority={i === 0}
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                   ) : (
                     <PhotoPlaceholder

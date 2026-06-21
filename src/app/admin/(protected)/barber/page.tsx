@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import { Staff, BarberPortfolio } from "@/types";
 import { Button } from "@/components/Button";
 import { ImageUpload } from "@/components/ImageUpload";
@@ -82,10 +83,9 @@ export default function AdminBarberPage() {
         {barbers.map((b) => (
           <div key={b.id} className="rounded-2xl border border-border-soft bg-surface p-4">
             <div className="flex items-start justify-between">
-              <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-accent-soft font-display font-bold text-accent">
+              <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-accent-soft font-display font-bold text-accent">
                 {b.photo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={b.photo_url} alt="" className="h-full w-full object-cover" />
+                  <Image src={b.photo_url} alt="" fill sizes="48px" className="object-cover" />
                 ) : (
                   b.name.slice(0, 2).toUpperCase()
                 )}
@@ -396,8 +396,7 @@ function BarberPortfolioModal({
             <div className="grid grid-cols-3 gap-2.5">
               {photos.map((p) => (
                 <div key={p.id} className="group relative aspect-square overflow-hidden rounded-xl border border-border-soft">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.photo_url} alt="" className="h-full w-full object-cover" />
+                  <Image src={p.photo_url} alt="" fill sizes="(max-width: 640px) 33vw, 160px" className="object-cover" />
                   <button
                     onClick={() => handleDelete(p.id)}
                     disabled={deletingId === p.id}

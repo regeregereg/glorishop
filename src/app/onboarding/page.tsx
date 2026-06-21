@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import Image from "next/image";
 import { Scissors, Droplet, Palette, Sparkles, ArrowUpRight, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
@@ -174,13 +175,15 @@ export default function OnboardingPage() {
           >
             {/* Gambar / fallback */}
             {!failed.has(i) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={slide.src}
                 alt={slide.label}
+                fill
+                sizes="78vw"
                 draggable={false}
+                priority={i === 0}
                 onError={() => markFailed(i)}
-                className="pointer-events-none h-full w-full object-cover transition-transform duration-700"
+                className="pointer-events-none object-cover transition-transform duration-700"
               />
             ) : (
               <PhotoPlaceholder icon={<slide.Icon size={64} strokeWidth={1.1} />} />

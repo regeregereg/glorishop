@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { ChevronLeft, ChevronRight, Star, Clock, Check } from "lucide-react";
 import { Service, Staff, Slot } from "@/types";
 import {
@@ -248,6 +249,59 @@ function BookingFlow() {
     return Math.max(1, Math.ceil(totalDurationMin / slotLengthMin));
   }, [selectedServices.length, slots, totalDurationMin]);
 
+  // PERFORMA: kelompokkan & urutkan slot per barber+tanggal SATU KALI saja
+  // (bukan di tiap iterasi .map() saat render). Sebelumnya, mengecek
+  // "apakah ada cukup slot berurutan setelah slot ini" dilakukan dengan
+  // filter+sort ulang dari SELURUH daftar slot untuk SETIAP slot yang
+  // ditampilkan — O(n²) dan terasa berat kalau slotnya banyak (banyak
+  // barber/jam). Sekarang hasil pengelompokan ini disimpan di sini, dan
+  // pengecekan ketersediaan tinggal cari index langsung (O(1) lookup),
+  // sehingga total kerja jadi O(n log n) sekali per perubahan data, bukan
+  // dihitung ulang dari nol setiap render.
+  const sortedSlotsByBarberDate = useMemo(() => {
+    const groups = new Map<string, Slot[]>();
+    for (const s of slots) {
+      const key = `${s.barber_id}|${s.date}`;
+      const arr = groups.get(key);
+      if (arr) arr.push(s);
+      else groups.set(key, [s]);
+    }
+    for (const arr of groups.values()) {
+      arr.sort((a, b) => a.start_time.localeCompare(b.start_time));
+    }
+    return groups;
+  }, [slots]);
+
+  // Set berisi id slot yang VALID dipilih (cukup slot berurutan setelahnya).
+  // Dihitung sekali per perubahan slot/kebutuhan durasi, dipakai sebagai
+  // lookup O(1) saat render tiap kartu slot — bukan dihitung ulang per kartu.
+  const validSlotIds = useMemo(() => {
+    const valid = new Set<string>();
+    if (slotsNeededCount <= 1) {
+      for (const s of slots) valid.add(s.id);
+      return valid;
+    }
+    for (const [, sameBarberDate] of sortedSlotsByBarberDate) {
+      for (let startIdx = 0; startIdx < sameBarberDate.length; startIdx++) {
+        let count = 1;
+        let i = startIdx;
+        let ok = true;
+        while (count < slotsNeededCount) {
+          const current = sameBarberDate[i];
+          const next = sameBarberDate[i + 1];
+          if (!next || !next.is_available || next.start_time !== current.end_time) {
+            ok = false;
+            break;
+          }
+          count += 1;
+          i += 1;
+        }
+        if (ok) valid.add(sameBarberDate[startIdx].id);
+      }
+    }
+    return valid;
+  }, [sortedSlotsByBarberDate, slots, slotsNeededCount]);
+
   function toggleService(service: Service) {
     setSelectedServiceIds((prev) => {
       const next = new Set(prev);
@@ -471,10 +525,9 @@ function BookingFlow() {
                     : "border-border-soft hover:border-accent/40"
                 )}
               >
-                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-accent-soft text-accent font-display font-bold">
+                <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-accent-soft text-accent font-display font-bold">
                   {b.photo_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={b.photo_url} alt={b.name} className="h-full w-full object-cover" />
+                    <Image src={b.photo_url} alt={b.name} fill sizes="48px" className="object-cover" />
                   ) : (
                     b.name.slice(0, 2).toUpperCase()
                   )}
@@ -497,11 +550,13 @@ function BookingFlow() {
             {selectedBarber && selectedBarber !== "any" && (
               <div className="relative mb-5 -mx-5 h-56 w-[calc(100%+2.5rem)] overflow-hidden sm:rounded-3xl sm:mx-0 sm:w-full">
                 {selectedBarber.photo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={selectedBarber.photo_url}
                     alt={selectedBarber.name}
-                    className="h-full w-full object-cover"
+                    fill
+                    sizes="(max-width: 640px) 100vw, 480px"
+                    priority
+                    className="object-cover"
                   />
                 ) : (
                   <PhotoPlaceholder
@@ -624,11 +679,9 @@ function BookingFlow() {
                   // Untuk total durasi lebih dari 1 slot, slot ini hanya valid
                   // dipilih kalau ada cukup slot berurutan SETELAHNYA yang juga
                   // masih tersedia (tanpa jeda), supaya semua layanan kebagian waktu.
-                  const hasEnoughFollowingSlots = hasConsecutiveAvailability(
-                    slots,
-                    slot,
-                    slotsNeededCount
-                  );
+                  // Dicek lewat lookup Set (O(1)), hasil pre-compute di atas —
+                  // bukan dihitung ulang per kartu slot.
+                  const hasEnoughFollowingSlots = validSlotIds.has(slot.id);
                   return (
                     <button
                       key={slot.id}
@@ -823,12 +876,15 @@ function BookingFlow() {
 
                 <div className="flex flex-col items-center gap-3 rounded-[var(--radius-card)] border border-border-soft bg-surface p-5">
                   {paymentSettings?.qris_image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={paymentSettings.qris_image_url}
-                      alt="QRIS Glori Barbershop"
-                      className="h-56 w-56 rounded-xl object-contain"
-                    />
+                    <div className="relative h-56 w-56 overflow-hidden rounded-xl">
+                      <Image
+                        src={paymentSettings.qris_image_url}
+                        alt="QRIS Glori Barbershop"
+                        fill
+                        sizes="224px"
+                        className="object-contain"
+                      />
+                    </div>
                   ) : (
                     <p className="py-10 text-center text-sm text-text-secondary">
                       QRIS belum diatur admin. Silakan hubungi barbershop langsung untuk
@@ -922,30 +978,6 @@ function BookingFlow() {
 function timeToMinutes(t: string): number {
   const [h, m] = t.split(":").map(Number);
   return h * 60 + m;
-}
-
-// Cek apakah dari slot tertentu, ada cukup slot berurutan (tanpa jeda waktu,
-// semua masih is_available) untuk menampung neededCount blok slot. Dipakai
-// supaya pelanggan tidak bisa memilih slot yang akhirnya bentrok/tidak
-// cukup untuk total durasi semua layanan yang sudah dipilih.
-function hasConsecutiveAvailability(allSlots: Slot[], startSlot: Slot, neededCount: number): boolean {
-  if (neededCount <= 1) return true;
-  const sameBarberDate = allSlots
-    .filter((s) => s.barber_id === startSlot.barber_id && s.date === startSlot.date)
-    .sort((a, b) => a.start_time.localeCompare(b.start_time));
-  const startIdx = sameBarberDate.findIndex((s) => s.id === startSlot.id);
-  if (startIdx === -1) return false;
-
-  let count = 1;
-  let i = startIdx;
-  while (count < neededCount) {
-    const current = sameBarberDate[i];
-    const next = sameBarberDate[i + 1];
-    if (!next || !next.is_available || next.start_time !== current.end_time) return false;
-    count += 1;
-    i += 1;
-  }
-  return true;
 }
 
 export default function BookingPage() {

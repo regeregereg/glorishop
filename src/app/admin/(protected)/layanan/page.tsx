@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import { Service, ServiceCategory } from "@/types";
 import { Button } from "@/components/Button";
 import { ImageUpload } from "@/components/ImageUpload";
@@ -90,10 +91,9 @@ export default function AdminLayananPage() {
             }`}
           >
             <div className="flex items-center gap-3">
-              <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-border-soft bg-surface-2">
+              <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-border-soft bg-surface-2">
                 {s.photo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={s.photo_url} alt="" className="h-full w-full object-cover" />
+                  <Image src={s.photo_url} alt="" fill sizes="48px" className="object-cover" />
                 ) : null}
               </div>
               <div>

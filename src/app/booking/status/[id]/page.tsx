@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import { ChevronLeft } from "lucide-react";
 import { Booking } from "@/types";
 import { Button } from "@/components/Button";
@@ -141,8 +142,9 @@ export default function BookingPaymentDetailPage() {
 
             <div className="flex flex-col items-center gap-3 rounded-[var(--radius-card)] border border-border-soft bg-surface p-5">
               {qrisUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={qrisUrl} alt="QRIS Glori Barbershop" className="h-56 w-56 rounded-xl object-contain" />
+                <div className="relative h-56 w-56 overflow-hidden rounded-xl">
+                  <Image src={qrisUrl} alt="QRIS Glori Barbershop" fill sizes="224px" className="object-contain" />
+                </div>
               ) : (
                 <p className="py-10 text-center text-sm text-text-secondary">
                   QRIS belum diatur admin. Silakan hubungi barbershop langsung.

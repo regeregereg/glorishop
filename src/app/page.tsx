@@ -3,53 +3,74 @@ import { getUserSession } from "@/lib/session";
 import { BottomNav } from "@/components/BottomNav";
 import { HomeView, type BarberCard } from "@/components/HomeView";
 import { Service, Staff } from "@/types";
+import { unstable_cache } from "next/cache";
 
+// PENTING: halaman ini membaca cookie sesi (getUserSession) dan menampilkan
+// nama pengguna + status booking aktif yang BERBEDA per orang — karena itu
+// halaman secara keseluruhan TIDAK boleh di-cache penuh (export const
+// revalidate di level halaman), supaya tidak ada risiko HTML hasil cache
+// milik satu pengguna (mis. sudah login + ada booking aktif) tersaji ke
+// pengunjung lain yang sesinya berbeda — ini persis jenis bug yang pernah
+// terjadi sebelumnya (lihat PERUBAHAN.md, bug sesi admin/customer tertukar).
+//
+// Yang dicache di sini HANYA query Supabase untuk data layanan/barber/rating
+// (lewat unstable_cache di bawah) — data ini sama untuk semua orang dan
+// jarang berubah, jadi aman dibagi/cache selama 60 detik. Bagian session
+// tetap selalu dibaca langsung dari cookie tiap request, tidak ikut cache.
 export const dynamic = "force-dynamic";
 
+const getCachedHomeData = unstable_cache(
+  async () => {
+    const supabase = createAdminClient();
+    const [{ data: services }, { data: barbers }, { data: reviews }] =
+      await Promise.all([
+        supabase
+          .from("services")
+          .select("*")
+          .eq("is_active", true)
+          .order("sort_order")
+          .limit(8),
+        supabase
+          .from("staff")
+          .select("id, name, photo_url, bio")
+          .eq("role", "barber")
+          .eq("is_active", true)
+          .limit(6),
+        supabase.from("reviews").select("barber_id, rating"),
+      ]);
+
+    const ratingMap = new Map<string, { total: number; count: number }>();
+    for (const r of reviews ?? []) {
+      if (!r.barber_id) continue;
+      const entry = ratingMap.get(r.barber_id) ?? { total: 0, count: 0 };
+      entry.total += r.rating;
+      entry.count += 1;
+      ratingMap.set(r.barber_id, entry);
+    }
+
+    const barberCards: BarberCard[] = ((barbers ?? []) as Staff[]).map((b) => {
+      const stat = ratingMap.get(b.id);
+      return {
+        ...b,
+        avgRating: stat ? stat.total / stat.count : null,
+        reviewCount: stat?.count ?? 0,
+      };
+    });
+
+    const allServices = (services ?? []) as Service[];
+    const prices = allServices
+      .map((s) => s.price_min ?? s.price)
+      .filter((p): p is number => p != null);
+    const minPrice = prices.length > 0 ? Math.min(...prices) : null;
+
+    return { services: allServices, barbers: barberCards, minPrice };
+  },
+  ["home-page-data"],
+  { revalidate: 60, tags: ["home-data", "services", "barbers"] }
+);
+
 async function getData() {
-  const supabase = createAdminClient();
-  const [{ data: services }, { data: barbers }, { data: reviews }] =
-    await Promise.all([
-      supabase
-        .from("services")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order")
-        .limit(8),
-      supabase
-        .from("staff")
-        .select("id, name, photo_url, bio")
-        .eq("role", "barber")
-        .eq("is_active", true)
-        .limit(6),
-      supabase.from("reviews").select("barber_id, rating"),
-    ]);
-
-  const ratingMap = new Map<string, { total: number; count: number }>();
-  for (const r of reviews ?? []) {
-    if (!r.barber_id) continue;
-    const entry = ratingMap.get(r.barber_id) ?? { total: 0, count: 0 };
-    entry.total += r.rating;
-    entry.count += 1;
-    ratingMap.set(r.barber_id, entry);
-  }
-
-  const barberCards: BarberCard[] = ((barbers ?? []) as Staff[]).map((b) => {
-    const stat = ratingMap.get(b.id);
-    return {
-      ...b,
-      avgRating: stat ? stat.total / stat.count : null,
-      reviewCount: stat?.count ?? 0,
-    };
-  });
-
-  const allServices = (services ?? []) as Service[];
-  const prices = allServices
-    .map((s) => s.price_min ?? s.price)
-    .filter((p): p is number => p != null);
-  const minPrice = prices.length > 0 ? Math.min(...prices) : null;
-
-  return { services: allServices, barbers: barberCards, minPrice };
+  return getCachedHomeData();
 }
 
 export default async function HomePage() {

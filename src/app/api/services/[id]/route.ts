@@ -15,9 +15,25 @@ export async function PATCH(
   const body = await req.json();
 
   const supabase = createAdminClient();
+  // Kolom dibatasi eksplisit (bukan update(body) langsung) — pola yang
+  // sama dipakai endpoint products/barbers/banners, supaya body request
+  // tidak bisa diam-diam menimpa kolom lain (mis. created_at) kalau
+  // tabel ini nanti bertambah kolom baru yang tidak seharusnya diubah
+  // lewat endpoint ini.
   const { data, error } = await supabase
     .from("services")
-    .update(body)
+    .update({
+      name: body.name,
+      description: body.description,
+      price: body.price,
+      price_min: body.price_min,
+      price_max: body.price_max,
+      duration_minutes: body.duration_minutes,
+      photo_url: body.photo_url,
+      category: body.category,
+      is_active: body.is_active,
+      sort_order: body.sort_order,
+    })
     .eq("id", id)
     .select("*")
     .single();

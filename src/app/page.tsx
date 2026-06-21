@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 const getCachedHomeData = unstable_cache(
   async () => {
     const supabase = createAdminClient();
-    const [{ data: services }, { data: barbers }, { data: reviews }, { data: banners }] =
+    const [{ data: services }, { data: barbers }, { data: ratings }, { data: banners }] =
       await Promise.all([
         supabase
           .from("services")
@@ -36,7 +36,11 @@ const getCachedHomeData = unstable_cache(
           .eq("role", "barber")
           .eq("is_active", true)
           .limit(6),
-        supabase.from("reviews").select("barber_id, rating"),
+        // Agregasi rata-rata & jumlah review per barber dilakukan LANGSUNG
+        // di database lewat RPC (lihat migration_barber_ratings_rpc.sql),
+        // bukan ambil semua baris reviews mentah lalu dihitung manual di
+        // sini — supaya tidak makin lambat seiring jumlah review bertambah.
+        supabase.rpc("get_barber_ratings"),
         supabase
           .from("banners")
           .select("id, image_url")
@@ -44,20 +48,16 @@ const getCachedHomeData = unstable_cache(
           .order("sort_order"),
       ]);
 
-    const ratingMap = new Map<string, { total: number; count: number }>();
-    for (const r of reviews ?? []) {
-      if (!r.barber_id) continue;
-      const entry = ratingMap.get(r.barber_id) ?? { total: 0, count: 0 };
-      entry.total += r.rating;
-      entry.count += 1;
-      ratingMap.set(r.barber_id, entry);
+    const ratingMap = new Map<string, { avg: number; count: number }>();
+    for (const r of ratings ?? []) {
+      ratingMap.set(r.barber_id, { avg: r.avg_rating, count: r.review_count });
     }
 
     const barberCards: BarberCard[] = ((barbers ?? []) as Staff[]).map((b) => {
       const stat = ratingMap.get(b.id);
       return {
         ...b,
-        avgRating: stat ? stat.total / stat.count : null,
+        avgRating: stat?.avg ?? null,
         reviewCount: stat?.count ?? 0,
       };
     });

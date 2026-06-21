@@ -20,6 +20,7 @@ import { ServiceGridCard } from "@/components/ServiceGridCard";
 import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
 import { LinkButton } from "@/components/Button";
 import { cn, initials, formatRupiah } from "@/lib/utils";
+import { MAPS_URL } from "@/lib/contact";
 
 export type BarberCard = Staff & {
   avgRating: number | null;
@@ -169,9 +170,14 @@ export function HomeView({
         <h1 className="font-display mt-5 text-[26px] font-extrabold leading-[1.15] text-text-primary">
           Yuk, cari <span className="text-accent">barber terbaikmu!</span>
         </h1>
-        <p className="mt-1 flex items-center gap-1 text-xs text-text-secondary">
+        <a
+          href={MAPS_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-1 inline-flex items-center gap-1 text-xs text-text-secondary"
+        >
           <MapPin size={12} /> Ciporos
-        </p>
+        </a>
 
         {/* Search */}
         <div className="mt-4 flex items-center gap-2 rounded-2xl bg-surface border border-border-soft px-4 py-3.5">

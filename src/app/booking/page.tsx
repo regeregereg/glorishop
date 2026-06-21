@@ -940,7 +940,7 @@ function BookingFlow() {
           beberapa layanan dulu sebelum lanjut). */}
       {step === "service" && (
         <div className="fixed bottom-0 left-0 right-0 border-t border-border-soft bg-surface/95 px-5 py-4 backdrop-blur-lg">
-          <Button size="lg" fullWidth onClick={goNext} disabled={selectedServiceIds.size === 0}>
+          <Button variant="order" size="lg" fullWidth onClick={goNext} disabled={selectedServiceIds.size === 0}>
             {selectedServiceIds.size === 0
               ? "Pilih minimal 1 layanan"
               : `Lanjut (${selectedServiceIds.size} layanan dipilih)`}
@@ -950,7 +950,7 @@ function BookingFlow() {
 
       {step === "confirm" && (
         <div className="fixed bottom-0 left-0 right-0 border-t border-border-soft bg-surface/95 px-5 py-4 backdrop-blur-lg">
-          <Button size="lg" fullWidth onClick={handleConfirm} disabled={submitting}>
+          <Button variant="order" size="lg" fullWidth onClick={handleConfirm} disabled={submitting}>
             {session === null ? "Login & Lanjutkan" : "Lanjut ke Pembayaran"}
           </Button>
         </div>
@@ -958,7 +958,7 @@ function BookingFlow() {
 
       {step === "payment" && !createdBooking && (
         <div className="fixed bottom-0 left-0 right-0 border-t border-border-soft bg-surface/95 px-5 py-4 backdrop-blur-lg">
-          <Button size="lg" fullWidth onClick={handleCreateBooking} disabled={submitting}>
+          <Button variant="order" size="lg" fullWidth onClick={handleCreateBooking} disabled={submitting}>
             {submitting ? "Memproses..." : "Buat Booking & Tampilkan QRIS"}
           </Button>
         </div>
@@ -966,7 +966,7 @@ function BookingFlow() {
 
       {step === "payment" && createdBooking && !uploadDone && (
         <div className="fixed bottom-0 left-0 right-0 border-t border-border-soft bg-surface/95 px-5 py-4 backdrop-blur-lg">
-          <Button size="lg" fullWidth onClick={handleUploadProof} disabled={uploadingProof || !proofFile}>
+          <Button variant="order" size="lg" fullWidth onClick={handleUploadProof} disabled={uploadingProof || !proofFile}>
             {uploadingProof ? "Mengunggah..." : "Kirim Bukti Transfer"}
           </Button>
         </div>

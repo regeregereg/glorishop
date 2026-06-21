@@ -380,7 +380,7 @@ export function HomeView({
             <p className="mt-1 text-xs text-text-secondary">
               Booking sekarang, datang pas waktunya — tanpa antri.
             </p>
-            <LinkButton href="/booking" size="md" className="mt-4" fullWidth>
+            <LinkButton href="/booking" variant="order" size="md" className="mt-4" fullWidth>
               Booking Sekarang
             </LinkButton>
           </div>

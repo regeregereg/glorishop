@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { ButtonHTMLAttributes, ReactNode } from "react";
 
-type Variant = "primary" | "secondary" | "ghost" | "danger";
+type Variant = "primary" | "secondary" | "ghost" | "danger" | "order";
 type Size = "sm" | "md" | "lg";
 
 const variantStyles: Record<Variant, string> = {
@@ -11,6 +11,8 @@ const variantStyles: Record<Variant, string> = {
     "bg-surface-2 text-text-primary border border-border-soft hover:border-accent/40 active:scale-[0.98]",
   ghost: "bg-transparent text-text-primary hover:bg-white/5 active:scale-[0.98]",
   danger: "bg-status-cancelled/15 text-status-cancelled hover:bg-status-cancelled/25",
+  order:
+    "bg-gradient-to-r from-accent-order-from to-accent-order-to text-white shadow-[0_4px_20px_-2px_var(--accent-order-glow)] hover:shadow-[0_6px_24px_-2px_var(--accent-order-glow)] hover:brightness-105 active:scale-[0.98]",
 };
 
 const sizeStyles: Record<Size, string> = {

@@ -94,7 +94,7 @@ export default async function ServiceDetailPage({
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 border-t border-border-soft bg-surface/95 px-5 py-4 backdrop-blur-lg">
-        <LinkButton href={`/booking?serviceId=${service.id}`} size="lg" fullWidth>
+        <LinkButton href={`/booking?serviceId=${service.id}`} variant="order" size="lg" fullWidth>
           Booking Layanan Ini
         </LinkButton>
       </div>

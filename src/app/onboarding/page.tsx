@@ -167,10 +167,11 @@ export default function OnboardingPage() {
         {SLIDES.map((slide, i) => (
           <div
             key={slide.label}
-            className="relative h-[370px] w-[78%] shrink-0 select-none overflow-hidden rounded-[28px] snap-center"
+            className="onboarding-card-reveal relative h-[370px] w-[78%] shrink-0 select-none overflow-hidden rounded-[28px] snap-center"
             style={{
               border: "1px solid rgba(255,255,255,0.08)",
               boxShadow: "0 8px 32px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.04) inset",
+              animationDelay: `${i * 0.12}s`,
             }}
           >
             {/* Gambar / fallback */}
@@ -191,6 +192,13 @@ export default function OnboardingPage() {
 
             {/* Gradient overlay bawah — lebih dalam & dramatis */}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+
+            {/* Shine sweep — sapuan cahaya tipis sekali jalan saat kartu pertama muncul,
+                kesan premium tanpa mengganggu konten */}
+            <div
+              className="onboarding-shine pointer-events-none absolute inset-0"
+              style={{ animationDelay: `${0.4 + i * 0.12}s` }}
+            />
 
             {/* CTA editorial — pojok kanan atas, gaya magazine bold */}
             <div className="absolute right-4 top-4 text-right">
@@ -274,7 +282,7 @@ export default function OnboardingPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleEnter}
-            className="flex-1 rounded-full bg-accent py-[15px] text-[15px] font-bold text-black transition-all duration-200 active:scale-[0.97]"
+            className="flex-1 rounded-full bg-gradient-to-r from-accent-order-from to-accent-order-to py-[15px] text-[15px] font-bold text-white shadow-[0_4px_20px_-2px_var(--accent-order-glow)] transition-all duration-200 active:scale-[0.97]"
           >
             Booking Sekarang
           </button>

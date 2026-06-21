@@ -14,10 +14,15 @@
   --text-tertiary: #6e7075;
   --text-onLight-primary: #16171b;
 
-  /* Accent — satu-satunya accent color (amber/gold) */
-  --accent: #e18f00;
-  --accent-strong: #c77c00;
-  --accent-soft: rgba(225, 143, 0, 0.14);
+  /* Accent — satu-satunya accent color (putih) */
+  --accent: #ffffff;
+  --accent-strong: #e4e4e7;
+  --accent-soft: rgba(255, 255, 255, 0.12);
+
+  /* Accent order/booking — gradient oranye-merah khusus tombol aksi utama */
+  --accent-order-from: #ff8a3d;
+  --accent-order-to: #e2402a;
+  --accent-order-glow: rgba(255, 106, 53, 0.45);
 
   /* Status colors — tidak diubah, di luar scope warna struktural */
   --status-pending: #9a9a9d;
@@ -61,6 +66,8 @@
   --color-accent: var(--accent);
   --color-accent-strong: var(--accent-strong);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-order-from: var(--accent-order-from);
+  --color-accent-order-to: var(--accent-order-to);
   --color-status-pending: var(--status-pending);
   --color-status-confirmed: var(--status-confirmed);
   --color-status-progress: var(--status-progress);
@@ -141,6 +148,60 @@ h1, h2, h3, h4, .font-display {
 @media (prefers-reduced-motion: reduce) {
   .status-dot-pulse {
     animation: none;
+  }
+}
+
+/* ── Shine glow halus di tepi kartu onboarding — sapuan cahaya sekali jalan,
+   bukan loop terus-menerus, supaya terasa "wah" tanpa berlebihan ── */
+@keyframes shine-sweep {
+  0% { background-position: -150% 0; opacity: 0; }
+  15% { opacity: 1; }
+  55% { opacity: 1; }
+  100% { background-position: 250% 0; opacity: 0; }
+}
+.onboarding-shine {
+  background: linear-gradient(
+    100deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.55) 48%,
+    rgba(255, 255, 255, 0.9) 50%,
+    rgba(255, 255, 255, 0.55) 52%,
+    transparent 65%
+  );
+  background-size: 250% 100%;
+  animation: shine-sweep 2.2s ease-in-out 0.5s 1 both;
+  mix-blend-mode: overlay;
+}
+
+/* Kartu masuk satu per satu dengan jeda kecil — bukan langsung muncul */
+@keyframes card-reveal {
+  0% { opacity: 0; transform: translateY(14px) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.onboarding-card-reveal {
+  animation: card-reveal 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-shine,
+  .onboarding-card-reveal {
+    animation: none;
+  }
+}
+
+/* ── Glow ambient lembut di belakang tombol order/booking gradient ── */
+@keyframes order-glow-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.9; }
+}
+.order-btn-glow {
+  animation: order-glow-pulse 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .order-btn-glow {
+    animation: none;
+    opacity: 0.7;
   }
 }
 

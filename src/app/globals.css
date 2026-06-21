@@ -241,6 +241,24 @@ h1, h2, h3, h4, .font-display {
   transform: scale(0.98);
 }
 
+/* ── Gradient teks/icon untuk state aktif (mis. bottom nav) — pakai
+   stop & arah yang sama dengan .btn-order-gradient, tapi diterapkan ke
+   teks lewat background-clip. Icon SVG menggunakan <linearGradient> terpisah
+   yang direferensikan via stroke="url(#nav-order-gradient)". ── */
+.text-order-gradient {
+  background: linear-gradient(135deg,
+    var(--accent-order-0) 0%,
+    var(--accent-order-14) 14%,
+    var(--accent-order-33) 33%,
+    var(--accent-order-54) 54%,
+    var(--accent-order-80) 80%,
+    var(--accent-order-100) 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
 /* Transisi halus untuk kartu onboarding & elemen yang muncul bergantian */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(6px) scale(0.98); }

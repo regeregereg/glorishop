@@ -24,7 +24,7 @@ export function ServiceCard({ service }: { service: Service }) {
         {service.photo_url ? (
           <Image
             src={service.photo_url}
-            alt=""
+            alt={service.name}
             fill
             sizes="56px"
             className="object-cover"

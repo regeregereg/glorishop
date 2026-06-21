@@ -7,6 +7,8 @@ import { Service } from "@/types";
 import Image from "next/image";
 import { Clock, Scissors, Sparkles, Palette } from "lucide-react";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+import { BUSINESS_NAME, SITE_URL } from "@/lib/contact";
 
 // Halaman ini TIDAK membaca data per-user, isinya sama untuk semua
 // pengunjung — aman dicache 60 detik dengan invalidation otomatis saat
@@ -22,6 +24,35 @@ async function getService(id: string) {
   return data as Service | null;
 }
 
+// Title & description per-layanan — supaya tiap layanan punya snippet
+// pencarian sendiri di Google (mis. "Haircut Dewasa | Glori Barbershop"),
+// bukan cuma title generik yang sama untuk semua halaman.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const service = await getService(id);
+  if (!service) return {};
+
+  const description =
+    service.description ||
+    `${service.name} di ${BUSINESS_NAME} — ${formatServicePrice(service)}. Booking online tanpa antri.`;
+
+  return {
+    title: service.name,
+    description,
+    alternates: { canonical: `/layanan/${id}` },
+    openGraph: {
+      title: `${service.name} | ${BUSINESS_NAME}`,
+      description,
+      images: service.photo_url ? [service.photo_url] : undefined,
+      url: `${SITE_URL}/layanan/${id}`,
+    },
+  };
+}
+
 export default async function ServiceDetailPage({
   params,
 }: {
@@ -34,8 +65,31 @@ export default async function ServiceDetailPage({
   const Icon = CATEGORY_ICON[service.category];
   const hasRange = service.price_min != null && service.price_max != null;
 
+  // Structured data per-layanan — Service + Offer, supaya Google bisa
+  // menampilkan info harga langsung di hasil pencarian (rich snippet) saat
+  // orang mencari nama layanan ini + nama toko.
+  const serviceJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    serviceType: CATEGORY_LABEL[service.category],
+    name: service.name,
+    description: service.description || service.name,
+    provider: { "@type": "HairSalon", "@id": `${SITE_URL}/#business`, name: BUSINESS_NAME },
+    offers: {
+      "@type": "Offer",
+      priceCurrency: "IDR",
+      price: service.price ?? service.price_min ?? undefined,
+      availability: "https://schema.org/InStock",
+    },
+  };
+
   return (
     <div className="min-h-screen bg-bg pb-28">
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceJsonLd) }}
+      />
       {/* Hero: foto layanan full-bleed — pola sama dengan halaman profil
           barber, supaya foto terasa lebih luas/jadi sorotan utama, bukan
           dikecilkan jadi kartu kecil dengan padding di kiri-kanan. */}

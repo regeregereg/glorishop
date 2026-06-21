@@ -7,8 +7,9 @@ import { BarberPortfolio } from "@/types";
 import Image from "next/image";
 import { Star, Scissors, MessageCircle } from "lucide-react";
 import { notFound } from "next/navigation";
-import { buildWhatsAppUrl } from "@/lib/contact";
+import { buildWhatsAppUrl, BUSINESS_NAME, SITE_URL } from "@/lib/contact";
 import { FloatingBackButton } from "@/components/FloatingBackButton";
+import type { Metadata } from "next";
 
 // Halaman ini TIDAK membaca data per-user, isinya sama untuk semua
 // pengunjung — aman dicache 60 detik dengan invalidation otomatis saat
@@ -59,6 +60,35 @@ async function getBarberProfile(id: string) {
   };
 }
 
+// Title & description per-barber, supaya tiap profil barber punya snippet
+// pencarian sendiri (mis. "Lucky Nugroho | Glori Barbershop"), bisa
+// muncul saat orang mencari nama barber tertentu + nama toko.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const data = await getBarberProfile(id);
+  if (!data || !data.barber.is_active) return {};
+
+  const { barber } = data;
+  const description =
+    barber.bio || `Profil dan portofolio ${barber.name}, barber di ${BUSINESS_NAME}.`;
+
+  return {
+    title: barber.name,
+    description,
+    alternates: { canonical: `/barber/${id}` },
+    openGraph: {
+      title: `${barber.name} | ${BUSINESS_NAME}`,
+      description,
+      images: barber.photo_url ? [barber.photo_url] : undefined,
+      url: `${SITE_URL}/barber/${id}`,
+    },
+  };
+}
+
 export default async function BarberProfilePage({
   params,
 }: {
@@ -71,8 +101,33 @@ export default async function BarberProfilePage({
   const { barber, avgRating, reviewCount, portfolio } = data;
   const firstName = barber.name.split(" ")[0];
 
+  // Structured data per-barber — Person yang berafiliasi dengan HairSalon
+  // ini, supaya Google bisa mengenali ini sebagai staf/profesional dari
+  // bisnis yang sama (membantu konteks pencarian "barber [nama] Cilacap").
+  const personJsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name: barber.name,
+    description: barber.bio || undefined,
+    image: barber.photo_url || undefined,
+    worksFor: { "@type": "HairSalon", "@id": `${SITE_URL}/#business`, name: BUSINESS_NAME },
+    jobTitle: "Barber",
+  };
+  if (avgRating != null && reviewCount > 0) {
+    personJsonLd.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue: Number(avgRating.toFixed(1)),
+      reviewCount,
+    };
+  }
+
   return (
     <div className="min-h-screen bg-bg pb-28">
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
+      />
       {/* Hero: foto profil full-bleed */}
       <div className="relative h-[58vh] min-h-[340px] w-full overflow-hidden">
         {barber.photo_url ? (

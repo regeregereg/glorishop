@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserSession } from "@/lib/session";
 import { BottomNav } from "@/components/BottomNav";
 import { HomeView, type BarberCard } from "@/components/HomeView";
+import { BusinessStructuredData } from "@/components/BusinessStructuredData";
 import { Service, Staff } from "@/types";
 import { unstable_cache } from "next/cache";
 
@@ -62,6 +63,17 @@ const getCachedHomeData = unstable_cache(
       };
     });
 
+    // Rating keseluruhan TOKO (bukan per-barber) — dipakai di structured
+    // data JSON-LD (lihat components/BusinessStructuredData.tsx), dihitung
+    // dari agregat yang sama yang sudah diambil di atas, tidak ada query
+    // tambahan ke database.
+    const allRatings = [...ratingMap.values()];
+    const totalReviewCount = allRatings.reduce((sum, r) => sum + r.count, 0);
+    const storeAvgRating =
+      totalReviewCount > 0
+        ? allRatings.reduce((sum, r) => sum + r.avg * r.count, 0) / totalReviewCount
+        : null;
+
     const allServices = (services ?? []) as Service[];
     const prices = allServices
       .map((s) => s.price_min ?? s.price)
@@ -73,6 +85,8 @@ const getCachedHomeData = unstable_cache(
       barbers: barberCards,
       minPrice,
       banners: (banners ?? []) as { id: string; image_url: string }[],
+      storeAvgRating,
+      totalReviewCount,
     };
   },
   ["home-page-data"],
@@ -84,13 +98,12 @@ async function getData() {
 }
 
 export default async function HomePage() {
-  const [session, { services, barbers, minPrice, banners }] = await Promise.all([
-    getUserSession(),
-    getData(),
-  ]);
+  const [session, { services, barbers, minPrice, banners, storeAvgRating, totalReviewCount }] =
+    await Promise.all([getUserSession(), getData()]);
 
   return (
     <>
+      <BusinessStructuredData avgRating={storeAvgRating} reviewCount={totalReviewCount} />
       <HomeView
         sessionName={session?.name ?? null}
         avatarUrl={null}

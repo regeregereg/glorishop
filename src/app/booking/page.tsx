@@ -95,6 +95,39 @@ function BookingFlow() {
     loadSession();
   }, []);
 
+  // Cek apakah pelanggan ini masih punya booking yang menunggu pembayaran
+  // (WAITING_PAYMENT). Ini menutup bug "macet di Pilih Layanan": kalau
+  // pelanggan refresh halaman ini di tengah proses bayar, seluruh progress
+  // di memori (step, createdBooking) hilang — padahal booking-nya sendiri
+  // SUDAH tersimpan di database dan masih mengunci slot. Tanpa pengecekan
+  // ini, UI seolah lupa total dan memulai dari awal lagi, padahal
+  // seharusnya melanjutkan ke pembayaran booking yang sudah ada.
+  // Redirect ke /booking/status/[id] (halaman yang sudah bisa menampilkan
+  // QRIS + upload bukti untuk booking ID manapun) alih-alih membangun
+  // ulang state pembayaran di sini.
+  useEffect(() => {
+    if (!session) return;
+    // Kalau createdBooking sudah ada, pelanggan memang sedang aktif
+    // menyelesaikan booking ini di halaman yang sama (bukan baru refresh)
+    // — jangan ganggu dengan redirect.
+    if (createdBooking) return;
+    fetch(`/api/bookings?userId=${session.id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const pending = (d?.bookings || []).find(
+          (b: { status: string }) => b.status === "WAITING_PAYMENT"
+        );
+        if (pending) router.replace(`/booking/status/${pending.id}`);
+      })
+      .catch(() => {
+        // Diamkan — kalau pengecekan ini gagal (mis. jaringan terputus),
+        // biarkan pelanggan tetap bisa mulai booking baru seperti biasa,
+        // jangan sampai justru memblokir pelanggan yang memang belum
+        // punya booking aktif sama sekali.
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
+
   // load setting pembayaran publik (QRIS, nama rekening, persentase DP)
   useEffect(() => {
     fetch("/api/settings")
@@ -328,7 +361,16 @@ function BookingFlow() {
     else if (step === "slot") setStep("barber");
     else if (step === "confirm") setStep("slot");
     else if (step === "payment" && !createdBooking) setStep("confirm");
-    else router.back();
+    else {
+      // Di step pertama ("service"), atau di step "payment" yang sudah ada
+      // booking — keluar dari flow booking ke halaman asal. router.back()
+      // saja tidak cukup diandalkan: kalau halaman ini diakses lewat
+      // refresh manual, browser history Next.js bisa kehilangan jejak
+      // halaman sebelumnya, membuat tombol back terasa "macet" (tidak
+      // melakukan apa-apa). Fallback tegas ke Home kalau itu terjadi.
+      if (window.history.length > 1) router.back();
+      else router.push("/");
+    }
   }
 
   function handleConfirm() {

@@ -1,10 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatServicePrice } from "@/lib/utils";
 import { LinkButton } from "@/components/Button";
-import { BackButton } from "@/components/BackButton";
+import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
 import { Service } from "@/types";
+import Link from "next/link";
 import Image from "next/image";
-import { Clock, Scissors, Sparkles, Palette } from "lucide-react";
+import { ChevronLeft, Clock, Scissors, Sparkles, Palette } from "lucide-react";
 import { notFound } from "next/navigation";
 
 // Halaman ini TIDAK membaca data per-user, isinya sama untuk semua
@@ -34,35 +35,57 @@ export default async function ServiceDetailPage({
   const hasRange = service.price_min != null && service.price_max != null;
 
   return (
-    <div className="min-h-screen bg-bg pb-10">
-      <header className="flex items-center gap-3 px-5 py-4">
-        <BackButton fallbackHref="/layanan" />
-        <h1 className="font-display text-lg font-bold">Detail Layanan</h1>
-      </header>
+    <div className="min-h-screen bg-bg pb-28">
+      {/* Hero: foto layanan full-bleed — pola sama dengan halaman profil
+          barber, supaya foto terasa lebih luas/jadi sorotan utama, bukan
+          dikecilkan jadi kartu kecil dengan padding di kiri-kanan. */}
+      <div className="relative h-[42vh] min-h-[260px] w-full overflow-hidden">
+        {service.photo_url ? (
+          <Image
+            src={service.photo_url}
+            alt={service.name}
+            fill
+            sizes="100vw"
+            priority
+            className="object-cover"
+          />
+        ) : (
+          <PhotoPlaceholder
+            icon={<Icon size={56} strokeWidth={1.3} />}
+            className="absolute inset-0"
+          />
+        )}
 
-      <div className="px-5">
-        <div className="relative flex h-40 items-center justify-center overflow-hidden rounded-[var(--radius-card)] bg-gradient-to-br from-surface-2 to-surface border border-border-soft text-accent">
-          {service.photo_url ? (
-            <Image
-              src={service.photo_url}
-              alt={service.name}
-              fill
-              sizes="(max-width: 640px) 100vw, 480px"
-              priority
-              className="object-cover"
-            />
-          ) : (
-            <Icon size={56} strokeWidth={1.3} />
-          )}
+        {/* Gradient overlay supaya teks & tombol terbaca di atas foto */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-black/40" />
+
+        {/* Tombol back — mengambang di atas foto */}
+        <div className="absolute left-5 top-[max(1.25rem,env(safe-area-inset-top))]">
+          <Link
+            href="/layanan"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md active:scale-90"
+          >
+            <ChevronLeft size={19} />
+          </Link>
         </div>
 
+        {/* Liquid glass card — kategori & nama layanan menumpuk di atas foto */}
+        <div className="absolute inset-x-4 bottom-4">
+          <div className="rounded-[var(--radius-card)] border border-white/10 bg-white/10 px-5 py-4 backdrop-blur-xl backdrop-saturate-150 shadow-[0_8px_32px_rgba(0,0,0,0.35)]">
+            <span className="text-xs font-semibold uppercase tracking-wide text-accent">
+              {CATEGORY_LABEL[service.category]}
+            </span>
+            <h2 className="font-display mt-1 text-2xl font-extrabold text-white drop-shadow-sm">
+              {service.name}
+            </h2>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-5">
         <div className="mt-5">
-          <span className="text-xs font-semibold uppercase tracking-wide text-accent">
-            {CATEGORY_LABEL[service.category]}
-          </span>
-          <h2 className="font-display mt-1 text-2xl font-extrabold">{service.name}</h2>
           {service.description && (
-            <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+            <p className="text-sm leading-relaxed text-text-secondary">
               {service.description}
             </p>
           )}

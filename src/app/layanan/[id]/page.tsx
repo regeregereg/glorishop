@@ -2,10 +2,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { formatServicePrice } from "@/lib/utils";
 import { LinkButton } from "@/components/Button";
 import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
+import { FloatingBackButton } from "@/components/FloatingBackButton";
 import { Service } from "@/types";
-import Link from "next/link";
 import Image from "next/image";
-import { ChevronLeft, Clock, Scissors, Sparkles, Palette } from "lucide-react";
+import { Clock, Scissors, Sparkles, Palette } from "lucide-react";
 import { notFound } from "next/navigation";
 
 // Halaman ini TIDAK membaca data per-user, isinya sama untuk semua
@@ -59,14 +59,10 @@ export default async function ServiceDetailPage({
         {/* Gradient overlay supaya teks & tombol terbaca di atas foto */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-black/40" />
 
-        {/* Tombol back — mengambang di atas foto */}
+        {/* Tombol back — mengambang di atas foto, kembali ke halaman asal
+            sebenarnya (Home atau Semua Layanan) lewat router.back() */}
         <div className="absolute left-5 top-[max(1.25rem,env(safe-area-inset-top))]">
-          <Link
-            href="/layanan"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md active:scale-90"
-          >
-            <ChevronLeft size={19} />
-          </Link>
+          <FloatingBackButton fallbackHref="/layanan" />
         </div>
 
         {/* Liquid glass card — kategori & nama layanan menumpuk di atas foto */}

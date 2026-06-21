@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/Button";
-import { Scissors } from "lucide-react";
+import { Scissors, ArrowLeft } from "lucide-react";
 
 export default function BarberLoginPage() {
   const router = useRouter();
@@ -91,6 +92,15 @@ export default function BarberLoginPage() {
             {loading ? "Memproses..." : "Masuk"}
           </Button>
         </form>
+
+        {/* Tanpa ini, halaman login terasa seperti dead-end setelah logout
+            — tidak ada jalan balik ke app biasa selain mengetik ulang URL. */}
+        <Link
+          href="/"
+          className="mt-5 flex items-center justify-center gap-1.5 text-sm font-semibold text-text-secondary"
+        >
+          <ArrowLeft size={15} /> Kembali ke Home
+        </Link>
       </div>
     </div>
   );

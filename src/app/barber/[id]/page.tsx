@@ -151,6 +151,7 @@ export default async function BarberProfilePage({
       <div className="fixed bottom-0 left-0 right-0 border-t border-border-soft bg-surface/95 px-5 py-4 backdrop-blur-lg">
         <LinkButton
           href={`/booking?barberId=${barber.id}`}
+          variant="order"
           size="lg"
           fullWidth
           icon={<Scissors size={16} />}

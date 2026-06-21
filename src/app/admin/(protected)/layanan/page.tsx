@@ -263,7 +263,9 @@ function ServiceForm({
               type="button"
               onClick={() => setPriceMode("fixed")}
               className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold ${
-                priceMode === "fixed" ? "bg-accent text-black" : "border border-border-soft text-text-secondary"
+                priceMode === "fixed"
+                  ? "btn-order-gradient text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]"
+                  : "border border-border-soft text-text-secondary"
               }`}
             >
               Harga Tetap
@@ -272,7 +274,9 @@ function ServiceForm({
               type="button"
               onClick={() => setPriceMode("range")}
               className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold ${
-                priceMode === "range" ? "bg-accent text-black" : "border border-border-soft text-text-secondary"
+                priceMode === "range"
+                  ? "btn-order-gradient text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]"
+                  : "border border-border-soft text-text-secondary"
               }`}
             >
               Range Harga

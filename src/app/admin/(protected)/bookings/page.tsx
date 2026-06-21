@@ -46,7 +46,7 @@ export default function AdminBookingsPage() {
             onClick={() => setStatusFilter(s)}
             className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold ${
               statusFilter === s
-                ? "bg-accent text-black"
+                ? "btn-order-gradient text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]"
                 : "border border-border-soft bg-surface text-text-secondary"
             }`}
           >

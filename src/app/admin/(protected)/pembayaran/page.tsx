@@ -135,7 +135,7 @@ export default function AdminPaymentsPage() {
           onClick={() => setTab("PENDING_REVIEW")}
           className={`rounded-full px-4 py-2 text-xs font-semibold ${
             tab === "PENDING_REVIEW"
-              ? "bg-accent text-black"
+              ? "btn-order-gradient text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]"
               : "border border-border-soft bg-surface text-text-secondary"
           }`}
         >
@@ -145,7 +145,7 @@ export default function AdminPaymentsPage() {
           onClick={() => setTab("RIWAYAT")}
           className={`rounded-full px-4 py-2 text-xs font-semibold ${
             tab === "RIWAYAT"
-              ? "bg-accent text-black"
+              ? "btn-order-gradient text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]"
               : "border border-border-soft bg-surface text-text-secondary"
           }`}
         >

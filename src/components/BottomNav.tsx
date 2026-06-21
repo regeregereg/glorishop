@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, CalendarCheck, Clock, User } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NavGradientIcon } from "@/components/NavGradientIcon";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home", icon: Home },
@@ -24,20 +23,18 @@ export function BottomNav() {
             item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           const Icon = item.icon;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[11px] font-semibold transition-colors",
-                active ? "text-accent" : "text-text-tertiary hover:text-text-secondary"
-              )}
-            >
-              {active ? (
-                <NavGradientIcon icon={Icon} maskId={`nav-mask-${item.href.replace(/\W/g, "") || "home"}`} />
-              ) : (
-                <Icon size={20} strokeWidth={1.8} />
-              )}
-              {item.label}
+            <Link key={item.href} href={item.href} className="flex flex-1 flex-col items-center">
+              <span
+                className={cn(
+                  "flex flex-col items-center gap-1 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors",
+                  active
+                    ? "btn-order-gradient text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]"
+                    : "text-text-tertiary hover:text-text-secondary"
+                )}
+              >
+                <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
+                {item.label}
+              </span>
             </Link>
           );
         })}

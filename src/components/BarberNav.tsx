@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ListChecks, History, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NavGradientIcon } from "@/components/NavGradientIcon";
 
 export function BarberNav() {
   const pathname = usePathname();
@@ -25,33 +24,31 @@ export function BarberNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border-soft bg-surface/95 backdrop-blur-lg">
       <div className="mx-auto flex max-w-md items-center justify-between px-4 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
-        <Link
-          href="/barber/dashboard"
-          className={cn(
-            "flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[11px] font-semibold",
-            dashboardActive ? "text-accent" : "text-text-tertiary"
-          )}
-        >
-          {dashboardActive ? (
-            <NavGradientIcon icon={ListChecks} maskId="nav-mask-barber-dashboard" />
-          ) : (
-            <ListChecks size={20} />
-          )}
-          Antrian
+        <Link href="/barber/dashboard" className="flex flex-1 flex-col items-center">
+          <span
+            className={cn(
+              "flex flex-col items-center gap-1 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors",
+              dashboardActive
+                ? "btn-order-gradient text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]"
+                : "text-text-tertiary"
+            )}
+          >
+            <ListChecks size={20} strokeWidth={dashboardActive ? 2.2 : 1.8} />
+            Antrian
+          </span>
         </Link>
-        <Link
-          href="/barber/riwayat"
-          className={cn(
-            "flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[11px] font-semibold",
-            riwayatActive ? "text-accent" : "text-text-tertiary"
-          )}
-        >
-          {riwayatActive ? (
-            <NavGradientIcon icon={History} maskId="nav-mask-barber-riwayat" />
-          ) : (
-            <History size={20} />
-          )}
-          Riwayat
+        <Link href="/barber/riwayat" className="flex flex-1 flex-col items-center">
+          <span
+            className={cn(
+              "flex flex-col items-center gap-1 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors",
+              riwayatActive
+                ? "btn-order-gradient text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]"
+                : "text-text-tertiary"
+            )}
+          >
+            <History size={20} strokeWidth={riwayatActive ? 2.2 : 1.8} />
+            Riwayat
+          </span>
         </Link>
         <button
           onClick={handleLogout}

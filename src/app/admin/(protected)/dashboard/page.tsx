@@ -160,7 +160,9 @@ function BroadcastWidget() {
       });
       const data = await res.json();
       if (res.ok) {
-        setResult(`Terkirim ke ${data.sent} pelanggan.`);
+        setResult(
+          `Tersimpan untuk ${data.sent} pelanggan, ${data.pushSent ?? 0} di antaranya menerima notifikasi langsung.`
+        );
         setMessage("");
       } else {
         setResult(data.error || "Gagal mengirim.");

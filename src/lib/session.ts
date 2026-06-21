@@ -5,7 +5,27 @@ import crypto from "crypto";
 // tanpa dependency tambahan seperti JWT library.
 // Cocok untuk skala kecil-menengah seperti Glori Barbershop.
 
-const SECRET = process.env.SESSION_SECRET || "dev-secret-change-me";
+// PENTING — keamanan sesi bergantung penuh pada kerahasiaan SESSION_SECRET.
+// Sebelumnya ada fallback string tetap ("dev-secret-change-me") yang dipakai
+// diam-diam kalau env var belum diset — kalau itu sampai terjadi di
+// production (misal lupa konfigurasi di Vercel), siapa pun yang tahu
+// fallback ini (termasuk dari membaca kode sumber ini) bisa memalsukan
+// cookie sesi APA SAJA — login sebagai admin, barber, atau pelanggan
+// manapun tanpa password. Sekarang: di production, SESSION_SECRET WAJIB
+// diset lewat environment variable atau aplikasi sengaja gagal jalan
+// (lebih baik error jelas saat deploy daripada diam-diam tidak aman).
+// Di development boleh pakai fallback supaya tetap mudah dijalankan lokal.
+const SECRET = (() => {
+  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "SESSION_SECRET belum diset di environment variables. " +
+        "Tanpa ini, sesi login tidak aman — set SESSION_SECRET (string acak panjang) " +
+        "di pengaturan environment variable hosting kamu (mis. Vercel) sebelum deploy."
+    );
+  }
+  return "dev-secret-change-me";
+})();
 
 export type SessionPayload = {
   type: "user" | "staff";

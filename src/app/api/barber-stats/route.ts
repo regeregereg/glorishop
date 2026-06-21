@@ -9,7 +9,20 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const barberId = searchParams.get("barberId") || staff.id;
+  const requestedBarberId = searchParams.get("barberId");
+
+  // barberId di query string berasal dari client dan TIDAK BISA dipercaya
+  // begitu saja — barber hanya boleh melihat riwayat & rating MILIKNYA
+  // SENDIRI (data ini termasuk nama pelanggan, jangan sampai bisa diintip
+  // barber lain lewat mengganti angka di URL). Hanya admin yang boleh
+  // minta data barber manapun.
+  let barberId = staff.id;
+  if (requestedBarberId) {
+    if (staff.role !== "admin" && requestedBarberId !== staff.id) {
+      return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
+    }
+    barberId = requestedBarberId;
+  }
 
   const supabase = createAdminClient();
 

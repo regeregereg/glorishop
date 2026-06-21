@@ -6,8 +6,9 @@ import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
 import { BarberPortfolio } from "@/types";
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronLeft, Star, Scissors } from "lucide-react";
+import { ChevronLeft, Star, Scissors, MessageCircle } from "lucide-react";
 import { notFound } from "next/navigation";
+import { buildWhatsAppUrl } from "@/lib/contact";
 
 // Halaman ini TIDAK membaca data per-user, isinya sama untuk semua
 // pengunjung — aman dicache 60 detik dengan invalidation otomatis saat
@@ -158,6 +159,14 @@ export default async function BarberProfilePage({
         >
           Booking dengan {firstName}
         </LinkButton>
+        <a
+          href={buildWhatsAppUrl(`Halo, saya mau tanya-tanya dulu sebelum booking dengan ${firstName}.`)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2.5 flex items-center justify-center gap-1.5 text-xs font-semibold text-text-secondary"
+        >
+          <MessageCircle size={13} /> Tanya dulu via WhatsApp
+        </a>
       </div>
     </div>
   );

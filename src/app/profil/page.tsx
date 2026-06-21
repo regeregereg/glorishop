@@ -7,8 +7,9 @@ import { Button } from "@/components/Button";
 import { NotificationToggle } from "@/components/NotificationToggle";
 import { ErrorState } from "@/components/ErrorState";
 import { initials } from "@/lib/utils";
-import { LogOut, Phone, User as UserIcon } from "lucide-react";
+import { LogOut, Phone, User as UserIcon, MessageCircle, AtSign, MapPin } from "lucide-react";
 import Link from "next/link";
+import { buildWhatsAppUrl, INSTAGRAM_URL, MAPS_URL } from "@/lib/contact";
 
 export default function ProfilPage() {
   const router = useRouter();
@@ -104,6 +105,45 @@ export default function ProfilPage() {
 
             <div className="mt-3">
               <NotificationToggle />
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-border-soft bg-surface p-4">
+              <p className="text-xs font-semibold text-text-secondary">Hubungi Kami</p>
+              <div className="mt-3 flex flex-col gap-2">
+                <a
+                  href={buildWhatsAppUrl("Halo, saya ingin bertanya tentang Glori Barbershop.")}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 rounded-xl px-1 py-1.5 text-sm font-semibold text-text-primary"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-soft text-accent">
+                    <MessageCircle size={16} />
+                  </span>
+                  WhatsApp Admin
+                </a>
+                <a
+                  href={INSTAGRAM_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 rounded-xl px-1 py-1.5 text-sm font-semibold text-text-primary"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-soft text-accent">
+                    <AtSign size={16} />
+                  </span>
+                  Instagram @glori.barbershop
+                </a>
+                <a
+                  href={MAPS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 rounded-xl px-1 py-1.5 text-sm font-semibold text-text-primary"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-soft text-accent">
+                    <MapPin size={16} />
+                  </span>
+                  Lihat Lokasi di Maps
+                </a>
+              </div>
             </div>
 
             <Button

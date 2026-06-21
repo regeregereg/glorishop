@@ -19,9 +19,12 @@
   --accent-strong: #e4e4e7;
   --accent-soft: rgba(255, 255, 255, 0.12);
 
-  /* Accent order/booking — gradient oranye-merah khusus tombol aksi utama */
+  /* Accent order/booking — gradient oranye-merah khusus tombol aksi utama,
+     radial highlight di pojok kiri-atas biar terasa glossy/menyala, bukan flat */
+  --accent-order-highlight: #ffd9a8;
   --accent-order-from: #ff8a3d;
-  --accent-order-to: #e2402a;
+  --accent-order-mid: #f0552e;
+  --accent-order-to: #c4241f;
   --accent-order-glow: rgba(255, 106, 53, 0.45);
 
   /* Status colors — tidak diubah, di luar scope warna struktural */
@@ -203,6 +206,29 @@ h1, h2, h3, h4, .font-display {
     animation: none;
     opacity: 0.7;
   }
+}
+
+/* ── Gradient tombol order — radial highlight di pojok kiri-atas (bukan linear rata)
+   supaya terasa seperti permukaan menyala/glossy, sesuai referensi badge "+50xp" ── */
+.btn-order-gradient {
+  position: relative;
+  background:
+    radial-gradient(120% 150% at 18% 12%, var(--accent-order-highlight) 0%, var(--accent-order-from) 28%, var(--accent-order-mid) 58%, var(--accent-order-to) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -6px 10px -6px rgba(0, 0, 0, 0.35),
+    0 4px 20px -2px var(--accent-order-glow);
+}
+.btn-order-gradient:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -6px 10px -6px rgba(0, 0, 0, 0.35),
+    0 6px 26px -2px var(--accent-order-glow);
+  filter: brightness(1.04);
+}
+.btn-order-gradient:active {
+  transform: scale(0.98);
 }
 
 /* Transisi halus untuk kartu onboarding & elemen yang muncul bergantian */

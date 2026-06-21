@@ -14,7 +14,7 @@ const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
 // Folder yang diizinkan, supaya file tertata rapi di storage:
 // photos/barber/xxx.jpg, photos/layanan/xxx.jpg, photos/produk/xxx.jpg
-const ALLOWED_FOLDERS = ["barber", "layanan", "produk", "portfolio"];
+const ALLOWED_FOLDERS = ["barber", "layanan", "produk", "portfolio", "banner"];
 
 export async function POST(req: NextRequest) {
   // Hanya admin yang boleh upload foto (form layanan/barber/produk

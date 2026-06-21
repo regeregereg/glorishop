@@ -10,8 +10,8 @@ interface ImageUploadProps {
   value: string | null;
   /** Dipanggil setiap kali foto berhasil diupload atau dihapus */
   onChange: (url: string | null) => void;
-  /** Subfolder di storage: "barber" | "layanan" | "produk" */
-  folder: "barber" | "layanan" | "produk";
+  /** Subfolder di storage: "barber" | "layanan" | "produk" | "banner" */
+  folder: "barber" | "layanan" | "produk" | "banner";
   /** Label di atas komponen, opsional */
   label?: string;
   /** Bentuk preview: bulat (untuk foto profil barber) atau kotak (layanan/produk) */

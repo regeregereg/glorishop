@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 const getCachedHomeData = unstable_cache(
   async () => {
     const supabase = createAdminClient();
-    const [{ data: services }, { data: barbers }, { data: reviews }] =
+    const [{ data: services }, { data: barbers }, { data: reviews }, { data: banners }] =
       await Promise.all([
         supabase
           .from("services")
@@ -37,6 +37,11 @@ const getCachedHomeData = unstable_cache(
           .eq("is_active", true)
           .limit(6),
         supabase.from("reviews").select("barber_id, rating"),
+        supabase
+          .from("banners")
+          .select("id, image_url")
+          .eq("is_active", true)
+          .order("sort_order"),
       ]);
 
     const ratingMap = new Map<string, { total: number; count: number }>();
@@ -63,10 +68,15 @@ const getCachedHomeData = unstable_cache(
       .filter((p): p is number => p != null);
     const minPrice = prices.length > 0 ? Math.min(...prices) : null;
 
-    return { services: allServices, barbers: barberCards, minPrice };
+    return {
+      services: allServices,
+      barbers: barberCards,
+      minPrice,
+      banners: (banners ?? []) as { id: string; image_url: string }[],
+    };
   },
   ["home-page-data"],
-  { revalidate: 60, tags: ["home-data", "services", "barbers"] }
+  { revalidate: 60, tags: ["home-data", "services", "barbers", "banners"] }
 );
 
 async function getData() {
@@ -74,7 +84,7 @@ async function getData() {
 }
 
 export default async function HomePage() {
-  const [session, { services, barbers, minPrice }] = await Promise.all([
+  const [session, { services, barbers, minPrice, banners }] = await Promise.all([
     getUserSession(),
     getData(),
   ]);
@@ -88,6 +98,7 @@ export default async function HomePage() {
         barbers={barbers}
         minPrice={minPrice}
         hasActiveBooking={!!session}
+        banners={banners}
       />
       <BottomNav />
     </>

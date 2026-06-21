@@ -19,6 +19,7 @@ import { ServiceCard } from "@/components/ServiceCard";
 import { ServiceGridCard } from "@/components/ServiceGridCard";
 import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
 import { LinkButton } from "@/components/Button";
+import { BannerCarousel } from "@/components/BannerCarousel";
 import { cn, initials, formatRupiah } from "@/lib/utils";
 import { MAPS_URL } from "@/lib/contact";
 
@@ -51,6 +52,7 @@ export function HomeView({
   barbers,
   minPrice,
   hasActiveBooking,
+  banners,
 }: {
   sessionName: string | null;
   avatarUrl: string | null;
@@ -58,6 +60,7 @@ export function HomeView({
   barbers: BarberCard[];
   minPrice: number | null;
   hasActiveBooking: boolean;
+  banners: { id: string; image_url: string }[];
 }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("all");
@@ -359,6 +362,15 @@ export function HomeView({
           )}
         </div>
       </section>
+
+      {/* Banner Promo / Event */}
+      {banners.length > 0 && (
+        <section className="mt-7 px-5">
+          <div className="overflow-hidden rounded-[var(--radius-card)] border border-border-soft">
+            <BannerCarousel banners={banners} />
+          </div>
+        </section>
+      )}
 
       {/* Produk */}
       <section className="mt-7 px-5">

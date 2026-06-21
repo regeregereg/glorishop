@@ -10,6 +10,7 @@ import {
   Scissors,
   Users,
   Package,
+  Image as ImageIcon,
   BarChart3,
   Wallet,
   Settings,
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { href: "/admin/layanan", label: "Kelola Layanan", icon: Scissors },
   { href: "/admin/barber", label: "Kelola Barber", icon: Users },
   { href: "/admin/produk", label: "Kelola Produk", icon: Package },
+  { href: "/admin/banner", label: "Banner Promo", icon: ImageIcon },
   { href: "/admin/laporan", label: "Laporan", icon: BarChart3 },
   { href: "/admin/pengaturan", label: "Pengaturan", icon: Settings },
 ];

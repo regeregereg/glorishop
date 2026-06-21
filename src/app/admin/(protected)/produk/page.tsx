@@ -4,19 +4,29 @@ import { useEffect, useState, useCallback } from "react";
 import { Product } from "@/types";
 import { Button } from "@/components/Button";
 import { ImageUpload } from "@/components/ImageUpload";
+import { ErrorState } from "@/components/ErrorState";
 import { formatRupiah } from "@/lib/utils";
 import { Plus, X, Pencil, Trash2, Package } from "lucide-react";
 
 export default function AdminProdukPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [editing, setEditing] = useState<Product | "new" | null>(null);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/products?includeInactive=true");
-    const data = await res.json();
-    setProducts(data.products || []);
-    setLoading(false);
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const res = await fetch("/api/products?includeInactive=true");
+      if (!res.ok) throw new Error("Gagal memuat produk.");
+      const data = await res.json();
+      setProducts(data.products || []);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -25,8 +35,16 @@ export default function AdminProdukPage() {
 
   async function handleDelete(id: string) {
     if (!confirm("Nonaktifkan produk ini?")) return;
-    await fetch(`/api/products/${id}`, { method: "DELETE" });
-    load();
+    try {
+      const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        alert("Gagal menonaktifkan produk.");
+        return;
+      }
+      load();
+    } catch {
+      alert("Gagal menonaktifkan produk. Periksa koneksi internet kamu.");
+    }
   }
 
   return (
@@ -43,6 +61,20 @@ export default function AdminProdukPage() {
         </Button>
       </div>
 
+      {loadError && (
+        <ErrorState
+          className="mt-6"
+          title="Gagal memuat produk"
+          message="Periksa koneksi internet kamu, lalu coba lagi."
+          onRetry={load}
+        />
+      )}
+
+      {loading && !loadError && (
+        <p className="mt-8 text-sm text-text-secondary">Memuat...</p>
+      )}
+
+      {!loadError && !loading && (
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {products.map((p) => (
           <div
@@ -87,10 +119,11 @@ export default function AdminProdukPage() {
             </p>
           </div>
         ))}
-        {products.length === 0 && !loading && (
+        {products.length === 0 && (
           <p className="text-sm text-text-secondary">Belum ada produk.</p>
         )}
       </div>
+      )}
 
       {editing && (
         <ProductForm

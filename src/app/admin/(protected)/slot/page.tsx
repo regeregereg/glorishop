@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Staff, Slot } from "@/types";
 import { Button } from "@/components/Button";
+import { ErrorState } from "@/components/ErrorState";
 import { formatTime, toLocalDateString } from "@/lib/utils";
 
 export default function AdminSlotPage() {
@@ -15,19 +16,38 @@ export default function AdminSlotPage() {
   const [intervalMin, setIntervalMin] = useState(30);
   const [generating, setGenerating] = useState(false);
   const [message, setMessage] = useState("");
+  const [barbersError, setBarbersError] = useState(false);
+  const [slotsError, setSlotsError] = useState(false);
+
+  function loadBarbers() {
+    setBarbersError(false);
+    fetch("/api/barbers")
+      .then((r) => {
+        if (!r.ok) throw new Error("Gagal memuat barber.");
+        return r.json();
+      })
+      .then((d) => {
+        setBarbers(d.barbers || []);
+        if (d.barbers?.[0]) setBarberId(d.barbers[0].id);
+      })
+      .catch(() => setBarbersError(true));
+  }
 
   useEffect(() => {
-    fetch("/api/barbers").then((r) => r.json()).then((d) => {
-      setBarbers(d.barbers || []);
-      if (d.barbers?.[0]) setBarberId(d.barbers[0].id);
-    });
+    loadBarbers();
   }, []);
 
   const loadSlots = useCallback(async () => {
     if (!barberId || !date) return;
-    const res = await fetch(`/api/slots?barberId=${barberId}&date=${date}`);
-    const data = await res.json();
-    setSlots((data.slots || []).sort((a: Slot, b: Slot) => a.start_time.localeCompare(b.start_time)));
+    setSlotsError(false);
+    try {
+      const res = await fetch(`/api/slots?barberId=${barberId}&date=${date}`);
+      if (!res.ok) throw new Error("Gagal memuat slot.");
+      const data = await res.json();
+      setSlots((data.slots || []).sort((a: Slot, b: Slot) => a.start_time.localeCompare(b.start_time)));
+    } catch {
+      setSlotsError(true);
+    }
   }, [barberId, date]);
 
   useEffect(() => {
@@ -70,6 +90,8 @@ export default function AdminSlotPage() {
         const data = await res.json();
         setMessage(data.error || "Gagal membuat slot.");
       }
+    } catch {
+      setMessage("Gagal membuat slot. Periksa koneksi internet kamu.");
     } finally {
       setGenerating(false);
     }
@@ -82,6 +104,16 @@ export default function AdminSlotPage() {
         Generate slot waktu tersedia untuk setiap barber per tanggal.
       </p>
 
+      {barbersError && (
+        <ErrorState
+          className="mt-6"
+          title="Gagal memuat daftar barber"
+          message="Periksa koneksi internet kamu, lalu coba lagi."
+          onRetry={loadBarbers}
+        />
+      )}
+
+      {!barbersError && (
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <div className="rounded-[var(--radius-card)] border border-border-soft bg-surface p-5">
           <h2 className="font-display text-sm font-bold">Generate Slot Baru</h2>
@@ -154,19 +186,33 @@ export default function AdminSlotPage() {
             Slot Tanggal {date}
           </h2>
           <div className="mt-4 grid grid-cols-3 gap-2">
-            {slots.map((s) => (
-              <div
-                key={s.id}
-                className={`rounded-xl border px-3 py-2.5 text-center text-xs font-semibold ${
-                  s.is_available
-                    ? "border-status-done/30 bg-status-done/10 text-status-done"
-                    : "border-status-cancelled/30 bg-status-cancelled/10 text-status-cancelled"
-                }`}
-              >
-                {formatTime(s.start_time)}
+            {!slotsError &&
+              slots.map((s) => (
+                <div
+                  key={s.id}
+                  className={`rounded-xl border px-3 py-2.5 text-center text-xs font-semibold ${
+                    s.is_available
+                      ? "border-status-done/30 bg-status-done/10 text-status-done"
+                      : "border-status-cancelled/30 bg-status-cancelled/10 text-status-cancelled"
+                  }`}
+                >
+                  {formatTime(s.start_time)}
+                </div>
+              ))}
+            {slotsError && (
+              <div className="col-span-3">
+                <p className="text-sm text-status-cancelled">
+                  Gagal memuat slot untuk tanggal ini.
+                </p>
+                <button
+                  onClick={loadSlots}
+                  className="mt-1 text-xs font-semibold text-accent underline"
+                >
+                  Coba lagi
+                </button>
               </div>
-            ))}
-            {slots.length === 0 && (
+            )}
+            {!slotsError && slots.length === 0 && (
               <p className="col-span-3 text-sm text-text-secondary">
                 Belum ada slot untuk tanggal ini.
               </p>
@@ -174,6 +220,7 @@ export default function AdminSlotPage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

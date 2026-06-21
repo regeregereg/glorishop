@@ -15,6 +15,8 @@ import {
 } from "@/lib/utils";
 import { Button } from "@/components/Button";
 import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
+import { ErrorState } from "@/components/ErrorState";
+import { PageSpinner } from "@/components/PageSpinner";
 
 type Step = "service" | "barber" | "slot" | "confirm" | "payment";
 type PaymentTypeChoice = "DP" | "FULL";
@@ -51,6 +53,18 @@ function BookingFlow() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState("");
 
+  // Error state untuk pemuatan data awal (sesi, layanan, barber) yang
+  // wajib berhasil sebelum pelanggan bisa mulai booking. Kalau salah satu
+  // gagal (mis. koneksi terputus), tampilkan layar error + tombol coba lagi
+  // alih-alih membiarkan halaman macet kosong tanpa penjelasan.
+  const [sessionError, setSessionError] = useState(false);
+  const [servicesError, setServicesError] = useState(false);
+  const [barbersError, setBarbersError] = useState(false);
+  const [servicesLoaded, setServicesLoaded] = useState(false);
+  const [barbersLoaded, setBarbersLoaded] = useState(false);
+  const initError = sessionError || servicesError || barbersError;
+  const initLoading = session === undefined || (!servicesLoaded && !servicesError) || (!barbersLoaded && !barbersError);
+
   // data setting publik (QRIS, dll) + booking yang baru dibuat (menunggu bukti transfer)
   const [paymentSettings, setPaymentSettings] = useState<{
     qris_image_url: string | null;
@@ -66,10 +80,18 @@ function BookingFlow() {
   const [uploadDone, setUploadDone] = useState(false);
 
   // load session
-  useEffect(() => {
+  function loadSession() {
+    setSessionError(false);
     fetch("/api/me", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => setSession(d.user));
+      .then((r) => {
+        if (!r.ok) throw new Error("Gagal memuat sesi.");
+        return r.json();
+      })
+      .then((d) => setSession(d.user))
+      .catch(() => setSessionError(true));
+  }
+  useEffect(() => {
+    loadSession();
   }, []);
 
   // load setting pembayaran publik (QRIS, nama rekening, persentase DP)
@@ -81,11 +103,16 @@ function BookingFlow() {
   }, []);
 
   // load services
-  useEffect(() => {
+  function loadServices() {
+    setServicesError(false);
     fetch("/api/services")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Gagal memuat layanan.");
+        return r.json();
+      })
       .then((d) => {
         setServices(d.services || []);
+        setServicesLoaded(true);
         const preselectId = searchParams.get("serviceId");
         if (preselectId) {
           const found = (d.services || []).find((s: Service) => s.id === preselectId);
@@ -94,22 +121,43 @@ function BookingFlow() {
             setSelectedServiceOrder([found.id]);
           }
         }
-      });
+      })
+      .catch(() => setServicesError(true));
+  }
+  useEffect(() => {
+    loadServices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   // load barbers
-  useEffect(() => {
+  function loadBarbers() {
+    setBarbersError(false);
     fetch("/api/barbers")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Gagal memuat barber.");
+        return r.json();
+      })
       .then((d) => {
         setBarbers(d.barbers || []);
+        setBarbersLoaded(true);
         const preselectBarberId = searchParams.get("barberId");
         if (preselectBarberId) {
           const found = (d.barbers || []).find((b: Staff) => b.id === preselectBarberId);
           if (found) setSelectedBarber(found);
         }
-      });
+      })
+      .catch(() => setBarbersError(true));
+  }
+  useEffect(() => {
+    loadBarbers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  function retryInitialLoad() {
+    if (sessionError) loadSession();
+    if (servicesError) loadServices();
+    if (barbersError) loadBarbers();
+  }
 
   // generate semua tanggal di bulan yang sedang dilihat (viewMonth) untuk date picker
   useEffect(() => {
@@ -293,6 +341,23 @@ function BookingFlow() {
 
   const availableSlots = slots.filter((s) => s.is_available);
   const barberForSlot = (barberId: string) => barbers.find((b) => b.id === barberId);
+
+  if (initError) {
+    return (
+      <div className="min-h-screen bg-bg">
+        <ErrorState
+          fullScreen
+          title="Gagal memuat halaman booking"
+          message="Periksa koneksi internet kamu, lalu coba lagi."
+          onRetry={retryInitialLoad}
+        />
+      </div>
+    );
+  }
+
+  if (initLoading) {
+    return <PageSpinner fullScreen label="Menyiapkan halaman booking..." />;
+  }
 
   return (
     <div className="min-h-screen bg-bg pb-28">

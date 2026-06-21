@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Booking, Review } from "@/types";
+import { ErrorState } from "@/components/ErrorState";
 import { formatDateIndo, getBookingServiceNames, getBookingPriceLabel } from "@/lib/utils";
 import { Star, TrendingUp } from "lucide-react";
 
@@ -11,18 +12,55 @@ export default function BarberRiwayatPage() {
   const [avgRating, setAvgRating] = useState<number | null>(null);
   const [totalCompleted, setTotalCompleted] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
+  function load() {
+    setLoading(true);
+    setLoadError(false);
     fetch("/api/barber-stats")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Gagal memuat riwayat kerja.");
+        return r.json();
+      })
       .then((d) => {
         setBookings(d.bookings || []);
         setReviews(d.reviews || []);
         setAvgRating(d.avgRating);
         setTotalCompleted(d.totalCompleted || 0);
         setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+        setLoadError(true);
       });
+  }
+
+  useEffect(() => {
+    load();
   }, []);
+
+  if (loadError) {
+    return (
+      <div className="px-5 pt-6">
+        <h1 className="font-display text-2xl font-extrabold">Riwayat Kerja</h1>
+        <ErrorState
+          className="mt-5"
+          title="Gagal memuat riwayat kerja"
+          message="Periksa koneksi internet kamu, lalu coba lagi."
+          onRetry={load}
+        />
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="px-5 pt-6">
+        <h1 className="font-display text-2xl font-extrabold">Riwayat Kerja</h1>
+        <p className="mt-10 text-center text-sm text-text-secondary">Memuat...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="px-5 pt-6">

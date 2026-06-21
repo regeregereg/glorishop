@@ -4,24 +4,36 @@ import { useEffect, useState } from "react";
 import { ImageUpload } from "@/components/ImageUpload";
 import { Button } from "@/components/Button";
 import { NotificationToggle } from "@/components/NotificationToggle";
+import { ErrorState } from "@/components/ErrorState";
 
 export default function AdminSettingsPage() {
   const [qrisUrl, setQrisUrl] = useState<string | null>(null);
   const [accountName, setAccountName] = useState("");
   const [dpPercentage, setDpPercentage] = useState("50");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
+  function loadSettings() {
+    setLoading(true);
+    setLoadError(false);
     fetch("/api/settings")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Gagal memuat pengaturan.");
+        return r.json();
+      })
       .then((d) => {
         setQrisUrl(d.settings?.qris_image_url ?? null);
         setAccountName(d.settings?.payment_account_name ?? "");
         setDpPercentage(d.settings?.dp_percentage ?? "50");
       })
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    loadSettings();
   }, []);
 
   async function handleSave() {
@@ -44,6 +56,8 @@ export default function AdminSettingsPage() {
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+    } catch {
+      alert("Gagal menyimpan pengaturan. Periksa koneksi internet kamu.");
     } finally {
       setSaving(false);
     }
@@ -56,7 +70,14 @@ export default function AdminSettingsPage() {
         Atur QRIS statis dan ketentuan DP yang dipakai di seluruh flow booking.
       </p>
 
-      {loading ? (
+      {loadError ? (
+        <ErrorState
+          className="mt-6"
+          title="Gagal memuat pengaturan"
+          message="Periksa koneksi internet kamu, lalu coba lagi."
+          onRetry={loadSettings}
+        />
+      ) : loading ? (
         <p className="mt-8 text-sm text-text-secondary">Memuat...</p>
       ) : (
         <div className="mt-6 flex max-w-md flex-col gap-5 rounded-[var(--radius-card)] border border-border-soft bg-surface p-5">

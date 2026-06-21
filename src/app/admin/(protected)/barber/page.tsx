@@ -4,19 +4,29 @@ import { useEffect, useState, useCallback } from "react";
 import { Staff, BarberPortfolio } from "@/types";
 import { Button } from "@/components/Button";
 import { ImageUpload } from "@/components/ImageUpload";
+import { ErrorState } from "@/components/ErrorState";
 import { Plus, X, Pencil, Images, Trash2, Loader2, ImagePlus } from "lucide-react";
 
 export default function AdminBarberPage() {
   const [barbers, setBarbers] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [editing, setEditing] = useState<Staff | "new" | null>(null);
   const [portfolioFor, setPortfolioFor] = useState<Staff | null>(null);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/barbers?includeInactive=true");
-    const data = await res.json();
-    setBarbers(data.barbers || []);
-    setLoading(false);
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const res = await fetch("/api/barbers?includeInactive=true");
+      if (!res.ok) throw new Error("Gagal memuat data barber.");
+      const data = await res.json();
+      setBarbers(data.barbers || []);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -24,12 +34,20 @@ export default function AdminBarberPage() {
   }, [load]);
 
   async function toggleActive(b: Staff) {
-    await fetch(`/api/barbers/${b.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_active: !b.is_active }),
-    });
-    load();
+    try {
+      const res = await fetch(`/api/barbers/${b.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: !b.is_active }),
+      });
+      if (!res.ok) {
+        alert("Gagal mengubah status barber.");
+        return;
+      }
+      load();
+    } catch {
+      alert("Gagal mengubah status barber. Periksa koneksi internet kamu.");
+    }
   }
 
   return (
@@ -46,6 +64,20 @@ export default function AdminBarberPage() {
         </Button>
       </div>
 
+      {loadError && (
+        <ErrorState
+          className="mt-6"
+          title="Gagal memuat data barber"
+          message="Periksa koneksi internet kamu, lalu coba lagi."
+          onRetry={load}
+        />
+      )}
+
+      {loading && !loadError && (
+        <p className="mt-8 text-sm text-text-secondary">Memuat...</p>
+      )}
+
+      {!loadError && !loading && (
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {barbers.map((b) => (
           <div key={b.id} className="rounded-2xl border border-border-soft bg-surface p-4">
@@ -89,10 +121,11 @@ export default function AdminBarberPage() {
             </button>
           </div>
         ))}
-        {barbers.length === 0 && !loading && (
+        {barbers.length === 0 && (
           <p className="text-sm text-text-secondary">Belum ada barber.</p>
         )}
       </div>
+      )}
 
       {editing && (
         <BarberForm
@@ -243,10 +276,17 @@ function BarberPortfolioModal({
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch(`/api/barbers/${barber.id}/portfolio`);
-    const data = await res.json();
-    setPhotos(data.portfolio || []);
-    setLoading(false);
+    setError("");
+    try {
+      const res = await fetch(`/api/barbers/${barber.id}/portfolio`);
+      if (!res.ok) throw new Error("Gagal memuat portofolio.");
+      const data = await res.json();
+      setPhotos(data.portfolio || []);
+    } catch {
+      setError("Gagal memuat portofolio. Coba lagi.");
+    } finally {
+      setLoading(false);
+    }
   }, [barber.id]);
 
   useEffect(() => {
@@ -334,9 +374,17 @@ function BarberPortfolioModal({
         </div>
 
         {error && (
-          <p className="mt-3 rounded-xl bg-status-cancelled/10 px-3 py-2 text-xs text-status-cancelled">
-            {error}
-          </p>
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-status-cancelled/10 px-3 py-2">
+            <p className="text-xs text-status-cancelled">{error}</p>
+            {!loading && photos.length === 0 && (
+              <button
+                onClick={load}
+                className="shrink-0 text-xs font-semibold text-status-cancelled underline"
+              >
+                Coba lagi
+              </button>
+            )}
+          </div>
         )}
 
         <div className="mt-4 flex-1 overflow-y-auto">

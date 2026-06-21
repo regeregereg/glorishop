@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Booking } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/Button";
+import { ErrorState } from "@/components/ErrorState";
 import { formatRupiah, formatTime, getBookingServiceNames } from "@/lib/utils";
 import { Wallet, Clock, Users, CheckCircle2, Megaphone } from "lucide-react";
 import Link from "next/link";
@@ -24,16 +25,41 @@ export default function AdminDashboardPage() {
     doneCount: number;
     barberPerformance: BarberPerf[];
   } | null>(null);
+  const [loadError, setLoadError] = useState(false);
+
+  // isInitialLoad: layar error penuh hanya untuk pemuatan pertama. Kalau
+  // polling 20 detik berikutnya gagal, diamkan saja — dashboard yang sudah
+  // tampil tetap ada, dicoba lagi otomatis di siklus berikutnya.
+  function load(isInitialLoad = false) {
+    fetch("/api/admin-stats")
+      .then((r) => {
+        if (!r.ok) throw new Error("Gagal memuat dashboard.");
+        return r.json();
+      })
+      .then((d) => {
+        setData(d);
+        setLoadError(false);
+      })
+      .catch(() => {
+        if (isInitialLoad) setLoadError(true);
+      });
+  }
 
   useEffect(() => {
-    fetch("/api/admin-stats")
-      .then((r) => r.json())
-      .then(setData);
-    const interval = setInterval(() => {
-      fetch("/api/admin-stats").then((r) => r.json()).then(setData);
-    }, 20000);
+    load(true);
+    const interval = setInterval(() => load(), 20000);
     return () => clearInterval(interval);
   }, []);
+
+  if (loadError) {
+    return (
+      <ErrorState
+        title="Gagal memuat dashboard"
+        message="Periksa koneksi internet kamu, lalu coba lagi."
+        onRetry={() => load(true)}
+      />
+    );
+  }
 
   if (!data) {
     return <p className="text-sm text-text-secondary">Memuat dashboard...</p>;

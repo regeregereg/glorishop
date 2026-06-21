@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { formatRupiah, formatDateShort } from "@/lib/utils";
+import { ErrorState } from "@/components/ErrorState";
 import { Wallet, ShoppingBag } from "lucide-react";
 
 interface PopularService {
@@ -31,11 +32,18 @@ export default function AdminLaporanPage() {
     barberPerformance: BarberPerf[];
     dailyRevenue: DailyRevenue[];
   } | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/admin-reports?from=${from}&to=${to}`);
-    const json = await res.json();
-    setData(json);
+    setLoadError(false);
+    try {
+      const res = await fetch(`/api/admin-reports?from=${from}&to=${to}`);
+      if (!res.ok) throw new Error("Gagal memuat laporan.");
+      const json = await res.json();
+      setData(json);
+    } catch {
+      setLoadError(true);
+    }
   }, [from, to]);
 
   useEffect(() => {
@@ -72,7 +80,20 @@ export default function AdminLaporanPage() {
         </div>
       </div>
 
-      {data && (
+      {loadError && (
+        <ErrorState
+          className="mt-6"
+          title="Gagal memuat laporan"
+          message="Periksa koneksi internet kamu, lalu coba lagi."
+          onRetry={load}
+        />
+      )}
+
+      {!loadError && !data && (
+        <p className="mt-8 text-sm text-text-secondary">Memuat laporan...</p>
+      )}
+
+      {!loadError && data && (
         <>
           <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-2">
             <div className="rounded-2xl border border-border-soft bg-surface p-4">

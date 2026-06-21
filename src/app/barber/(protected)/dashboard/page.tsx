@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Booking } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/Button";
+import { ErrorState } from "@/components/ErrorState";
 import { formatTime, getBookingServiceNames, getBookingPriceLabel, toLocalDateString } from "@/lib/utils";
 import { Play, Check, Star } from "lucide-react";
 
@@ -12,32 +13,60 @@ export default function BarberDashboardPage() {
   const [staffName, setStaffName] = useState("");
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [sessionError, setSessionError] = useState(false);
   const [actingId, setActingId] = useState<string | null>(null);
 
   const today = toLocalDateString(new Date());
 
-  useEffect(() => {
+  function loadSession() {
+    setSessionError(false);
     fetch("/api/me", { cache: "no-store" })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Gagal memuat sesi.");
+        return r.json();
+      })
       .then((d) => {
         if (d.staff) {
           setStaffId(d.staff.id);
           setStaffName(d.staff.name);
         }
+      })
+      .catch(() => {
+        setLoading(false);
+        setSessionError(true);
       });
-  }, []);
-
-  const loadQueue = useCallback(async () => {
-    if (!staffId) return;
-    const res = await fetch(`/api/bookings?barberId=${staffId}&date=${today}`);
-    const data = await res.json();
-    setBookings(data.bookings || []);
-    setLoading(false);
-  }, [staffId, today]);
+  }
 
   useEffect(() => {
-    loadQueue();
-    const interval = setInterval(loadQueue, 15000);
+    loadSession();
+  }, []);
+
+  // isInitialLoad: tampilkan layar error penuh hanya untuk pemuatan
+  // pertama antrian. Kalau polling 15 detik berikutnya gagal (koneksi
+  // sempat putus), diamkan saja — antrian yang sudah tampil tetap ada,
+  // dicoba lagi otomatis di siklus berikutnya.
+  const loadQueue = useCallback(
+    async (isInitialLoad = false) => {
+      if (!staffId) return;
+      try {
+        const res = await fetch(`/api/bookings?barberId=${staffId}&date=${today}`);
+        if (!res.ok) throw new Error("Gagal memuat antrian.");
+        const data = await res.json();
+        setBookings(data.bookings || []);
+        setLoadError(false);
+      } catch {
+        if (isInitialLoad) setLoadError(true);
+      } finally {
+        if (isInitialLoad) setLoading(false);
+      }
+    },
+    [staffId, today]
+  );
+
+  useEffect(() => {
+    loadQueue(true);
+    const interval = setInterval(() => loadQueue(), 15000);
     return () => clearInterval(interval);
   }, [loadQueue]);
 
@@ -49,11 +78,13 @@ export default function BarberDashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
-      if (res.ok) loadQueue();
+      if (res.ok) loadQueue(true);
       else {
         const data = await res.json();
         alert(data.error || "Gagal update status.");
       }
+    } catch {
+      alert("Gagal update status. Periksa koneksi internet kamu.");
     } finally {
       setActingId(null);
     }
@@ -71,9 +102,27 @@ export default function BarberDashboardPage() {
       </p>
 
       <div className="mt-5 flex flex-col gap-4">
-        {loading && <p className="py-10 text-center text-sm text-text-secondary">Memuat...</p>}
+        {sessionError && (
+          <ErrorState
+            title="Gagal memuat sesi"
+            message="Periksa koneksi internet kamu, lalu coba lagi."
+            onRetry={loadSession}
+          />
+        )}
 
-        {!loading && queue.length === 0 && (
+        {!sessionError && loadError && (
+          <ErrorState
+            title="Gagal memuat antrian"
+            message="Periksa koneksi internet kamu, lalu coba lagi."
+            onRetry={() => loadQueue(true)}
+          />
+        )}
+
+        {loading && !sessionError && !loadError && (
+          <p className="py-10 text-center text-sm text-text-secondary">Memuat...</p>
+        )}
+
+        {!loading && !sessionError && !loadError && queue.length === 0 && (
           <div className="rounded-[var(--radius-card)] border border-border-soft bg-surface px-6 py-12 text-center">
             <p className="font-display text-sm font-semibold">Belum ada antrian hari ini</p>
           </div>

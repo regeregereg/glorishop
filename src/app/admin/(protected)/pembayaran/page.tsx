@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Booking } from "@/types";
 import { Button } from "@/components/Button";
+import { ErrorState } from "@/components/ErrorState";
 import { formatTime, formatDateShort, formatRupiah } from "@/lib/utils";
 import { Eye, X, CheckCircle2, XCircle } from "lucide-react";
 
@@ -11,6 +12,7 @@ type Tab = "PENDING_REVIEW" | "RIWAYAT";
 export default function AdminPaymentsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [tab, setTab] = useState<Tab>("PENDING_REVIEW");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -18,16 +20,26 @@ export default function AdminPaymentsPage() {
   const [rejectTarget, setRejectTarget] = useState<Booking | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
-  const load = useCallback(async () => {
-    const res = await fetch("/api/bookings");
-    const data = await res.json();
-    setBookings(data.bookings || []);
-    setLoading(false);
+  // isInitialLoad: layar error penuh hanya untuk pemuatan pertama. Kalau
+  // polling 15 detik berikutnya gagal, diamkan saja — daftar yang sudah
+  // tampil tetap ada, dicoba lagi otomatis di siklus berikutnya.
+  const load = useCallback(async (isInitialLoad = false) => {
+    try {
+      const res = await fetch("/api/bookings");
+      if (!res.ok) throw new Error("Gagal memuat data pembayaran.");
+      const data = await res.json();
+      setBookings(data.bookings || []);
+      setLoadError(false);
+    } catch {
+      if (isInitialLoad) setLoadError(true);
+    } finally {
+      if (isInitialLoad) setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    load();
-    const interval = setInterval(load, 15000);
+    load(true);
+    const interval = setInterval(() => load(), 15000);
     return () => clearInterval(interval);
   }, [load]);
 
@@ -53,6 +65,8 @@ export default function AdminPaymentsPage() {
       } else {
         alert(data.error || "Gagal memuat bukti transfer.");
       }
+    } catch {
+      alert("Gagal memuat bukti transfer. Periksa koneksi internet kamu.");
     } finally {
       setPreviewLoading(false);
     }
@@ -72,7 +86,9 @@ export default function AdminPaymentsPage() {
         alert(data.error || "Gagal mengonfirmasi pembayaran.");
         return;
       }
-      load();
+      load(true);
+    } catch {
+      alert("Gagal mengonfirmasi pembayaran. Periksa koneksi internet kamu.");
     } finally {
       setActingId(null);
     }
@@ -97,7 +113,9 @@ export default function AdminPaymentsPage() {
       }
       setRejectTarget(null);
       setRejectReason("");
-      load();
+      load(true);
+    } catch {
+      alert("Gagal menolak pembayaran. Periksa koneksi internet kamu.");
     } finally {
       setActingId(null);
     }
@@ -135,6 +153,16 @@ export default function AdminPaymentsPage() {
         </button>
       </div>
 
+      {loadError && (
+        <ErrorState
+          className="mt-5"
+          title="Gagal memuat data pembayaran"
+          message="Periksa koneksi internet kamu, lalu coba lagi."
+          onRetry={() => load(true)}
+        />
+      )}
+
+      {!loadError && (
       <div className="mt-5 overflow-x-auto rounded-2xl border border-border-soft">
         <table className="w-full text-sm">
           <thead>
@@ -224,6 +252,7 @@ export default function AdminPaymentsPage() {
           </tbody>
         </table>
       </div>
+      )}
 
       {/* Modal preview bukti transfer */}
       {(previewLoading || previewUrl) && (

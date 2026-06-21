@@ -6,6 +6,7 @@ import { Booking } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/Button";
+import { ErrorState } from "@/components/ErrorState";
 import { formatDateIndo, formatTime, getBookingServiceNames, getBookingPriceLabel, formatRupiah } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { Clock } from "lucide-react";
@@ -16,30 +17,49 @@ export default function BookingStatusPage() {
   const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [session, setSession] = useState<{ id: string } | null | undefined>(undefined);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/me", { cache: "no-store" })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Gagal memuat sesi.");
+        return r.json();
+      })
       .then((d) => {
         setSession(d.user);
         if (!d.user) {
           router.push("/login?next=/booking/status");
         }
+      })
+      .catch(() => {
+        setLoading(false);
+        setLoadError(true);
       });
   }, [router]);
 
-  async function loadBookings(userId: string) {
-    const res = await fetch(`/api/bookings?userId=${userId}`);
-    const data = await res.json();
-    setBookings(data.bookings || []);
-    setLoading(false);
+  // isInitialLoad: hanya tampilkan layar error penuh untuk pemuatan
+  // pertama. Kalau gagal di polling berikutnya (koneksi sempat putus
+  // sebentar), diamkan saja — data lama tetap tampil, dicoba lagi
+  // otomatis di siklus polling berikutnya 15 detik kemudian.
+  async function loadBookings(userId: string, isInitialLoad = false) {
+    try {
+      const res = await fetch(`/api/bookings?userId=${userId}`);
+      if (!res.ok) throw new Error("Gagal memuat booking.");
+      const data = await res.json();
+      setBookings(data.bookings || []);
+      setLoadError(false);
+    } catch {
+      if (isInitialLoad) setLoadError(true);
+    } finally {
+      if (isInitialLoad) setLoading(false);
+    }
   }
 
   useEffect(() => {
     if (session?.id) {
-      loadBookings(session.id);
+      loadBookings(session.id, true);
       // Polling setiap 15 detik sesuai catatan developer (real-time status)
       const interval = setInterval(() => loadBookings(session.id), 15000);
       return () => clearInterval(interval);
@@ -56,10 +76,12 @@ export default function BookingStatusPage() {
       });
       const data = await res.json();
       if (res.ok && session?.id) {
-        loadBookings(session.id);
+        loadBookings(session.id, true);
       } else {
         alert(data.error || "Gagal membatalkan booking.");
       }
+    } catch {
+      alert("Gagal membatalkan booking. Periksa koneksi internet kamu.");
     } finally {
       setCancellingId(null);
     }
@@ -77,11 +99,19 @@ export default function BookingStatusPage() {
       </header>
 
       <div className="px-5 pt-4">
-        {loading && (
+        {loading && !loadError && (
           <p className="py-10 text-center text-sm text-text-secondary">Memuat...</p>
         )}
 
-        {!loading && activeBookings.length === 0 && (
+        {loadError && (
+          <ErrorState
+            title="Gagal memuat status booking"
+            message="Periksa koneksi internet kamu, lalu coba lagi."
+            onRetry={() => session?.id && loadBookings(session.id, true)}
+          />
+        )}
+
+        {!loading && !loadError && activeBookings.length === 0 && (
           <div className="flex flex-col items-center rounded-[var(--radius-card)] border border-border-soft bg-surface px-6 py-12 text-center">
             <Clock size={32} className="text-text-tertiary" />
             <p className="mt-3 font-display text-sm font-semibold">

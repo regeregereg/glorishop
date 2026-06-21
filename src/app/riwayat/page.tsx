@@ -5,6 +5,7 @@ import { Booking } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/Button";
+import { ErrorState } from "@/components/ErrorState";
 import { formatDateIndo, getBookingServiceNames, getBookingPriceLabel } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { Star, History } from "lucide-react";
@@ -16,6 +17,7 @@ export default function RiwayatPage() {
   const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [session, setSession] = useState<{ id: string } | null | undefined>(undefined);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [rating, setRating] = useState(5);
@@ -25,21 +27,41 @@ export default function RiwayatPage() {
 
   useEffect(() => {
     fetch("/api/me", { cache: "no-store" })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Gagal memuat sesi.");
+        return r.json();
+      })
       .then((d) => {
         setSession(d.user);
         if (!d.user) router.push("/login?next=/riwayat");
+      })
+      .catch(() => {
+        setLoading(false);
+        setLoadError(true);
       });
   }, [router]);
 
-  useEffect(() => {
+  function loadBookings() {
     if (!session?.id) return;
+    setLoading(true);
+    setLoadError(false);
     fetch(`/api/bookings?userId=${session.id}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Gagal memuat riwayat.");
+        return r.json();
+      })
       .then((d) => {
         setBookings(d.bookings || []);
         setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+        setLoadError(true);
       });
+  }
+
+  useEffect(() => {
+    loadBookings();
   }, [session?.id]);
 
   async function submitReview(bookingId: string) {
@@ -76,9 +98,19 @@ export default function RiwayatPage() {
       </header>
 
       <div className="px-5 pt-4">
-        {loading && <p className="py-10 text-center text-sm text-text-secondary">Memuat...</p>}
+        {loading && !loadError && (
+          <p className="py-10 text-center text-sm text-text-secondary">Memuat...</p>
+        )}
 
-        {!loading && pastBookings.length === 0 && (
+        {loadError && (
+          <ErrorState
+            title="Gagal memuat riwayat"
+            message="Periksa koneksi internet kamu, lalu coba lagi."
+            onRetry={loadBookings}
+          />
+        )}
+
+        {!loading && !loadError && pastBookings.length === 0 && (
           <div className="flex flex-col items-center rounded-[var(--radius-card)] border border-border-soft bg-surface px-6 py-12 text-center">
             <History size={32} className="text-text-tertiary" />
             <p className="mt-3 font-display text-sm font-semibold">Belum ada riwayat</p>

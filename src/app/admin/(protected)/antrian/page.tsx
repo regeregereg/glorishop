@@ -4,25 +4,40 @@ import { useEffect, useState, useCallback } from "react";
 import { Booking } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/Button";
+import { ErrorState } from "@/components/ErrorState";
 import { formatTime, getBookingServiceNames, getBookingPriceLabel, toLocalDateString } from "@/lib/utils";
 import { Check, X } from "lucide-react";
 
 export default function AdminAntrianPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [actingId, setActingId] = useState<string | null>(null);
   const today = toLocalDateString(new Date());
 
-  const load = useCallback(async () => {
-    const res = await fetch(`/api/bookings?date=${today}`);
-    const data = await res.json();
-    setBookings(data.bookings || []);
-    setLoading(false);
-  }, [today]);
+  // isInitialLoad: layar error penuh hanya untuk pemuatan pertama. Kalau
+  // polling 15 detik berikutnya gagal, diamkan saja — antrian yang sudah
+  // tampil tetap ada, dicoba lagi otomatis di siklus berikutnya.
+  const load = useCallback(
+    async (isInitialLoad = false) => {
+      try {
+        const res = await fetch(`/api/bookings?date=${today}`);
+        if (!res.ok) throw new Error("Gagal memuat antrian.");
+        const data = await res.json();
+        setBookings(data.bookings || []);
+        setLoadError(false);
+      } catch {
+        if (isInitialLoad) setLoadError(true);
+      } finally {
+        if (isInitialLoad) setLoading(false);
+      }
+    },
+    [today]
+  );
 
   useEffect(() => {
-    load();
-    const interval = setInterval(load, 15000);
+    load(true);
+    const interval = setInterval(() => load(), 15000);
     return () => clearInterval(interval);
   }, [load]);
 
@@ -34,11 +49,13 @@ export default function AdminAntrianPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
-      if (res.ok) load();
+      if (res.ok) load(true);
       else {
         const data = await res.json();
         alert(data.error || "Gagal update.");
       }
+    } catch {
+      alert("Gagal update. Periksa koneksi internet kamu.");
     } finally {
       setActingId(null);
     }
@@ -56,11 +73,13 @@ export default function AdminAntrianPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
       });
-      if (res.ok) load();
+      if (res.ok) load(true);
       else {
         const data = await res.json();
         alert(data.error || "Gagal update pembayaran.");
       }
+    } catch {
+      alert("Gagal update pembayaran. Periksa koneksi internet kamu.");
     } finally {
       setActingId(null);
     }
@@ -81,7 +100,16 @@ export default function AdminAntrianPage() {
         Konfirmasi booking yang masuk dan pantau antrian per barber.
       </p>
 
-      {loading && <p className="mt-8 text-sm text-text-secondary">Memuat...</p>}
+      {loadError && (
+        <ErrorState
+          className="mt-8"
+          title="Gagal memuat antrian"
+          message="Periksa koneksi internet kamu, lalu coba lagi."
+          onRetry={() => load(true)}
+        />
+      )}
+
+      {loading && !loadError && <p className="mt-8 text-sm text-text-secondary">Memuat...</p>}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         {Object.entries(grouped).map(([barberName, list]) => (
@@ -185,7 +213,7 @@ export default function AdminAntrianPage() {
             </div>
           </div>
         ))}
-        {Object.keys(grouped).length === 0 && !loading && (
+        {Object.keys(grouped).length === 0 && !loading && !loadError && (
           <p className="text-sm text-text-secondary">Belum ada booking hari ini.</p>
         )}
       </div>

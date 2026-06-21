@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/Button";
 import { NotificationToggle } from "@/components/NotificationToggle";
+import { ErrorState } from "@/components/ErrorState";
 import { initials } from "@/lib/utils";
 import { LogOut, Phone, User as UserIcon } from "lucide-react";
 import Link from "next/link";
@@ -14,11 +15,22 @@ export default function ProfilPage() {
   const [session, setSession] = useState<{ id: string; name: string } | null | undefined>(
     undefined
   );
+  const [loadError, setLoadError] = useState(false);
+
+  function loadSession() {
+    setLoadError(false);
+    setSession(undefined);
+    fetch("/api/me", { cache: "no-store" })
+      .then((r) => {
+        if (!r.ok) throw new Error("Gagal memuat sesi.");
+        return r.json();
+      })
+      .then((d) => setSession(d.user))
+      .catch(() => setLoadError(true));
+  }
 
   useEffect(() => {
-    fetch("/api/me", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => setSession(d.user));
+    loadSession();
   }, []);
 
   async function handleLogout() {
@@ -34,11 +46,19 @@ export default function ProfilPage() {
       </header>
 
       <div className="px-5 pt-4">
-        {session === undefined && (
+        {session === undefined && !loadError && (
           <p className="py-10 text-center text-sm text-text-secondary">Memuat...</p>
         )}
 
-        {session === null && (
+        {loadError && (
+          <ErrorState
+            title="Gagal memuat profil"
+            message="Periksa koneksi internet kamu, lalu coba lagi."
+            onRetry={loadSession}
+          />
+        )}
+
+        {!loadError && session === null && (
           <div className="flex flex-col items-center rounded-[var(--radius-card)] border border-border-soft bg-surface px-6 py-12 text-center">
             <UserIcon size={32} className="text-text-tertiary" />
             <p className="mt-3 font-display text-sm font-semibold">Kamu belum masuk</p>
@@ -51,7 +71,7 @@ export default function ProfilPage() {
           </div>
         )}
 
-        {session && (
+        {!loadError && session && (
           <>
             <div className="flex items-center gap-4 rounded-[var(--radius-card)] border border-border-soft bg-surface p-5">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent-soft font-display text-xl font-bold text-accent">

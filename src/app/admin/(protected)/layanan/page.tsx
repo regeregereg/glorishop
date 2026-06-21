@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Service, ServiceCategory } from "@/types";
 import { Button } from "@/components/Button";
 import { ImageUpload } from "@/components/ImageUpload";
+import { ErrorState } from "@/components/ErrorState";
 import { formatServicePrice } from "@/lib/utils";
 import { Plus, X, Pencil, Trash2 } from "lucide-react";
 
@@ -16,13 +17,22 @@ const CATEGORIES: { value: ServiceCategory; label: string }[] = [
 export default function AdminLayananPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [editing, setEditing] = useState<Service | "new" | null>(null);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/services?includeInactive=true");
-    const data = await res.json();
-    setServices(data.services || []);
-    setLoading(false);
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const res = await fetch("/api/services?includeInactive=true");
+      if (!res.ok) throw new Error("Gagal memuat layanan.");
+      const data = await res.json();
+      setServices(data.services || []);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -31,8 +41,16 @@ export default function AdminLayananPage() {
 
   async function handleDelete(id: string) {
     if (!confirm("Nonaktifkan layanan ini?")) return;
-    await fetch(`/api/services/${id}`, { method: "DELETE" });
-    load();
+    try {
+      const res = await fetch(`/api/services/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        alert("Gagal menonaktifkan layanan.");
+        return;
+      }
+      load();
+    } catch {
+      alert("Gagal menonaktifkan layanan. Periksa koneksi internet kamu.");
+    }
   }
 
   return (
@@ -49,6 +67,20 @@ export default function AdminLayananPage() {
         </Button>
       </div>
 
+      {loadError && (
+        <ErrorState
+          className="mt-6"
+          title="Gagal memuat layanan"
+          message="Periksa koneksi internet kamu, lalu coba lagi."
+          onRetry={load}
+        />
+      )}
+
+      {loading && !loadError && (
+        <p className="mt-8 text-sm text-text-secondary">Memuat...</p>
+      )}
+
+      {!loadError && !loading && (
       <div className="mt-6 flex flex-col gap-3">
         {services.map((s) => (
           <div
@@ -90,10 +122,11 @@ export default function AdminLayananPage() {
             </div>
           </div>
         ))}
-        {services.length === 0 && !loading && (
+        {services.length === 0 && (
           <p className="text-sm text-text-secondary">Belum ada layanan.</p>
         )}
       </div>
+      )}
 
       {editing && (
         <ServiceForm

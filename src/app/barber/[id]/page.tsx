@@ -4,11 +4,11 @@ import { LinkButton } from "@/components/Button";
 import { PortfolioGallery } from "@/components/PortfolioGallery";
 import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
 import { BarberPortfolio } from "@/types";
-import Link from "next/link";
 import Image from "next/image";
-import { ChevronLeft, Star, Scissors, MessageCircle } from "lucide-react";
+import { Star, Scissors, MessageCircle } from "lucide-react";
 import { notFound } from "next/navigation";
 import { buildWhatsAppUrl } from "@/lib/contact";
+import { FloatingBackButton } from "@/components/FloatingBackButton";
 
 // Halaman ini TIDAK membaca data per-user, isinya sama untuk semua
 // pengunjung — aman dicache 60 detik dengan invalidation otomatis saat
@@ -98,14 +98,10 @@ export default async function BarberProfilePage({
         {/* Gradient overlay supaya teks & tombol terbaca di atas foto */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-black/40" />
 
-        {/* Tombol back — mengambang di atas foto */}
+        {/* Tombol back — mengambang di atas foto, kembali ke halaman asal
+            sebenarnya lewat router.back(), bukan selalu ke Home */}
         <div className="absolute left-5 top-[max(1.25rem,env(safe-area-inset-top))]">
-          <Link
-            href="/"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md active:scale-90"
-          >
-            <ChevronLeft size={19} />
-          </Link>
+          <FloatingBackButton fallbackHref="/" />
         </div>
 
         {/* Liquid glass card — identitas barber menumpuk di atas foto */}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStaffSession } from "@/lib/session";
+import { sendPushToTarget } from "@/lib/push";
 
 export async function POST(req: NextRequest) {
   const staff = await getStaffSession();
@@ -35,5 +36,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ sent: rows.length });
+  // Web push (gratis, lewat VAPID — lihat src/lib/push.ts) ke setiap
+  // pelanggan supaya broadcast benar-benar sampai sebagai notifikasi
+  // sistem, bukan cuma tersimpan diam-diam di tabel notifications.
+  // Dibungkus try/catch per pola yang sama dengan rute lain: kegagalan
+  // push (mis. VAPID belum diset, belum ada subscription) tidak
+  // menggagalkan broadcast itu sendiri karena baris notifications sudah
+  // tersimpan sebagai fallback.
+  let pushSent = 0;
+  try {
+    const results = await Promise.all(
+      users.map((u) =>
+        sendPushToTarget(
+          { userId: u.id },
+          {
+            title: "Glori Barbershop",
+            body: message,
+            url: "/riwayat",
+            tag: "broadcast-promo",
+          }
+        )
+      )
+    );
+    pushSent = results.reduce((acc, r) => acc + r.sent, 0);
+  } catch {
+    // VAPID belum dikonfigurasi — diamkan, baris notifications tetap tersimpan.
+  }
+
+  return NextResponse.json({ sent: rows.length, pushSent });
 }

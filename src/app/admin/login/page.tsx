@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/Button";
-import { Lock } from "lucide-react";
+import { Lock, ArrowLeft } from "lucide-react";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -89,6 +90,15 @@ export default function AdminLoginPage() {
             {loading ? "Memproses..." : "Masuk"}
           </Button>
         </form>
+
+        {/* Tanpa ini, halaman login terasa seperti dead-end setelah logout
+            — tidak ada jalan balik ke app biasa selain mengetik ulang URL. */}
+        <Link
+          href="/"
+          className="mt-5 flex items-center justify-center gap-1.5 text-sm font-semibold text-text-secondary"
+        >
+          <ArrowLeft size={15} /> Kembali ke Home
+        </Link>
       </div>
     </div>
   );

@@ -44,12 +44,39 @@ function timeToMinutes(t: string): number {
 // GET /api/bookings?userId=xxx  -> riwayat booking user
 // GET /api/bookings?date=YYYY-MM-DD  -> semua booking di tanggal itu (admin/barber)
 // GET /api/bookings?barberId=xxx&date=YYYY-MM-DD -> antrian barber tertentu
+//
+// OTORISASI (penting — endpoint ini mengembalikan data pribadi pelanggan:
+// nama, no. telepon, riwayat booking, status pembayaran):
+// - userId diisi  -> HARUS sama dengan sesi pelanggan yang sedang login.
+//   userId di query string berasal dari client dan TIDAK BISA dipercaya
+//   begitu saja (bisa diubah manual di URL) — selalu divalidasi terhadap
+//   cookie sesi di server, bukan terhadap nilai yang dikirim client.
+// - userId TIDAK diisi (mode admin/barber, lihat banyak booking sekaligus)
+//   -> wajib staff session. Admin bebas akses; barber HANYA boleh kalau
+//   barberId di query sama dengan ID dirinya sendiri (tidak boleh intip
+//   antrian/data pelanggan milik barber lain).
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get("userId");
   const date = searchParams.get("date");
   const barberId = searchParams.get("barberId");
   const status = searchParams.get("status");
+
+  const userSession = await getUserSession();
+  const staffSession = await getStaffSession();
+
+  if (userId) {
+    if (!userSession || userSession.id !== userId) {
+      return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
+    }
+  } else {
+    if (!staffSession) {
+      return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
+    }
+    if (staffSession.role === "barber" && barberId !== staffSession.id) {
+      return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
+    }
+  }
 
   const supabase = createAdminClient();
 

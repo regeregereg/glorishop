@@ -18,6 +18,7 @@ import { Button } from "@/components/Button";
 import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
 import { ErrorState } from "@/components/ErrorState";
 import { PageSpinner } from "@/components/PageSpinner";
+import { DownloadImageButton } from "@/components/DownloadImageButton";
 
 type Step = "service" | "barber" | "slot" | "confirm" | "payment";
 type PaymentTypeChoice = "DP" | "FULL";
@@ -918,15 +919,22 @@ function BookingFlow() {
 
                 <div className="flex flex-col items-center gap-3 rounded-[var(--radius-card)] border border-border-soft bg-surface p-5">
                   {paymentSettings?.qris_image_url ? (
-                    <div className="relative h-56 w-56 overflow-hidden rounded-xl">
-                      <Image
+                    <>
+                      <div className="relative h-56 w-56 overflow-hidden rounded-xl">
+                        <Image
+                          src={paymentSettings.qris_image_url}
+                          alt="QRIS Glori Barbershop"
+                          fill
+                          sizes="224px"
+                          className="object-contain"
+                        />
+                      </div>
+                      <DownloadImageButton
                         src={paymentSettings.qris_image_url}
-                        alt="QRIS Glori Barbershop"
-                        fill
-                        sizes="224px"
-                        className="object-contain"
+                        filename="QRIS-Glori-Barbershop.png"
+                        label="Simpan QRIS"
                       />
-                    </div>
+                    </>
                   ) : (
                     <p className="py-10 text-center text-sm text-text-secondary">
                       QRIS belum diatur admin. Silakan hubungi barbershop langsung untuk

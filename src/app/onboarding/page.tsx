@@ -114,10 +114,19 @@ export default function OnboardingPage() {
   }
 
   function handleScroll() {
+    // Update activeSlide real-time saat scroll supaya efek scale kartu
+    // langsung terasa saat pengguna geser, bukan nunggu snap selesai.
+    setActiveSlide(nearestIndex());
     if (scrollTimer.current) clearTimeout(scrollTimer.current);
     scrollTimer.current = setTimeout(() => {
       if (!dragState.current.active) setActiveSlide(nearestIndex());
     }, 80);
+  }
+
+  function handleTouchMove() {
+    // Di mobile, touch scroll tidak selalu trigger onScroll per-frame.
+    // Pakai onTouchMove supaya efek scale kartu real-time saat jari geser.
+    setActiveSlide(nearestIndex());
   }
 
   function handleEnter() {
@@ -159,8 +168,9 @@ export default function OnboardingPage() {
         onPointerMove={handlePointerMove}
         onPointerUp={endDrag}
         onPointerLeave={endDrag}
+        onTouchMove={handleTouchMove}
         className={cn(
-          "relative z-10 flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth px-[11%] [-ms-overflow-style:none] [scroll-padding-inline:11%] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          "relative z-10 flex gap-3 overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth px-[11%] py-4 [-ms-overflow-style:none] [scroll-padding-inline:11%] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           isDragging ? "cursor-grabbing" : "cursor-grab"
         )}
       >

@@ -126,7 +126,8 @@ export default function OnboardingPage() {
   function handleTouchMove() {
     // Di mobile, touch scroll tidak selalu trigger onScroll per-frame.
     // Pakai onTouchMove supaya efek scale kartu real-time saat jari geser.
-    setActiveSlide(nearestIndex());
+    // requestAnimationFrame supaya sync dengan render browser, tidak block UI.
+    requestAnimationFrame(() => setActiveSlide(nearestIndex()));
   }
 
   function handleEnter() {
@@ -173,6 +174,7 @@ export default function OnboardingPage() {
           "relative z-10 flex gap-3 overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth px-[11%] py-4 [-ms-overflow-style:none] [scroll-padding-inline:11%] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           isDragging ? "cursor-grabbing" : "cursor-grab"
         )}
+        style={{ touchAction: "pan-x" }}
       >
         {SLIDES.map((slide, i) => (
           <div

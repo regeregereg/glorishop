@@ -8,6 +8,7 @@ import { Booking } from "@/types";
 import { Button } from "@/components/Button";
 import { PageSpinner } from "@/components/PageSpinner";
 import { ErrorState } from "@/components/ErrorState";
+import { DownloadImageButton } from "@/components/DownloadImageButton";
 import { formatRupiah, formatDateIndo, formatTime, getBookingServiceNames } from "@/lib/utils";
 
 export default function BookingPaymentDetailPage() {
@@ -142,9 +143,16 @@ export default function BookingPaymentDetailPage() {
 
             <div className="flex flex-col items-center gap-3 rounded-[var(--radius-card)] border border-border-soft bg-surface p-5">
               {qrisUrl ? (
-                <div className="relative h-56 w-56 overflow-hidden rounded-xl">
-                  <Image src={qrisUrl} alt="QRIS Glori Barbershop" fill sizes="224px" className="object-contain" />
-                </div>
+                <>
+                  <div className="relative h-56 w-56 overflow-hidden rounded-xl">
+                    <Image src={qrisUrl} alt="QRIS Glori Barbershop" fill sizes="224px" className="object-contain" />
+                  </div>
+                  <DownloadImageButton
+                    src={qrisUrl}
+                    filename="QRIS-Glori-Barbershop.png"
+                    label="Simpan QRIS"
+                  />
+                </>
               ) : (
                 <p className="py-10 text-center text-sm text-text-secondary">
                   QRIS belum diatur admin. Silakan hubungi barbershop langsung.

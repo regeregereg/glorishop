@@ -1,14 +1,15 @@
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <!-- Badge bulat gelap, identik gaya logomark di onboarding (kotak rounded
-       isi accent dengan icon Scissors), di sini dibuat lingkaran penuh
-       background gelap (sama dengan warna bg di globals.css) supaya kontras
-       tegas di ukuran kecil seperti favicon tab browser. -->
-  <rect width="512" height="512" rx="256" fill="#16171b" />
+  <!-- Badge bulat putih dengan icon gunting hitam di tengah. Background
+       SENGAJA hanya berupa <circle>, bukan <rect> penuh kanvas — supaya
+       area di luar lingkaran benar-benar transparan (PNG di-export
+       sebagai RGBA), tidak ada kotak putih/hitam solid menumpuk di
+       belakang lingkaran saat dipakai sebagai favicon di tab browser. -->
+  <circle cx="256" cy="256" r="256" fill="#ffffff" />
 
   <!-- Icon gunting, path SVG asli dari lucide-react Scissors (lisensi ISC),
-       di-scale dan diposisikan ke tengah kanvas 512x512 dengan padding lebih
-       lega supaya proporsinya nyaman dilihat di ukuran kecil (favicon). -->
-  <g transform="translate(126, 126) scale(10.8)" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none">
+       warna hitam (#16171b, sama dengan warna teks utama di globals.css)
+       supaya kontras tegas di atas background putih. -->
+  <g transform="translate(126, 126) scale(10.8)" stroke="#16171b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none">
     <circle cx="6" cy="6" r="3" />
     <path d="M8.12 8.12 12 12" />
     <path d="M20 4 8.12 15.88" />

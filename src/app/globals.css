@@ -252,10 +252,43 @@ h1, h2, h3, h4, .font-display {
     var(--accent-order-54) 54%,
     var(--accent-order-80) 80%,
     var(--accent-order-100) 100%);
+  background-size: 250% 250%;
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
+}
+
+.onboarding-headline-slide {
+  animation: onboardingHeadlineIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes onboardingHeadlineIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes textGradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes textGlowBreath {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(255,90,0,0.25)); }
+  50%       { filter: drop-shadow(0 0 10px rgba(255,90,0,0.45)); }
+}
+
+.text-order-gradient-animated {
+  background: linear-gradient(135deg,
+    var(--accent-order-0) 0%,
+    var(--accent-order-33) 33%,
+    var(--accent-order-80) 80%,
+    var(--accent-order-0) 100%);
+  background-size: 250% 250%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: textGradientShift 5s ease infinite, textGlowBreath 4s ease infinite;
 }
 
 /* Transisi halus untuk kartu onboarding & elemen yang muncul bergantian */

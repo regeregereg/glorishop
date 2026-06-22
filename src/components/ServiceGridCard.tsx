@@ -18,7 +18,7 @@ export function ServiceGridCard({ service }: { service: Service }) {
   return (
     <Link
       href={`/layanan/${service.id}`}
-      className="group relative flex overflow-hidden rounded-[var(--radius-card)] transition-transform active:scale-[0.97]"
+      className="group relative flex overflow-hidden rounded-[var(--radius-card)] border border-border-soft transition-colors hover:border-accent/40 active:scale-[0.97]"
       style={{ aspectRatio: "3/4" }}
     >
       {/* Gambar full card */}

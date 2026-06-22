@@ -18,30 +18,48 @@ export function ServiceGridCard({ service }: { service: Service }) {
   return (
     <Link
       href={`/layanan/${service.id}`}
-      className="group relative flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-border-soft bg-surface transition-colors hover:border-accent/40"
+      className="group relative flex overflow-hidden rounded-[var(--radius-card)] transition-transform active:scale-[0.97]"
+      style={{ aspectRatio: "3/4" }}
     >
-      {/* Gambar */}
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface-2">
+      {/* Gambar full card */}
+      <div className="absolute inset-0 bg-surface-2">
         {service.photo_url ? (
           <Image
             src={service.photo_url}
             alt={service.name}
             fill
             sizes="(max-width: 640px) 50vw, 240px"
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
           <PhotoPlaceholder icon={<Icon size={32} strokeWidth={1.5} />} />
         )}
       </div>
 
-      {/* Info */}
-      <div className="flex items-center justify-between gap-2 p-3">
+      {/* Gradient gelap di bawah supaya teks terbaca */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.18) 50%, transparent 100%)",
+        }}
+      />
+
+      {/* Info overlay — frosted glass */}
+      <div
+        className="absolute bottom-0 left-0 right-0 flex items-end justify-between gap-2 px-3 py-2.5"
+        style={{
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          background: "rgba(255,255,255,0.08)",
+          borderTop: "1px solid rgba(255,255,255,0.1)",
+        }}
+      >
         <div className="min-w-0">
-          <h3 className="truncate font-display text-[13px] font-bold leading-tight text-text-primary">
+          <h3 className="truncate font-display text-[13px] font-bold leading-tight text-white">
             {service.name}
           </h3>
-          <p className="mt-1 truncate text-[12px] font-semibold text-accent">
+          <p className="mt-0.5 truncate text-[12px] font-semibold text-accent">
             {formatServicePrice(service)}
           </p>
         </div>

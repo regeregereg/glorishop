@@ -180,6 +180,17 @@ function BookingFlow() {
           const found = (d.barbers || []).find((b: Staff) => b.id === preselectBarberId);
           if (found) setSelectedBarber(found);
         }
+        // Restore barber dari pending booking jika ada
+        try {
+          const raw = sessionStorage.getItem("glori_pending_booking");
+          if (raw) {
+            const saved = JSON.parse(raw);
+            if (saved.barberId && saved.barberId !== "any") {
+              const match = (d.barbers || []).find((b: Staff) => b.id === saved.barberId);
+              if (match) setSelectedBarber(match);
+            }
+          }
+        } catch { /* abaikan */ }
       })
       .catch(() => setBarbersError(true));
   }
@@ -374,8 +385,47 @@ function BookingFlow() {
     }
   }
 
+  // Restore pending booking state dari sessionStorage setelah login
+  useEffect(() => {
+    if (session === null || session === undefined) return;
+    const raw = sessionStorage.getItem("glori_pending_booking");
+    if (!raw) return;
+    try {
+      const saved = JSON.parse(raw);
+      if (saved.serviceIds?.length) {
+        setSelectedServiceIds(new Set(saved.serviceIds));
+        setSelectedServiceOrder(saved.serviceIds);
+      }
+      if (saved.barberId === "any") {
+        setSelectedBarber("any");
+      }
+      if (saved.date) {
+        const savedDate = new Date(saved.date);
+        setViewMonth(new Date(savedDate.getFullYear(), savedDate.getMonth(), 1));
+        setSelectedDate(saved.date);
+      }
+      if (saved.paymentType) setPaymentTypeChoice(saved.paymentType);
+      if (saved.step) setStep(saved.step);
+      sessionStorage.removeItem("glori_pending_booking");
+    } catch {
+      sessionStorage.removeItem("glori_pending_booking");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
+
   function handleConfirm() {
     if (session === null) {
+      // Simpan state booking ke sessionStorage sebelum redirect login
+      sessionStorage.setItem(
+        "glori_pending_booking",
+        JSON.stringify({
+          serviceIds: selectedServiceOrder,
+          barberId: selectedBarber === "any" ? "any" : selectedBarber?.id ?? null,
+          date: selectedDate,
+          paymentType: paymentTypeChoice,
+          step: "confirm",
+        })
+      );
       router.push(`/login?next=/booking`);
       return;
     }

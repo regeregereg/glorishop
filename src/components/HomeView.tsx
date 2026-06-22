@@ -198,7 +198,7 @@ export function HomeView({
           <button
             onClick={() => setCategory("all")}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors",
+              "flex shrink-0 items-center gap-1.5 rounded-full px-4 py-[9px] text-sm font-semibold transition-colors",
               category === "all"
                 ? "btn-order-gradient text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]"
                 : "bg-surface-2 text-text-secondary border border-border-soft"
@@ -214,7 +214,7 @@ export function HomeView({
                 key={key}
                 onClick={() => setCategory(key)}
                 className={cn(
-                  "flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors",
+                  "flex shrink-0 items-center gap-1.5 rounded-full px-4 py-[9px] text-sm font-semibold transition-colors",
                   active
                     ? "btn-order-gradient text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]"
                     : "bg-surface-2 text-text-secondary border border-border-soft"

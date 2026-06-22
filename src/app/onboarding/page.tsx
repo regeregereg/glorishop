@@ -170,8 +170,13 @@ export default function OnboardingPage() {
             className="onboarding-card-reveal relative h-[370px] w-[78%] shrink-0 select-none overflow-hidden rounded-[28px] snap-center"
             style={{
               border: "1px solid rgba(255,255,255,0.08)",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.04) inset",
+              boxShadow: activeSlide === i
+                ? "0 16px 48px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.06) inset"
+                : "0 8px 32px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.04) inset",
               animationDelay: `${i * 0.12}s`,
+              transform: activeSlide === i ? "scale(1)" : "scale(0.88)",
+              opacity: activeSlide === i ? 1 : 0.5,
+              transition: "transform 0.4s cubic-bezier(0.22,1,0.36,1), opacity 0.4s ease, box-shadow 0.4s ease",
             }}
           >
             {/* Gambar / fallback */}

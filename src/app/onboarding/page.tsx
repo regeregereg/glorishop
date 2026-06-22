@@ -248,10 +248,10 @@ export default function OnboardingPage() {
           Premium Barbershop · Sejak 2020
         </p>
 
-        <h1 className="font-display text-[32px] font-extrabold leading-[1.1] text-text-primary">
+        <h1 className="font-display text-[32px] font-extrabold leading-[1.1] text-text-primary onboarding-headline-slide">
           Tampil Terbaik,{" "}
           <br />
-          <span className="text-order-gradient">Booking Mudah.</span>
+          <span className="text-order-gradient-animated">Booking Mudah.</span>
         </h1>
 
         <p className="mt-3 text-[14px] leading-relaxed text-text-secondary">

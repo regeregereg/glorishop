@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Menu, X, LayoutDashboard, ListOrdered, CalendarRange, CalendarClock, Scissors, Users, Package, Image as ImageIcon, BarChart3, Wallet, Settings } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Menu, X, LayoutDashboard, ListOrdered, CalendarRange, CalendarClock, Scissors, Users, Package, Image as ImageIcon, BarChart3, Wallet, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -22,7 +22,22 @@ const NAV_ITEMS = [
 
 export function AdminMobileBar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+
+  // Sebelumnya drawer mobile ini SAMA SEKALI tidak punya cara untuk
+  // logout — hanya ada di sidebar desktop (AdminSidebar). Admin yang
+  // mengakses dari HP jadi tidak punya jalan keluar sah dari sesi admin
+  // selain hapus cookie manual atau tutup browser. Logic sama persis
+  // dengan handleLogout di AdminSidebar, supaya konsisten di kedua tempat.
+  async function handleLogout() {
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "staff" }),
+    });
+    router.push("/admin/login");
+  }
 
   return (
     <div className="lg:hidden">
@@ -36,7 +51,7 @@ export function AdminMobileBar() {
       {open && (
         <div className="fixed inset-0 z-50 bg-black/60" onClick={() => setOpen(false)}>
           <div
-            className="absolute right-0 top-0 h-full w-72 bg-surface p-5"
+            className="absolute right-0 top-0 flex h-full w-72 flex-col bg-surface p-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
@@ -45,7 +60,7 @@ export function AdminMobileBar() {
                 <X size={20} />
               </button>
             </div>
-            <nav className="mt-6 flex flex-col gap-1">
+            <nav className="mt-6 flex flex-1 flex-col gap-1">
               {NAV_ITEMS.map((item) => {
                 const active = pathname.startsWith(item.href);
                 const Icon = item.icon;
@@ -65,6 +80,15 @@ export function AdminMobileBar() {
                 );
               })}
             </nav>
+
+            <div className="border-t border-border-soft pt-4">
+              <button
+                onClick={handleLogout}
+                className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-status-cancelled hover:bg-status-cancelled/10"
+              >
+                <LogOut size={16} /> Keluar
+              </button>
+            </div>
           </div>
         </div>
       )}

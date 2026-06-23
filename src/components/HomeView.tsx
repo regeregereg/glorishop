@@ -22,6 +22,7 @@ import { LinkButton } from "@/components/Button";
 import { BannerCarousel } from "@/components/BannerCarousel";
 import { QuickAccess } from "@/components/QuickAccess";
 import { LiveQueuePanel } from "@/components/LiveQueuePanel";
+import { AvailabilityCalendar } from "@/components/AvailabilityCalendar";
 import { cn, initials, formatRupiah } from "@/lib/utils";
 import { MAPS_URL } from "@/lib/contact";
 
@@ -391,6 +392,20 @@ export function HomeView({
           </div>
           <span className="text-accent text-sm font-semibold">Lihat →</span>
         </Link>
+      </section>
+
+      {/* Kalender Ketersediaan — cek cepat tanggal mana yang masih ada
+          slot kosong, gabungan semua barber, tanpa harus masuk ke flow
+          booking penuh dulu. Ditaruh tepat di atas Antrian karena
+          keduanya menjawab pertanyaan "bisa cukur sekarang/kapan?" */}
+      <section id="kalender-ketersediaan" className="mt-7 px-5 scroll-mt-4">
+        <h2 className="font-display text-base font-bold">Cek Ketersediaan</h2>
+        <p className="mt-0.5 text-xs text-text-secondary">
+          Pilih tanggal untuk lihat jam yang masih kosong
+        </p>
+        <div className="mt-3">
+          <AvailabilityCalendar />
+        </div>
       </section>
 
       {/* Live Queue Panel — bisa dilihat semua orang tanpa login */}

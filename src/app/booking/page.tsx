@@ -15,12 +15,20 @@ import {
   cn,
 } from "@/lib/utils";
 import { Button } from "@/components/Button";
-import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
 import { ErrorState } from "@/components/ErrorState";
 import { PageSpinner } from "@/components/PageSpinner";
 import { DownloadImageButton } from "@/components/DownloadImageButton";
 
-type Step = "service" | "barber" | "slot" | "confirm" | "payment";
+// Flow disederhanakan dari 5 step jadi 2 step besar, supaya cocok dengan
+// cara orang awam berpikir: "kapan saya bisa cukur, dan mau apa?" dulu,
+// baru "siapa" (opsional) — bukan dipaksa pilih layanan & barber dulu
+// sebelum tahu kapan tersedia.
+//   "booking" — satu halaman gabungan: tanggal, jam, layanan, dan barber
+//               (barber collapsed/opsional, default "Tanpa Preferensi")
+//   "confirm" — ringkasan + pilih DP/Lunas + QRIS + upload bukti, semua
+//               dalam satu alur scroll (sub-state createdBooking
+//               membedakan "belum bayar" vs "menunggu verifikasi")
+type Step = "booking" | "confirm";
 type PaymentTypeChoice = "DP" | "FULL";
 
 function BookingFlow() {
@@ -36,7 +44,7 @@ function BookingFlow() {
   const initialDateParam = searchParams.get("date");
   const initialTimeParam = searchParams.get("time");
 
-  const [step, setStep] = useState<Step>("service");
+  const [step, setStep] = useState<Step>("booking");
   const [services, setServices] = useState<Service[]>([]);
   const [barbers, setBarbers] = useState<Staff[]>([]);
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -61,14 +69,21 @@ function BookingFlow() {
     initialDateParam && initialTimeParam ? initialTimeParam : null
   );
 
+  // Section "Pilih barber tertentu?" — collapsed by default. Pelanggan
+  // awam yang tidak peduli siapa barbernya tidak perlu buka ini sama
+  // sekali; "Tanpa Preferensi" otomatis berlaku selama section ini
+  // tertutup.
+  const [showBarberPicker, setShowBarberPicker] = useState(false);
+
   // Beberapa layanan bisa dipilih sekaligus (mis. Haircut + Creambath),
   // sama seperti memilih beberapa barang saat checkout. Dipakai sebagai Set
   // supaya gampang toggle on/off per kartu layanan, tapi urutan pilih
   // pelanggan tetap dijaga lewat selectedServiceOrder di bawah.
   const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string>>(new Set());
   const [selectedServiceOrder, setSelectedServiceOrder] = useState<string[]>([]);
-  const [selectedBarber, setSelectedBarber] = useState<Staff | "any" | null>(null);
+  const [selectedBarber, setSelectedBarber] = useState<Staff | "any" | null>("any");
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [paymentTypeChoice, setPaymentTypeChoice] = useState<PaymentTypeChoice>("DP");
 
   const [submitting, setSubmitting] = useState(false);
@@ -200,7 +215,10 @@ function BookingFlow() {
         const preselectBarberId = searchParams.get("barberId");
         if (preselectBarberId) {
           const found = (d.barbers || []).find((b: Staff) => b.id === preselectBarberId);
-          if (found) setSelectedBarber(found);
+          if (found) {
+            setSelectedBarber(found);
+            setShowBarberPicker(true);
+          }
         }
         // Restore barber dari pending booking jika ada
         try {
@@ -209,7 +227,10 @@ function BookingFlow() {
             const saved = JSON.parse(raw);
             if (saved.barberId && saved.barberId !== "any") {
               const match = (d.barbers || []).find((b: Staff) => b.id === saved.barberId);
-              if (match) setSelectedBarber(match);
+              if (match) {
+                setSelectedBarber(match);
+                setShowBarberPicker(true);
+              }
             }
           }
         } catch { /* abaikan */ }
@@ -254,6 +275,7 @@ function BookingFlow() {
       if (prev && arr.includes(prev)) return prev;
       return arr[0] || "";
     });
+    setSelectedTime(null);
   }, [viewMonth]);
 
   function goToMonth(offset: number) {
@@ -265,7 +287,6 @@ function BookingFlow() {
     });
   }
 
-  const todayStr = toLocalDateString(new Date());
   const isCurrentMonth =
     viewMonth.getFullYear() === new Date().getFullYear() &&
     viewMonth.getMonth() === new Date().getMonth();
@@ -274,9 +295,11 @@ function BookingFlow() {
     year: "numeric",
   });
 
-  // load slots when entering slot step
-  useEffect(() => {
-    if (step !== "slot" || !selectedDate) return;
+  // Muat slot begitu tanggal dipilih — tidak lagi terikat ke step
+  // tertentu, karena di flow baru tanggal/jam dan layanan/barber semua
+  // berada di satu halaman yang sama.
+  function loadSlots() {
+    if (!selectedDate) return;
     const barberId = selectedBarber && selectedBarber !== "any" ? selectedBarber.id : "";
     const url = barberId
       ? `/api/slots?barberId=${barberId}&date=${selectedDate}`
@@ -297,7 +320,11 @@ function BookingFlow() {
         setSlotsError(err.message || "Gagal memuat slot. Coba lagi.");
       })
       .finally(() => setSlotsLoading(false));
-  }, [step, selectedDate, selectedBarber]);
+  }
+  useEffect(() => {
+    loadSlots();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate, selectedBarber]);
 
   // Daftar objek Service lengkap dari id-id yang dipilih, urut sesuai urutan dipilih.
   const selectedServices = useMemo(
@@ -376,6 +403,61 @@ function BookingFlow() {
     return valid;
   }, [sortedSlotsByBarberDate, slots, slotsNeededCount]);
 
+  // Daftar jam unik yang valid dipilih (cukup slot berurutan, dari
+  // barber manapun bila mode "Tanpa Preferensi" — atau dari barber
+  // spesifik bila section barber dibuka & dipilih). Ditampilkan sebagai
+  // satu tombol per jam, BUKAN per barber, karena pelanggan awam pilih
+  // jam dulu, baru (opsional) peduli siapa barbernya.
+  const timeOptions = useMemo(() => {
+    const map = new Map<string, Slot[]>(); // start_time -> daftar slot valid di jam itu
+    for (const s of slots) {
+      if (!s.is_available) continue;
+      if (lockedTime && s.start_time !== lockedTime) continue;
+      if (!validSlotIds.has(s.id)) continue;
+      const arr = map.get(s.start_time);
+      if (arr) arr.push(s);
+      else map.set(s.start_time, [s]);
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([time, slotsAtTime]) => ({ time, slotsAtTime }));
+  }, [slots, validSlotIds, lockedTime]);
+
+  // Begitu pelanggan tap satu jam, otomatis pilih satu slot konkret untuk
+  // jam itu — barber pertama yang available kalau mode "Tanpa Preferensi"
+  // (mis. sistem yang assign, bukan pelanggan bingung harus pilih siapa),
+  // atau slot milik barber spesifik kalau section barber sedang dibuka.
+  function handleSelectTime(time: string) {
+    setSelectedTime((prev) => (prev === time ? null : time));
+  }
+
+  // Kalau jam datang terkunci dari kalender Home, langsung tandai
+  // terpilih begitu jam itu valid — pelanggan sudah memilihnya di Home,
+  // jadi tidak perlu tap ulang jam yang sama di sini.
+  useEffect(() => {
+    if (!lockedTime) return;
+    if (timeOptions.some((t) => t.time === lockedTime)) {
+      setSelectedTime(lockedTime);
+    }
+  }, [lockedTime, timeOptions]);
+
+  useEffect(() => {
+    if (!selectedTime) {
+      setSelectedSlot(null);
+      return;
+    }
+    const match = timeOptions.find((t) => t.time === selectedTime);
+    if (!match) {
+      // Jam yang sebelumnya dipilih sudah tidak valid lagi (mis. baru
+      // saja penuh dibooking, atau barber yang dipilih tidak available
+      // di jam ini) — kosongkan, jangan diam-diam pilih jam lain supaya
+      // pelanggan tidak bingung kenapa pilihannya "berubah sendiri".
+      setSelectedSlot(null);
+      return;
+    }
+    setSelectedSlot(match.slotsAtTime[0]);
+  }, [selectedTime, timeOptions]);
+
   function toggleService(service: Service) {
     setSelectedServiceIds((prev) => {
       const next = new Set(prev);
@@ -390,25 +472,25 @@ function BookingFlow() {
     });
   }
 
+  // Pelanggan dianggap "siap lanjut" kalau sudah pilih minimal 1 layanan
+  // DAN sudah pilih jam yang valid (selectedSlot otomatis terisi lewat
+  // effect di atas begitu jam dipilih).
+  const canProceedToConfirm = selectedServices.length > 0 && !!selectedSlot;
+
   function goNext() {
-    if (step === "service") setStep("barber");
-    else if (step === "barber") setStep("slot");
-    else if (step === "slot") setStep("confirm");
-    else if (step === "confirm") setStep("payment");
+    if (step === "booking" && canProceedToConfirm) setStep("confirm");
   }
 
   function goBack() {
-    if (step === "barber") setStep("service");
-    else if (step === "slot") setStep("barber");
-    else if (step === "confirm") setStep("slot");
-    else if (step === "payment" && !createdBooking) setStep("confirm");
+    if (step === "confirm" && !createdBooking) setStep("booking");
     else {
-      // Di step pertama ("service"), atau di step "payment" yang sudah ada
-      // booking — keluar dari flow booking ke halaman asal. router.back()
-      // saja tidak cukup diandalkan: kalau halaman ini diakses lewat
-      // refresh manual, browser history Next.js bisa kehilangan jejak
-      // halaman sebelumnya, membuat tombol back terasa "macet" (tidak
-      // melakukan apa-apa). Fallback tegas ke Home kalau itu terjadi.
+      // Di step pertama ("booking"), atau di step "confirm" yang sudah
+      // ada booking aktif (createdBooking, sedang menunggu pembayaran) —
+      // keluar dari flow booking ke halaman asal. router.back() saja
+      // tidak cukup diandalkan: kalau halaman ini diakses lewat refresh
+      // manual, browser history Next.js bisa kehilangan jejak halaman
+      // sebelumnya, membuat tombol back terasa "macet" (tidak melakukan
+      // apa-apa). Fallback tegas ke Home kalau itu terjadi.
       if (window.history.length > 1) router.back();
       else router.push("/");
     }
@@ -433,8 +515,12 @@ function BookingFlow() {
         setViewMonth(new Date(savedDate.getFullYear(), savedDate.getMonth(), 1));
         setSelectedDate(saved.date);
       }
+      // selectedSlot tidak disimpan langsung — begitu selectedTime diisi,
+      // effect timeOptions/selectedSlot di atas akan resolve ulang slot
+      // konkretnya dari data slots yang baru di-fetch (slot lama bisa
+      // sudah tidak valid kalau pelanggan sempat lama login).
+      if (saved.time) setSelectedTime(saved.time);
       if (saved.paymentType) setPaymentTypeChoice(saved.paymentType);
-      if (saved.step) setStep(saved.step);
       sessionStorage.removeItem("glori_pending_booking");
     } catch {
       sessionStorage.removeItem("glori_pending_booking");
@@ -451,14 +537,14 @@ function BookingFlow() {
           serviceIds: selectedServiceOrder,
           barberId: selectedBarber === "any" ? "any" : selectedBarber?.id ?? null,
           date: selectedDate,
+          time: selectedTime,
           paymentType: paymentTypeChoice,
-          step: "confirm",
         })
       );
       router.push(`/login?next=/booking`);
       return;
     }
-    setStep("payment");
+    handleCreateBooking();
   }
 
   async function handleCreateBooking() {
@@ -515,12 +601,6 @@ function BookingFlow() {
     }
   }
 
-  // Kalau jam sudah dikunci dari kalender Home, hanya tampilkan slot yang
-  // jamnya cocok — pelanggan tinggal pilih barber yang available di jam
-  // itu, tidak perlu pilih jam lagi.
-  const availableSlots = slots.filter(
-    (s) => s.is_available && (!lockedTime || s.start_time === lockedTime)
-  );
   const barberForSlot = (barberId: string) => barbers.find((b) => b.id === barberId);
 
   if (initError) {
@@ -550,22 +630,19 @@ function BookingFlow() {
           <ChevronLeft size={18} />
         </button>
         <h1 className="font-display text-lg font-bold">
-          {step === "service" && "Pilih Layanan"}
-          {step === "barber" && "Pilih Barber"}
-          {step === "slot" && "Pilih Tanggal & Waktu"}
-          {step === "confirm" && "Konfirmasi Booking"}
-          {step === "payment" && "Pembayaran"}
+          {step === "booking" && "Booking"}
+          {step === "confirm" && (createdBooking ? "Pembayaran" : "Konfirmasi & Bayar")}
         </h1>
       </header>
 
-      {/* Step indicator */}
+      {/* Step indicator — cuma 2 step besar */}
       <div className="flex gap-1.5 px-5 pt-4">
-        {(["service", "barber", "slot", "confirm", "payment"] as Step[]).map((s) => (
+        {(["booking", "confirm"] as Step[]).map((s) => (
           <div
             key={s}
             className={cn(
               "h-1 flex-1 rounded-full",
-              s === step || ["service", "barber", "slot", "confirm", "payment"].indexOf(s) < ["service", "barber", "slot", "confirm", "payment"].indexOf(step)
+              s === step || (["booking", "confirm"] as Step[]).indexOf(s) < (["booking", "confirm"] as Step[]).indexOf(step)
                 ? "bg-accent"
                 : "bg-border-soft"
             )}
@@ -574,160 +651,17 @@ function BookingFlow() {
       </div>
 
       <div className="px-5 pt-5">
-        {/* STEP: SERVICE — pilih beberapa layanan sekaligus, seperti checkout */}
-        {step === "service" && (
-          <div className="flex flex-col gap-3">
-            <p className="text-xs text-text-secondary">
-              Pilih satu atau beberapa layanan sekaligus untuk janji temu ini.
-            </p>
-            {services.map((s) => {
-              const checked = selectedServiceIds.has(s.id);
-              return (
-                <button
-                  key={s.id}
-                  onClick={() => toggleService(s)}
-                  className={cn(
-                    "flex items-center gap-3 rounded-2xl border bg-surface px-4 py-4 text-left transition-colors",
-                    checked ? "border-accent" : "border-border-soft hover:border-accent/40"
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
-                      checked ? "border-accent bg-accent text-black" : "border-border-soft"
-                    )}
-                  >
-                    {checked && <Check size={13} strokeWidth={3} />}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-display text-sm font-semibold">{s.name}</p>
-                    <p className="mt-1 flex items-center gap-1 text-xs text-text-secondary">
-                      <Clock size={12} /> {s.duration_minutes} menit
-                    </p>
-                  </div>
-                  <p className="font-display text-sm font-bold text-accent">
-                    {formatServiceListPrice([s])}
-                  </p>
-                </button>
-              );
-            })}
-            {services.length === 0 && (
-              <p className="py-10 text-center text-sm text-text-secondary">Memuat layanan...</p>
-            )}
-          </div>
-        )}
-
-        {/* STEP: BARBER */}
-        {step === "barber" && (
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={() => {
-                setSelectedBarber("any");
-                goNext();
-              }}
-              className={cn(
-                "flex items-center gap-4 rounded-2xl border bg-surface px-4 py-4 text-left transition-colors",
-                selectedBarber === "any" ? "border-accent" : "border-border-soft hover:border-accent/40"
-              )}
-            >
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft text-accent font-display font-bold">
-                ?
-              </div>
-              <div>
-                <p className="font-display text-sm font-semibold">Tanpa Preferensi</p>
-                <p className="text-xs text-text-secondary">Sistem akan assign barber otomatis</p>
-              </div>
-            </button>
-            {barbers.map((b) => (
-              <button
-                key={b.id}
-                onClick={() => {
-                  setSelectedBarber(b);
-                  goNext();
-                }}
-                className={cn(
-                  "flex items-center gap-4 rounded-2xl border bg-surface px-4 py-4 text-left transition-colors",
-                  selectedBarber !== "any" && selectedBarber?.id === b.id
-                    ? "border-accent"
-                    : "border-border-soft hover:border-accent/40"
-                )}
-              >
-                <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-accent-soft text-accent font-display font-bold">
-                  {b.photo_url ? (
-                    <Image src={b.photo_url} alt={b.name} fill sizes="48px" className="object-cover" />
-                  ) : (
-                    b.name.slice(0, 2).toUpperCase()
-                  )}
-                </div>
-                <div className="flex-1">
-                  <p className="font-display text-sm font-semibold">{b.name}</p>
-                  <p className="flex items-center gap-1 text-xs text-text-secondary">
-                    <Star size={11} className="fill-accent text-accent" /> 4.9
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* STEP: SLOT */}
-        {step === "slot" && (
-          <div>
-            {/* Foto barber yang dipilih, tampil di atas seperti referensi */}
-            {selectedBarber && selectedBarber !== "any" && (
-              <div className="relative mb-5 -mx-5 h-56 w-[calc(100%+2.5rem)] overflow-hidden sm:rounded-3xl sm:mx-0 sm:w-full">
-                {selectedBarber.photo_url ? (
-                  <Image
-                    src={selectedBarber.photo_url}
-                    alt={selectedBarber.name}
-                    fill
-                    sizes="(max-width: 640px) 100vw, 480px"
-                    priority
-                    className="object-cover"
-                  />
-                ) : (
-                  <PhotoPlaceholder
-                    icon={
-                      <span className="font-display text-3xl font-bold">
-                        {selectedBarber.name.slice(0, 2).toUpperCase()}
-                      </span>
-                    }
-                  />
-                )}
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 to-transparent" />
-                <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
-                  <div>
-                    <p className="font-display text-base font-bold text-white">
-                      {selectedBarber.name}
-                    </p>
-                    <p className="flex items-center gap-1 text-xs text-white/80">
-                      <Star size={11} className="fill-accent text-accent" /> 4.9
-                      <span className="text-white/50">• Pro Barber</span>
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Ringkasan layanan terpilih + total durasi, supaya pelanggan
-                ingat berapa banyak slot yang akan dipakai */}
-            {selectedServices.length > 0 && (
-              <div className="mb-4 rounded-2xl border border-border-soft bg-surface-2 px-4 py-3">
-                <p className="text-xs text-text-secondary">
-                  {selectedServices.length} layanan dipilih • total {totalDurationMin} menit
-                </p>
-                <p className="mt-1 text-xs text-text-tertiary">
-                  {selectedServices.map((s) => s.name).join(" + ")}
-                </p>
-              </div>
-            )}
-
+        {/* STEP: BOOKING — gabungan tanggal, jam, layanan, & barber
+            (opsional) dalam satu halaman. Urutan tampilan ikut cara
+            orang awam berpikir: "kapan saya bisa cukur?" dulu, baru
+            "mau apa", baru (kalau peduli) "sama siapa". */}
+        {step === "booking" && (
+          <div className="flex flex-col gap-6">
             {/* Jam sudah dikunci dari kalender ketersediaan di Home —
-                pelanggan tinggal pilih barber yang available di jam ini.
-                Tetap diberi opsi lepas kuncian, supaya tidak terjebak
-                kalau ternyata mau ganti jam. */}
+                pelanggan tinggal pilih layanan & (opsional) barber.
+                Tetap diberi opsi lepas kuncian. */}
             {lockedTime && (
-              <div className="mb-4 flex items-center justify-between rounded-2xl border border-accent/30 bg-accent/10 px-4 py-3">
+              <div className="flex items-center justify-between rounded-2xl border border-accent/30 bg-accent/10 px-4 py-3">
                 <p className="text-xs text-text-primary">
                   Jam <span className="font-semibold">{formatTime(lockedTime)}</span> sudah
                   dipilih dari halaman utama.
@@ -742,191 +676,270 @@ function BookingFlow() {
               </div>
             )}
 
-            {/* Header bulan dengan navigasi maju/mundur */}
-            <div className="flex items-center justify-between">
-              <p className="font-display text-sm font-semibold capitalize">{monthLabel}</p>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => goToMonth(-1)}
-                  disabled={isCurrentMonth}
-                  aria-label="Bulan sebelumnya"
-                  className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-full border border-border-soft transition-colors",
-                    isCurrentMonth
-                      ? "cursor-not-allowed text-text-tertiary/40"
-                      : "text-text-secondary hover:border-accent/40 hover:text-text-primary"
-                  )}
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => goToMonth(1)}
-                  aria-label="Bulan berikutnya"
-                  className="flex h-8 w-8 items-center justify-center rounded-full border border-border-soft text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            </div>
-
-            {/* Date picker horizontal scroll */}
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
-              {dates.map((d) => {
-                const dateObj = new Date(d + "T00:00:00");
-                const dayNum = dateObj.getDate();
-                const dayName = dateObj.toLocaleDateString("id-ID", { weekday: "short" });
-                const isSelected = d === selectedDate;
-                return (
+            {/* 1. KAPAN — tanggal & jam */}
+            <div>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+                1. Pilih Tanggal
+              </p>
+              <div className="flex items-center justify-between">
+                <p className="font-display text-sm font-semibold capitalize">{monthLabel}</p>
+                <div className="flex items-center gap-2">
                   <button
-                    key={d}
-                    onClick={() => setSelectedDate(d)}
+                    type="button"
+                    onClick={() => goToMonth(-1)}
+                    disabled={isCurrentMonth}
+                    aria-label="Bulan sebelumnya"
                     className={cn(
-                      "flex shrink-0 flex-col items-center justify-center rounded-xl px-3.5 py-2.5 text-center transition-colors",
-                      isSelected
-                        ? "bg-accent text-black"
-                        : "bg-surface border border-border-soft text-text-secondary hover:border-accent/40"
+                      "flex h-8 w-8 items-center justify-center rounded-full border border-border-soft transition-colors",
+                      isCurrentMonth
+                        ? "cursor-not-allowed text-text-tertiary/40"
+                        : "text-text-secondary hover:border-accent/40 hover:text-text-primary"
                     )}
                   >
-                    <span className="text-sm font-semibold">{dayNum}</span>
-                    <span className="mt-0.5 uppercase">{dayName}</span>
+                    <ChevronLeft size={16} />
                   </button>
-                );
-              })}
-            </div>
-
-            <p className="mb-3 mt-6 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
-              Waktu
-            </p>
-
-            {slotsLoading && (
-              <p className="py-10 text-center text-sm text-text-secondary">Memuat slot waktu...</p>
-            )}
-
-            {!slotsLoading && slotsError && (
-              <div className="mt-5 rounded-2xl border border-status-cancelled/30 bg-status-cancelled/10 px-4 py-4 text-center">
-                <p className="text-sm text-status-cancelled">{slotsError}</p>
-                <button
-                  onClick={() => setSelectedDate((d) => d)}
-                  className="mt-2 text-xs font-semibold text-accent underline"
-                >
-                  Coba lagi
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => goToMonth(1)}
+                    aria-label="Bulan berikutnya"
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-border-soft text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
               </div>
-            )}
 
-            {!slotsLoading && !slotsError && (
-              <div className="mt-5 grid grid-cols-3 gap-2.5">
-                {availableSlots.map((slot) => {
-                  // Untuk total durasi lebih dari 1 slot, slot ini hanya valid
-                  // dipilih kalau ada cukup slot berurutan SETELAHNYA yang juga
-                  // masih tersedia (tanpa jeda), supaya semua layanan kebagian waktu.
-                  // Dicek lewat lookup Set (O(1)), hasil pre-compute di atas —
-                  // bukan dihitung ulang per kartu slot.
-                  const hasEnoughFollowingSlots = validSlotIds.has(slot.id);
+              {/* Date picker horizontal scroll */}
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
+                {dates.map((d) => {
+                  const dateObj = new Date(d + "T00:00:00");
+                  const dayNum = dateObj.getDate();
+                  const dayName = dateObj.toLocaleDateString("id-ID", { weekday: "short" });
+                  const isSelected = d === selectedDate;
                   return (
                     <button
-                      key={slot.id}
-                      disabled={!hasEnoughFollowingSlots}
+                      key={d}
                       onClick={() => {
-                        setSelectedSlot(slot);
-                        goNext();
+                        setSelectedDate(d);
+                        setSelectedTime(null);
                       }}
                       className={cn(
-                        "rounded-xl border px-3 py-3 text-center text-sm font-semibold transition-colors",
-                        !hasEnoughFollowingSlots
-                          ? "cursor-not-allowed border-border-soft/50 bg-surface/50 text-text-tertiary/40"
-                          : selectedSlot?.id === slot.id
-                          ? "border-accent bg-accent text-black"
-                          : "border-border-soft bg-surface text-text-primary hover:border-accent/40"
+                        "flex shrink-0 flex-col items-center justify-center rounded-xl px-3.5 py-2.5 text-center transition-colors",
+                        isSelected
+                          ? "bg-accent text-black"
+                          : "bg-surface border border-border-soft text-text-secondary hover:border-accent/40"
                       )}
                     >
-                      {formatTime(slot.start_time)}
-                      {!selectedBarber || selectedBarber === "any" ? (
-                        <span className="mt-0.5 block text-[10px] font-normal text-text-tertiary">
-                          {barberForSlot(slot.barber_id)?.name ?? ""}
-                        </span>
-                      ) : null}
+                      <span className="text-sm font-semibold">{dayNum}</span>
+                      <span className="mt-0.5 uppercase">{dayName}</span>
                     </button>
                   );
                 })}
               </div>
-            )}
 
-            {!slotsLoading && !slotsError && slotsNeededCount > 1 && availableSlots.length > 0 && (
-              <p className="mt-3 text-xs text-text-tertiary">
-                Total layanan kamu butuh sekitar {totalDurationMin} menit, jadi beberapa slot
-                berurutan akan dipakai sekaligus.
-              </p>
-            )}
-
-            {!slotsLoading && !slotsError && slots.length === 0 && (
-              <p className="py-10 text-center text-sm text-text-secondary">
-                Belum ada slot waktu yang dibuat untuk tanggal ini. Silakan pilih tanggal lain
-                atau hubungi barbershop langsung.
-              </p>
-            )}
-
-            {!slotsLoading && !slotsError && slots.length > 0 && availableSlots.length === 0 && (
-              <p className="py-10 text-center text-sm text-text-secondary">
-                {lockedTime
-                  ? `Jam ${formatTime(lockedTime)} baru saja penuh dibooking orang lain. Tap "Ubah jam" di atas untuk pilih jam lain.`
-                  : "Semua slot di tanggal ini sudah penuh dibooking. Coba pilih tanggal lain."}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* STEP: CONFIRM */}
-        {step === "confirm" && selectedServices.length > 0 && selectedSlot && (
-          <div className="flex flex-col gap-4">
-            <div className="rounded-[var(--radius-card)] border border-border-soft bg-surface p-5">
-              <p className="text-xs text-text-secondary">
-                Layanan ({selectedServices.length})
-              </p>
-              <div className="mt-2 flex flex-col gap-2">
-                {selectedServices.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between gap-3">
-                    <p className="font-display text-sm font-semibold">{s.name}</p>
-                    <p className="shrink-0 text-xs font-semibold text-text-secondary">
-                      {formatServiceListPrice([s])}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="my-4 h-px bg-border-soft" />
-
-              <p className="text-xs text-text-secondary">Barber</p>
-              <p className="font-display mt-1 text-sm font-semibold">
-                {selectedBarber === "any"
-                  ? "Sesuai ketersediaan"
-                  : barberForSlot(selectedSlot.barber_id)?.name ?? "—"}
+              <p className="mb-3 mt-5 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+                Pilih Jam
               </p>
 
-              <div className="my-4 h-px bg-border-soft" />
+              {slotsLoading && (
+                <p className="py-8 text-center text-sm text-text-secondary">Memuat jam kosong...</p>
+              )}
 
-              <p className="text-xs text-text-secondary">Tanggal & Waktu</p>
-              <p className="font-display mt-1 text-sm font-semibold">
-                {formatDateShort(selectedSlot.date)} • {formatTime(selectedSlot.start_time)}
-              </p>
-              <p className="mt-1 text-xs text-text-tertiary">
-                Estimasi durasi total: {totalDurationMin} menit
-              </p>
+              {!slotsLoading && slotsError && (
+                <div className="rounded-2xl border border-status-cancelled/30 bg-status-cancelled/10 px-4 py-4 text-center">
+                  <p className="text-sm text-status-cancelled">{slotsError}</p>
+                  <button
+                    onClick={loadSlots}
+                    className="mt-2 text-xs font-semibold text-accent underline"
+                  >
+                    Coba lagi
+                  </button>
+                </div>
+              )}
 
-              <div className="my-4 h-px bg-border-soft" />
+              {!slotsLoading && !slotsError && timeOptions.length > 0 && (
+                <div className="grid grid-cols-3 gap-2.5">
+                  {timeOptions.map(({ time }) => (
+                    <button
+                      key={time}
+                      onClick={() => handleSelectTime(time)}
+                      className={cn(
+                        "rounded-xl border px-3 py-3 text-center text-sm font-semibold transition-colors",
+                        selectedTime === time
+                          ? "border-accent bg-accent text-black"
+                          : "border-border-soft bg-surface text-text-primary hover:border-accent/40"
+                      )}
+                    >
+                      {formatTime(time)}
+                    </button>
+                  ))}
+                </div>
+              )}
 
-              <p className="text-xs text-text-secondary">Estimasi Total Harga</p>
-              <p className="font-display mt-1 text-base font-bold text-accent">
-                {formatServiceListPrice(selectedServices)}
-              </p>
+              {!slotsLoading && !slotsError && slots.length === 0 && (
+                <p className="py-8 text-center text-sm text-text-secondary">
+                  Belum ada jam yang dibuka untuk tanggal ini. Silakan pilih tanggal lain
+                  atau hubungi barbershop langsung.
+                </p>
+              )}
+
+              {!slotsLoading && !slotsError && slots.length > 0 && timeOptions.length === 0 && (
+                <p className="py-8 text-center text-sm text-text-secondary">
+                  {lockedTime
+                    ? `Jam ${formatTime(lockedTime)} baru saja penuh dibooking orang lain. Tap "Ubah jam" di atas untuk pilih jam lain.`
+                    : "Semua jam di tanggal ini sudah penuh dibooking. Coba pilih tanggal lain."}
+                </p>
+              )}
             </div>
 
-            {session === null && (
-              <p className="rounded-xl bg-accent-soft px-4 py-3 text-sm text-accent">
-                Kamu perlu login untuk menyelesaikan booking ini.
+            {/* 2. APA — layanan, bisa pilih lebih dari satu */}
+            <div>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+                2. Pilih Layanan
               </p>
+              <div className="flex flex-col gap-3">
+                {services.map((s) => {
+                  const checked = selectedServiceIds.has(s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => toggleService(s)}
+                      className={cn(
+                        "flex items-center gap-3 rounded-2xl border bg-surface px-4 py-4 text-left transition-colors",
+                        checked ? "border-accent" : "border-border-soft hover:border-accent/40"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
+                          checked ? "border-accent bg-accent text-black" : "border-border-soft"
+                        )}
+                      >
+                        {checked && <Check size={13} strokeWidth={3} />}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-display text-sm font-semibold">{s.name}</p>
+                        <p className="mt-1 flex items-center gap-1 text-xs text-text-secondary">
+                          <Clock size={12} /> {s.duration_minutes} menit
+                        </p>
+                      </div>
+                      <p className="font-display text-sm font-bold text-accent">
+                        {formatServiceListPrice([s])}
+                      </p>
+                    </button>
+                  );
+                })}
+                {services.length === 0 && (
+                  <p className="py-6 text-center text-sm text-text-secondary">Memuat layanan...</p>
+                )}
+              </div>
+              {selectedServices.length > 1 && (
+                <p className="mt-3 text-xs text-text-tertiary">
+                  {selectedServices.length} layanan dipilih • total {totalDurationMin} menit
+                </p>
+              )}
+            </div>
+
+            {/* 3. SAMA SIAPA — opsional, default "Tanpa Preferensi".
+                Collapsed by default supaya pelanggan yang tidak peduli
+                siapa barbernya tidak perlu berhenti di sini sama sekali. */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowBarberPicker((v) => !v)}
+                className="flex w-full items-center justify-between rounded-2xl border border-border-soft bg-surface px-4 py-3.5 text-left"
+              >
+                <div>
+                  <p className="text-sm font-semibold">Pilih barber tertentu?</p>
+                  <p className="mt-0.5 text-xs text-text-secondary">
+                    {selectedBarber === "any"
+                      ? "Saat ini: Tanpa Preferensi"
+                      : `Saat ini: ${selectedBarber?.name ?? "—"}`}
+                  </p>
+                </div>
+                <ChevronRight
+                  size={16}
+                  className={cn(
+                    "text-text-tertiary transition-transform",
+                    showBarberPicker && "rotate-90"
+                  )}
+                />
+              </button>
+
+              {showBarberPicker && (
+                <div className="mt-3 flex flex-col gap-3">
+                  <button
+                    onClick={() => {
+                      setSelectedBarber("any");
+                      setSelectedTime(null);
+                    }}
+                    className={cn(
+                      "flex items-center gap-4 rounded-2xl border bg-surface px-4 py-4 text-left transition-colors",
+                      selectedBarber === "any" ? "border-accent" : "border-border-soft hover:border-accent/40"
+                    )}
+                  >
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft text-accent font-display font-bold">
+                      ?
+                    </div>
+                    <div>
+                      <p className="font-display text-sm font-semibold">Tanpa Preferensi</p>
+                      <p className="text-xs text-text-secondary">Sistem akan assign barber otomatis</p>
+                    </div>
+                  </button>
+                  {barbers.map((b) => (
+                    <button
+                      key={b.id}
+                      onClick={() => {
+                        setSelectedBarber(b);
+                        setSelectedTime(null);
+                      }}
+                      className={cn(
+                        "flex items-center gap-4 rounded-2xl border bg-surface px-4 py-4 text-left transition-colors",
+                        selectedBarber !== "any" && selectedBarber?.id === b.id
+                          ? "border-accent"
+                          : "border-border-soft hover:border-accent/40"
+                      )}
+                    >
+                      <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-accent-soft text-accent font-display font-bold">
+                        {b.photo_url ? (
+                          <Image src={b.photo_url} alt={b.name} fill sizes="48px" className="object-cover" />
+                        ) : (
+                          b.name.slice(0, 2).toUpperCase()
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-display text-sm font-semibold">{b.name}</p>
+                        <p className="flex items-center gap-1 text-xs text-text-secondary">
+                          <Star size={11} className="fill-accent text-accent" /> 4.9
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                  <p className="text-xs text-text-tertiary">
+                    Ganti barber bisa mengubah jam yang tersedia — kalau jam yang
+                    sudah dipilih ternyata tidak cocok, pilih ulang jamnya di atas.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Ringkasan total — selalu kelihatan begitu ada yang dipilih,
+                supaya tidak ada kejutan harga/durasi baru di step berikutnya. */}
+            {(selectedServices.length > 0 || selectedSlot) && (
+              <div className="rounded-2xl border border-border-soft bg-surface-2 px-4 py-3.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-text-secondary">Estimasi Total</p>
+                  <p className="font-display text-sm font-bold text-accent">
+                    {selectedServices.length > 0 ? formatServiceListPrice(selectedServices) : "—"}
+                  </p>
+                </div>
+                {selectedSlot && (
+                  <p className="mt-1 text-xs text-text-tertiary">
+                    {formatDateShort(selectedSlot.date)} • {formatTime(selectedSlot.start_time)}
+                    {selectedServices.length > 0 && ` • ${totalDurationMin} menit`}
+                  </p>
+                )}
+              </div>
             )}
 
             {error && (
@@ -937,14 +950,65 @@ function BookingFlow() {
           </div>
         )}
 
-        {/* STEP: PAYMENT */}
-        {step === "payment" && selectedServices.length > 0 && selectedSlot && (
+        {/* STEP: CONFIRM & BAYAR — ringkasan, pilih DP/Lunas, lalu QRIS +
+            upload bukti, semua dalam satu alur scroll. Sub-state
+            createdBooking membedakan "belum bayar" vs "menunggu
+            verifikasi", supaya pelanggan tidak perlu pindah-pindah
+            halaman untuk dua hal yang sebenarnya berkaitan erat. */}
+        {step === "confirm" && selectedServices.length > 0 && selectedSlot && (
           <div className="flex flex-col gap-4">
             {!createdBooking ? (
               <>
-                <p className="text-sm text-text-secondary">
-                  Pilih jenis pembayaran untuk mengamankan slot kamu. Booking akan
-                  diverifikasi admin setelah bukti transfer diunggah.
+                <div className="rounded-[var(--radius-card)] border border-border-soft bg-surface p-5">
+                  <p className="text-xs text-text-secondary">
+                    Layanan ({selectedServices.length})
+                  </p>
+                  <div className="mt-2 flex flex-col gap-2">
+                    {selectedServices.map((s) => (
+                      <div key={s.id} className="flex items-center justify-between gap-3">
+                        <p className="font-display text-sm font-semibold">{s.name}</p>
+                        <p className="shrink-0 text-xs font-semibold text-text-secondary">
+                          {formatServiceListPrice([s])}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="my-4 h-px bg-border-soft" />
+
+                  <p className="text-xs text-text-secondary">Barber</p>
+                  <p className="font-display mt-1 text-sm font-semibold">
+                    {selectedBarber === "any"
+                      ? "Sesuai ketersediaan"
+                      : barberForSlot(selectedSlot.barber_id)?.name ?? "—"}
+                  </p>
+
+                  <div className="my-4 h-px bg-border-soft" />
+
+                  <p className="text-xs text-text-secondary">Tanggal & Waktu</p>
+                  <p className="font-display mt-1 text-sm font-semibold">
+                    {formatDateShort(selectedSlot.date)} • {formatTime(selectedSlot.start_time)}
+                  </p>
+                  <p className="mt-1 text-xs text-text-tertiary">
+                    Estimasi durasi total: {totalDurationMin} menit
+                  </p>
+
+                  <div className="my-4 h-px bg-border-soft" />
+
+                  <p className="text-xs text-text-secondary">Estimasi Total Harga</p>
+                  <p className="font-display mt-1 text-base font-bold text-accent">
+                    {formatServiceListPrice(selectedServices)}
+                  </p>
+                </div>
+
+                {session === null && (
+                  <p className="rounded-xl bg-accent-soft px-4 py-3 text-sm text-accent">
+                    Kamu perlu login untuk menyelesaikan booking ini.
+                  </p>
+                )}
+
+                <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+                  Jenis Pembayaran
                 </p>
 
                 {(() => {
@@ -1086,37 +1150,35 @@ function BookingFlow() {
         )}
       </div>
 
-      {/* Tombol "Lanjut" untuk step SERVICE — beda dari step lain karena
-          memilih layanan bersifat multi-select, jadi tidak otomatis pindah
-          step tiap kali satu kartu ditekan (supaya pelanggan bisa pilih
-          beberapa layanan dulu sebelum lanjut). */}
-      {step === "service" && (
+      {/* Tombol "Lanjut" untuk step BOOKING — selalu kelihatan supaya
+          pelanggan tahu langkah berikutnya, tapi disabled sampai jam +
+          minimal 1 layanan sudah dipilih. Label menyesuaikan apa yang
+          masih kurang, supaya jelas harus ngapain. */}
+      {step === "booking" && (
         <div className="fixed bottom-0 left-0 right-0 border-t border-border-soft bg-surface/95 px-5 py-4 backdrop-blur-lg">
-          <Button variant="order" size="lg" fullWidth onClick={goNext} disabled={selectedServiceIds.size === 0}>
-            {selectedServiceIds.size === 0
-              ? "Pilih minimal 1 layanan"
-              : `Lanjut (${selectedServiceIds.size} layanan dipilih)`}
+          <Button variant="order" size="lg" fullWidth onClick={goNext} disabled={!canProceedToConfirm}>
+            {!selectedSlot
+              ? "Pilih tanggal & jam dulu"
+              : selectedServices.length === 0
+              ? "Pilih layanan dulu"
+              : "Lanjut ke Konfirmasi"}
           </Button>
         </div>
       )}
 
-      {step === "confirm" && (
+      {step === "confirm" && !createdBooking && (
         <div className="fixed bottom-0 left-0 right-0 border-t border-border-soft bg-surface/95 px-5 py-4 backdrop-blur-lg">
           <Button variant="order" size="lg" fullWidth onClick={handleConfirm} disabled={submitting}>
-            {session === null ? "Login & Lanjutkan" : "Lanjut ke Pembayaran"}
+            {session === null
+              ? "Login & Lanjutkan"
+              : submitting
+              ? "Memproses..."
+              : "Bayar Sekarang"}
           </Button>
         </div>
       )}
 
-      {step === "payment" && !createdBooking && (
-        <div className="fixed bottom-0 left-0 right-0 border-t border-border-soft bg-surface/95 px-5 py-4 backdrop-blur-lg">
-          <Button variant="order" size="lg" fullWidth onClick={handleCreateBooking} disabled={submitting}>
-            {submitting ? "Memproses..." : "Buat Booking & Tampilkan QRIS"}
-          </Button>
-        </div>
-      )}
-
-      {step === "payment" && createdBooking && !uploadDone && (
+      {step === "confirm" && createdBooking && !uploadDone && (
         <div className="fixed bottom-0 left-0 right-0 border-t border-border-soft bg-surface/95 px-5 py-4 backdrop-blur-lg">
           <Button variant="order" size="lg" fullWidth onClick={handleUploadProof} disabled={uploadingProof || !proofFile}>
             {uploadingProof ? "Mengunggah..." : "Kirim Bukti Transfer"}

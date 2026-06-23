@@ -20,6 +20,8 @@ import { ServiceGridCard } from "@/components/ServiceGridCard";
 import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
 import { LinkButton } from "@/components/Button";
 import { BannerCarousel } from "@/components/BannerCarousel";
+import { QuickAccess } from "@/components/QuickAccess";
+import { LiveQueuePanel } from "@/components/LiveQueuePanel";
 import { cn, initials, formatRupiah } from "@/lib/utils";
 import { MAPS_URL } from "@/lib/contact";
 
@@ -227,6 +229,9 @@ export function HomeView({
         </div>
       </header>
 
+      {/* Quick Access shortcuts */}
+      <QuickAccess />
+
       {/* Booking aktif */}
       {hasActiveBooking && (
         <section className="px-5">
@@ -387,6 +392,9 @@ export function HomeView({
           <span className="text-accent text-sm font-semibold">Lihat →</span>
         </Link>
       </section>
+
+      {/* Live Queue Panel — bisa dilihat semua orang tanpa login */}
+      <LiveQueuePanel />
 
       {/* CTA bawah kalau belum pernah booking */}
       {!hasActiveBooking && (

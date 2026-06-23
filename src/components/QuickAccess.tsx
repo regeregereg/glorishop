@@ -14,7 +14,7 @@ const SHORTCUTS = [
     bg: "bg-[rgba(225,143,0,0.12)]",
   },
   {
-    href: "/barber",
+    href: "/barbers",
     icon: Users,
     label: "Barber",
     color: "text-status-confirmed",

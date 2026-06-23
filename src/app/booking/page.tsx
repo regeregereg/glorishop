@@ -3,8 +3,8 @@
 import { useEffect, useState, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight, Star, Clock, Check } from "lucide-react";
-import { Service, Staff, Slot } from "@/types";
+import { ChevronLeft, ChevronRight, Star, Check } from "lucide-react";
+import { Service, Staff, Slot, ServiceCategory } from "@/types";
 import {
   formatServiceListPrice,
   formatRupiah,
@@ -30,6 +30,20 @@ import { DownloadImageButton } from "@/components/DownloadImageButton";
 //               membedakan "belum bayar" vs "menunggu verifikasi")
 type Step = "booking" | "confirm";
 type PaymentTypeChoice = "DP" | "FULL";
+
+// Label kategori — konsisten dengan src/app/layanan/page.tsx. "product"
+// (pomade, hair tonic, dst) sengaja tidak ditampilkan di sini karena
+// booking ini untuk jasa, bukan jualan produk.
+const SERVICE_CATEGORY_LABEL: Record<Exclude<ServiceCategory, "product">, string> = {
+  haircut: "Haircut",
+  treatment: "Treatment",
+  colouring: "Colouring",
+};
+const SERVICE_CATEGORY_ORDER: Exclude<ServiceCategory, "product">[] = [
+  "haircut",
+  "treatment",
+  "colouring",
+];
 
 function BookingFlow() {
   const router = useRouter();
@@ -74,6 +88,12 @@ function BookingFlow() {
   // sekali; "Tanpa Preferensi" otomatis berlaku selama section ini
   // tertutup.
   const [showBarberPicker, setShowBarberPicker] = useState(false);
+
+  // Filter kategori untuk daftar layanan — "Semua" by default. Dengan 13
+  // layanan, list 1 kolom bikin scroll sangat panjang; tab kategori +
+  // grid 2 kolom membuat pelanggan bisa langsung loncat ke kategori yang
+  // dicari tanpa scroll lewatin semuanya.
+  const [serviceCategoryFilter, setServiceCategoryFilter] = useState<ServiceCategory | "all">("all");
 
   // Beberapa layanan bisa dipilih sekaligus (mis. Haircut + Creambath),
   // sama seperti memilih beberapa barang saat checkout. Dipakai sebagai Set
@@ -339,6 +359,20 @@ function BookingFlow() {
     () => totalServiceDuration(selectedServices),
     [selectedServices]
   );
+
+  // Kategori yang benar-benar punya layanan, urut sesuai SERVICE_CATEGORY_ORDER.
+  // Tab kategori yang kosong tidak ditampilkan, supaya tidak ada tab mati.
+  const availableCategories = useMemo(() => {
+    const present = new Set(services.map((s) => s.category));
+    return SERVICE_CATEGORY_ORDER.filter((c) => present.has(c));
+  }, [services]);
+
+  // Layanan yang ditampilkan sesuai tab kategori aktif. "all" menampilkan
+  // semua, diurutkan sesuai sort_order dari database (urutan asli services).
+  const filteredServices = useMemo(() => {
+    if (serviceCategoryFilter === "all") return services;
+    return services.filter((s) => s.category === serviceCategoryFilter);
+  }, [services, serviceCategoryFilter]);
 
   // Berapa slot berurutan yang dibutuhkan untuk total durasi semua layanan
   // yang dipilih (slot dibuat per-blok waktu, mis. tiap 30 menit).
@@ -792,45 +826,86 @@ function BookingFlow() {
               )}
             </div>
 
-            {/* 2. APA — layanan, bisa pilih lebih dari satu */}
+            {/* 2. APA — layanan, bisa pilih lebih dari satu. Tab kategori +
+                grid 2 kolom (bukan list 1 kolom) supaya dengan 13 layanan
+                pelanggan tidak perlu scroll panjang — bisa langsung loncat
+                ke kategori yang dicari. */}
             <div>
               <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
                 2. Pilih Layanan
               </p>
-              <div className="flex flex-col gap-3">
-                {services.map((s) => {
+
+              {availableCategories.length > 1 && (
+                <div className="-mx-5 mb-3 flex gap-1.5 overflow-x-auto px-5 pb-1">
+                  <button
+                    onClick={() => setServiceCategoryFilter("all")}
+                    className={cn(
+                      "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors",
+                      serviceCategoryFilter === "all"
+                        ? "border-accent bg-accent text-black"
+                        : "border-border-soft bg-surface text-text-secondary hover:border-accent/40"
+                    )}
+                  >
+                    Semua
+                  </button>
+                  {availableCategories.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setServiceCategoryFilter(c)}
+                      className={cn(
+                        "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors",
+                        serviceCategoryFilter === c
+                          ? "border-accent bg-accent text-black"
+                          : "border-border-soft bg-surface text-text-secondary hover:border-accent/40"
+                      )}
+                    >
+                      {SERVICE_CATEGORY_LABEL[c]}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-2.5">
+                {filteredServices.map((s) => {
                   const checked = selectedServiceIds.has(s.id);
                   return (
                     <button
                       key={s.id}
                       onClick={() => toggleService(s)}
                       className={cn(
-                        "flex items-center gap-3 rounded-2xl border bg-surface px-4 py-4 text-left transition-colors",
+                        "relative rounded-xl border bg-surface px-3 py-3 text-left transition-colors",
                         checked ? "border-accent" : "border-border-soft hover:border-accent/40"
                       )}
                     >
                       <div
                         className={cn(
-                          "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
+                          "absolute right-2.5 top-2.5 flex h-4 w-4 items-center justify-center rounded-md border-2 transition-colors",
                           checked ? "border-accent bg-accent text-black" : "border-border-soft"
                         )}
                       >
-                        {checked && <Check size={13} strokeWidth={3} />}
+                        {checked && <Check size={10} strokeWidth={3} />}
                       </div>
-                      <div className="flex-1">
-                        <p className="font-display text-sm font-semibold">{s.name}</p>
-                        <p className="mt-1 flex items-center gap-1 text-xs text-text-secondary">
-                          <Clock size={12} /> {s.duration_minutes} menit
-                        </p>
-                      </div>
-                      <p className="font-display text-sm font-bold text-accent">
+                      <p className="pr-6 font-display text-[13px] font-semibold leading-tight">
+                        {s.name}
+                      </p>
+                      <p className="mt-1.5 text-[11px] text-text-secondary">
+                        {s.duration_minutes} menit
+                      </p>
+                      <p className="mt-1 font-display text-xs font-bold text-accent">
                         {formatServiceListPrice([s])}
                       </p>
                     </button>
                   );
                 })}
                 {services.length === 0 && (
-                  <p className="py-6 text-center text-sm text-text-secondary">Memuat layanan...</p>
+                  <p className="col-span-2 py-6 text-center text-sm text-text-secondary">
+                    Memuat layanan...
+                  </p>
+                )}
+                {services.length > 0 && filteredServices.length === 0 && (
+                  <p className="col-span-2 py-6 text-center text-sm text-text-secondary">
+                    Belum ada layanan di kategori ini.
+                  </p>
                 )}
               </div>
               {selectedServices.length > 1 && (

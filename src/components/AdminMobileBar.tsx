@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Menu, X, LayoutDashboard, ListOrdered, CalendarRange, CalendarClock, Scissors, Users, Package, Image as ImageIcon, BarChart3, Wallet, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAdminBadgeCounts } from "@/lib/useAdminBadge";
 
 const NAV_ITEMS = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -24,6 +25,11 @@ export function AdminMobileBar() {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  // Badge notifikasi — sama seperti AdminSidebar, supaya admin yang akses
+  // dari HP juga lihat ada hal yang butuh perhatian tanpa harus buka
+  // Dashboard dulu.
+  const { pendingPaymentCount, unreadNotificationCount } = useAdminBadgeCounts();
+  const totalBadge = pendingPaymentCount + unreadNotificationCount;
 
   // Sebelumnya drawer mobile ini SAMA SEKALI tidak punya cara untuk
   // logout — hanya ada di sidebar desktop (AdminSidebar). Admin yang
@@ -43,8 +49,13 @@ export function AdminMobileBar() {
     <div className="lg:hidden">
       <div className="flex items-center justify-between border-b border-border-soft bg-surface px-5 py-4">
         <p className="font-display text-base font-bold">Glori Admin</p>
-        <button onClick={() => setOpen(true)} className="text-text-secondary">
+        <button onClick={() => setOpen(true)} className="relative text-text-secondary">
           <Menu size={22} />
+          {totalBadge > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-status-cancelled text-[9px] font-bold text-white">
+              {totalBadge > 9 ? "9+" : totalBadge}
+            </span>
+          )}
         </button>
       </div>
 
@@ -64,6 +75,12 @@ export function AdminMobileBar() {
               {NAV_ITEMS.map((item) => {
                 const active = pathname.startsWith(item.href);
                 const Icon = item.icon;
+                const badgeCount =
+                  item.href === "/admin/dashboard"
+                    ? unreadNotificationCount
+                    : item.href === "/admin/pembayaran"
+                      ? pendingPaymentCount
+                      : 0;
                 return (
                   <Link
                     key={item.href}
@@ -75,7 +92,12 @@ export function AdminMobileBar() {
                     )}
                   >
                     <Icon size={18} />
-                    {item.label}
+                    <span className="flex-1">{item.label}</span>
+                    {badgeCount > 0 && (
+                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-status-cancelled px-1.5 text-[10px] font-bold text-white">
+                        {badgeCount > 99 ? "99+" : badgeCount}
+                      </span>
+                    )}
                   </Link>
                 );
               })}

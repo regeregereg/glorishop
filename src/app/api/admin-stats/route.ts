@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStaffSession } from "@/lib/session";
 import { getBookingTotalPrice } from "@/lib/payment";
+import { getBookingTotalCommission } from "@/lib/commission";
 
 export async function GET() {
   const staff = await getStaffSession();
@@ -15,7 +16,7 @@ export async function GET() {
   const { data: todayBookings } = await supabase
     .from("bookings")
     .select(
-      "*, service:services(*), services:booking_services(*), barber:staff(id, name), slot:slots(*), user:users(id, name)"
+      "*, service:services(*), services:booking_services(*), barber:staff(id, name), slot:slots(*), user:users(id, name, phone), payment:payments(*)"
     )
     .order("created_at", { ascending: false });
 
@@ -24,35 +25,88 @@ export async function GET() {
   const omsetHariIni = filteredToday
     .filter((b) => b.status === "DONE")
     .reduce((sum, b) => sum + getBookingTotalPrice(b), 0);
+  const komisiHariIni = filteredToday
+    .filter((b) => ["CONFIRMED", "IN_PROGRESS", "DONE"].includes(b.status))
+    .reduce((sum, b) => sum + getBookingTotalCommission(b), 0);
 
   const pendingCount = filteredToday.filter((b) => b.status === "PENDING").length;
   const activeCount = filteredToday.filter((b) =>
     ["CONFIRMED", "IN_PROGRESS"].includes(b.status)
   ).length;
   const doneCount = filteredToday.filter((b) => b.status === "DONE").length;
+  // Walk-in yang dicatat BARBER sendiri hari ini (lihat POST /api/bookings/walkin)
+  // — insight operasional, bukan cuma booking online.
+  const walkinByBarberCount = filteredToday.filter((b) => b.walkin_by_barber).length;
 
+  // PEMBAYARAN MENUNGGU VERIFIKASI — paling urgent untuk admin: pelanggan
+  // sudah upload bukti transfer (PENDING_REVIEW) dan sedang menunggu di
+  // halaman status booking-nya. Diambil dari SEMUA booking (bukan cuma
+  // hari ini), karena slot booking-nya bisa untuk besok/lusa sementara
+  // bukti transfer-nya diupload hari ini juga — yang penting kapan
+  // verifikasinya, bukan kapan jadwal cukurnya.
+  const pembayaranMenungguVerifikasi = (todayBookings ?? [])
+    .filter((b) => b.payment?.status === "PENDING_REVIEW")
+    .map((b) => ({
+      bookingId: b.id,
+      paymentId: b.payment.id,
+      customerName: b.user?.name ?? b.walkin_name ?? "Pelanggan",
+      amount: b.payment.amount,
+      uploadedAt: b.payment.proof_uploaded_at ?? b.payment.created_at,
+      slotDate: b.slot?.date ?? null,
+      slotTime: b.slot?.start_time ?? null,
+    }))
+    .sort((a, b) => a.uploadedAt.localeCompare(b.uploadedAt));
+
+  // NOTIFIKASI TERBARU UNTUK ADMIN — notifications dengan user_id & staff_id
+  // keduanya NULL berarti notifikasi global ke semua admin (lihat konvensi
+  // di POST /api/bookings, /api/bookings/walkin, /api/payments/upload-proof).
+  const { data: notifications } = await supabase
+    .from("notifications")
+    .select("id, type, message, is_read, sent_at")
+    .is("user_id", null)
+    .is("staff_id", null)
+    .order("sent_at", { ascending: false })
+    .limit(15);
+  const unreadNotificationCount = (notifications ?? []).filter((n) => !n.is_read).length;
+
+  // KAPASITAS HARI INI PER BARBER — total slot vs yang masih kosong, supaya
+  // admin tahu barber mana yang jadwalnya sudah penuh/masih longgar tanpa
+  // harus buka Kelola Slot satu-satu.
   const { data: barbers } = await supabase
     .from("staff")
     .select("id, name")
     .eq("role", "barber")
     .eq("is_active", true);
 
+  const { data: todaySlots } = await supabase
+    .from("slots")
+    .select("barber_id, is_available")
+    .eq("date", today);
+
   const barberPerformance = (barbers ?? []).map((barber) => {
     const barberBookings = filteredToday.filter((b) => b.barber_id === barber.id);
+    const barberSlots = (todaySlots ?? []).filter((s) => s.barber_id === barber.id);
     return {
       id: barber.id,
       name: barber.name,
       total: barberBookings.length,
       done: barberBookings.filter((b) => b.status === "DONE").length,
+      slotTotal: barberSlots.length,
+      slotKosong: barberSlots.filter((s) => s.is_available).length,
     };
   });
 
   return NextResponse.json({
     todayBookings: filteredToday,
     omsetHariIni,
+    komisiHariIni,
     pendingCount,
     activeCount,
     doneCount,
+    walkinByBarberCount,
     barberPerformance,
+    pembayaranMenungguVerifikasi,
+    notifications: notifications ?? [],
+    unreadNotificationCount,
   });
 }

@@ -17,6 +17,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAdminBadgeCounts } from "@/lib/useAdminBadge";
 
 const NAV_ITEMS = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -35,6 +36,10 @@ const NAV_ITEMS = [
 export function AdminSidebar({ adminName }: { adminName: string }) {
   const pathname = usePathname();
   const router = useRouter();
+  // Badge notifikasi (pembayaran menunggu verifikasi + notif belum dibaca)
+  // — supaya admin lihat ada yang butuh perhatian dari MANAPUN dia berada
+  // di dashboard, tidak cuma saat membuka halaman Dashboard.
+  const { pendingPaymentCount, unreadNotificationCount } = useAdminBadgeCounts();
 
   async function handleLogout() {
     await fetch("/api/auth/logout", {
@@ -56,6 +61,17 @@ export function AdminSidebar({ adminName }: { adminName: string }) {
         {NAV_ITEMS.map((item) => {
           const active = pathname.startsWith(item.href);
           const Icon = item.icon;
+          // Badge khusus per item: total notif belum dibaca muncul di
+          // Dashboard (karena daftar notifikasi lengkap ada di sana), dan
+          // jumlah pembayaran menunggu verifikasi muncul langsung di menu
+          // Verifikasi Pembayaran (lebih aktionable, langsung tahu mau ke
+          // mana untuk menindaklanjuti).
+          const badgeCount =
+            item.href === "/admin/dashboard"
+              ? unreadNotificationCount
+              : item.href === "/admin/pembayaran"
+                ? pendingPaymentCount
+                : 0;
           return (
             <Link
               key={item.href}
@@ -68,7 +84,12 @@ export function AdminSidebar({ adminName }: { adminName: string }) {
               )}
             >
               <Icon size={18} />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {badgeCount > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-status-cancelled px-1.5 text-[10px] font-bold text-white">
+                  {badgeCount > 99 ? "99+" : badgeCount}
+                </span>
+              )}
             </Link>
           );
         })}

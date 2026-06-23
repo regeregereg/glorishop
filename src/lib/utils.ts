@@ -120,6 +120,24 @@ export function formatTime(timeStr: string): string {
   return timeStr.slice(0, 5);
 }
 
+// Format waktu relatif sederhana ("baru saja", "5 menit lalu", "2 jam
+// lalu", "3 hari lalu") — dipakai untuk daftar notifikasi admin supaya
+// langsung kelihatan seberapa baru tanpa perlu hitung manual dari timestamp.
+// Lewat dari 7 hari, tampilkan tanggal biasa (formatDateShort) supaya tidak
+// jadi "23 hari lalu" yang kurang informatif.
+export function formatRelativeTime(isoString: string): string {
+  const date = new Date(isoString);
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "Baru saja";
+  if (diffMin < 60) return `${diffMin} menit lalu`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour} jam lalu`;
+  const diffDay = Math.floor(diffHour / 24);
+  if (diffDay < 7) return `${diffDay} hari lalu`;
+  return formatDateShort(toLocalDateString(date));
+}
+
 export function cn(...classes: (string | false | null | undefined)[]) {
   return classes.filter(Boolean).join(" ");
 }

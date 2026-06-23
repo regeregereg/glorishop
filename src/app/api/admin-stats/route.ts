@@ -38,6 +38,30 @@ export async function GET() {
   // — insight operasional, bukan cuma booking online.
   const walkinByBarberCount = filteredToday.filter((b) => b.walkin_by_barber).length;
 
+  // BOOKING IN_PROGRESS YANG TERLAMBAT — barber lupa klik "Selesai".
+  // Definisi terlambat: status masih IN_PROGRESS padahal slot-nya sudah
+  // lebih dari 3 jam yang lalu (batas aman untuk layanan terpanjang sekalipun).
+  // Diambil dari semua booking (bukan cuma hari ini) supaya booking yang
+  // terlupakan dari hari sebelumnya juga terdeteksi.
+  const { data: allInProgress } = await supabase
+    .from("bookings")
+    .select("id, barber_id, walkin_name, created_at, slot:slots(date, start_time, end_time), barber:staff(id, name), user:users(id, name)")
+    .eq("status", "IN_PROGRESS");
+
+  const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  const bookingTerlambat = (allInProgress ?? []).filter((b) => {
+    if (!b.slot?.date || !b.slot?.start_time) return false;
+    const slotStart = new Date(`${b.slot.date}T${b.slot.start_time}`);
+    return slotStart < threeHoursAgo;
+  }).map((b) => ({
+    bookingId: b.id,
+    barberId: b.barber_id,
+    barberName: (b.barber as { name?: string } | null)?.name ?? "Barber",
+    customerName: (b.user as { name?: string } | null)?.name ?? b.walkin_name ?? "Pelanggan",
+    slotDate: b.slot?.date ?? null,
+    slotTime: b.slot?.start_time ?? null,
+  }));
+
   // PEMBAYARAN MENUNGGU VERIFIKASI — paling urgent untuk admin: pelanggan
   // sudah upload bukti transfer (PENDING_REVIEW) dan sedang menunggu di
   // halaman status booking-nya. Diambil dari SEMUA booking (bukan cuma
@@ -106,6 +130,7 @@ export async function GET() {
     walkinByBarberCount,
     barberPerformance,
     pembayaranMenungguVerifikasi,
+    bookingTerlambat,
     notifications: notifications ?? [],
     unreadNotificationCount,
   });

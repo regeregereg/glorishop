@@ -161,11 +161,14 @@ export async function PATCH(
   const serviceNamesForNotif = Array.isArray(updated.services) && updated.services.length > 0
     ? updated.services.map((s: { service_name: string }) => s.service_name).join(", ")
     : updated.service?.name ?? "";
+  // Notifikasi ke PELANGGAN saat status berubah
   const notifMap: Partial<Record<BookingStatus, string>> = {
     CONFIRMED: `Booking kamu dikonfirmasi! Datang jam ${updated.slot ? updated.slot.start_time.slice(0, 5) : ""}.`,
     CANCELLED_ADMIN: "Maaf, booking kamu tidak bisa dipenuhi. Silakan pilih waktu lain.",
     CANCELLED_USER: "Booking berhasil dibatalkan. Slot sudah dibuka kembali.",
+    IN_PROGRESS: "Giliran kamu sudah dimulai. Selamat menikmati!",
     DONE: "Terima kasih sudah datang! Yuk beri rating untuk pengalamanmu.",
+    NO_SHOW: "Booking kamu ditandai tidak hadir. Hubungi kami jika ada kendala.",
   };
   if (notifMap[newStatus] && updated.user_id) {
     await supabase.from("notifications").insert({
@@ -174,10 +177,6 @@ export async function PATCH(
       message: notifMap[newStatus],
     });
 
-    // Web push (gratis, lewat VAPID — lihat src/lib/push.ts) sebagai
-    // pelengkap notifikasi in-app. Dibungkus try/catch supaya kegagalan
-    // pengiriman push (mis. belum ada subscription, VAPID belum diset)
-    // TIDAK menggagalkan update status booking itu sendiri.
     try {
       await sendPushToTarget(
         { userId: updated.user_id },
@@ -189,11 +188,44 @@ export async function PATCH(
         }
       );
     } catch {
-      // VAPID belum dikonfigurasi atau gagal kirim — diamkan, notifikasi
-      // in-app di atas tetap tersimpan sebagai fallback.
+      // VAPID belum dikonfigurasi atau gagal kirim — diamkan
     }
   }
-  void serviceNamesForNotif; // tersedia untuk keperluan notifikasi lebih detail di masa depan
+
+  // Notifikasi ke ADMIN saat barber menandai DONE — supaya admin tahu
+  // dan bisa update laporan/komisi tanpa harus cek manual.
+  if (newStatus === "DONE") {
+    const barberName = updated.barber?.name ?? "Barber";
+    const customerName = updated.user?.name ?? updated.walkin_name ?? "pelanggan";
+    const doneMsg = `${barberName} selesai mengerjakan ${customerName} (${serviceNamesForNotif}).`;
+    await supabase.from("notifications").insert({
+      type: "booking_done",
+      message: doneMsg,
+    });
+    try {
+      const { sendPushToAllAdmins } = await import("@/lib/push");
+      await sendPushToAllAdmins({
+        title: "Pekerjaan Selesai — Glori Barbershop",
+        body: doneMsg,
+        url: "/admin/bookings",
+        tag: `done-${updated.id}`,
+      });
+    } catch {
+      // VAPID belum dikonfigurasi atau gagal kirim — diamkan
+    }
+  }
+
+  // Notifikasi ke ADMIN saat admin menandai NO_SHOW
+  if (newStatus === "NO_SHOW") {
+    const customerName = updated.user?.name ?? updated.walkin_name ?? "pelanggan";
+    const noShowMsg = `Booking ${customerName} ditandai tidak hadir (NO_SHOW).`;
+    await supabase.from("notifications").insert({
+      type: "booking_no_show",
+      message: noShowMsg,
+    });
+  }
+
+  void serviceNamesForNotif;
 
   return NextResponse.json({ booking: updated });
 }

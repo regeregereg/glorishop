@@ -27,17 +27,39 @@ function BookingFlow() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Tanggal & jam bisa datang dari kalender ketersediaan di Home
+  // (?date=YYYY-MM-DD&time=HH:MM) — pelanggan sudah memilih jam kosong
+  // di sana, jadi di sini jam itu "dikunci" dan tidak perlu dipilih
+  // ulang. Pelanggan tetap bebas pilih layanan & barber seperti biasa;
+  // kalau ternyata barber pilihannya tidak available di jam terkunci,
+  // ada opsi "Ubah jam" untuk melepas kuncian.
+  const initialDateParam = searchParams.get("date");
+  const initialTimeParam = searchParams.get("time");
+
   const [step, setStep] = useState<Step>("service");
   const [services, setServices] = useState<Service[]>([]);
   const [barbers, setBarbers] = useState<Staff[]>([]);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [dates, setDates] = useState<string[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    const todayStr0 = toLocalDateString(new Date());
+    return initialDateParam && initialDateParam >= todayStr0 ? initialDateParam : "";
+  });
   const [viewMonth, setViewMonth] = useState<Date>(() => {
+    if (initialDateParam) {
+      const parsed = new Date(initialDateParam + "T00:00:00");
+      if (!isNaN(parsed.getTime())) {
+        parsed.setDate(1);
+        return parsed;
+      }
+    }
     const d = new Date();
     d.setDate(1);
     return d;
   });
+  const [lockedTime, setLockedTime] = useState<string | null>(
+    initialDateParam && initialTimeParam ? initialTimeParam : null
+  );
 
   // Beberapa layanan bisa dipilih sekaligus (mis. Haircut + Creambath),
   // sama seperti memilih beberapa barang saat checkout. Dipakai sebagai Set
@@ -486,7 +508,12 @@ function BookingFlow() {
     }
   }
 
-  const availableSlots = slots.filter((s) => s.is_available);
+  // Kalau jam sudah dikunci dari kalender Home, hanya tampilkan slot yang
+  // jamnya cocok — pelanggan tinggal pilih barber yang available di jam
+  // itu, tidak perlu pilih jam lagi.
+  const availableSlots = slots.filter(
+    (s) => s.is_available && (!lockedTime || s.start_time === lockedTime)
+  );
   const barberForSlot = (barberId: string) => barbers.find((b) => b.id === barberId);
 
   if (initError) {
@@ -688,6 +715,26 @@ function BookingFlow() {
               </div>
             )}
 
+            {/* Jam sudah dikunci dari kalender ketersediaan di Home —
+                pelanggan tinggal pilih barber yang available di jam ini.
+                Tetap diberi opsi lepas kuncian, supaya tidak terjebak
+                kalau ternyata mau ganti jam. */}
+            {lockedTime && (
+              <div className="mb-4 flex items-center justify-between rounded-2xl border border-accent/30 bg-accent/10 px-4 py-3">
+                <p className="text-xs text-text-primary">
+                  Jam <span className="font-semibold">{formatTime(lockedTime)}</span> sudah
+                  dipilih dari halaman utama.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setLockedTime(null)}
+                  className="shrink-0 text-xs font-semibold text-accent underline"
+                >
+                  Ubah jam
+                </button>
+              </div>
+            )}
+
             {/* Header bulan dengan navigasi maju/mundur */}
             <div className="flex items-center justify-between">
               <p className="font-display text-sm font-semibold capitalize">{monthLabel}</p>
@@ -820,7 +867,9 @@ function BookingFlow() {
 
             {!slotsLoading && !slotsError && slots.length > 0 && availableSlots.length === 0 && (
               <p className="py-10 text-center text-sm text-text-secondary">
-                Semua slot di tanggal ini sudah penuh dibooking. Coba pilih tanggal lain.
+                {lockedTime
+                  ? `Jam ${formatTime(lockedTime)} baru saja penuh dibooking orang lain. Tap "Ubah jam" di atas untuk pilih jam lain.`
+                  : "Semua slot di tanggal ini sudah penuh dibooking. Coba pilih tanggal lain."}
               </p>
             )}
           </div>

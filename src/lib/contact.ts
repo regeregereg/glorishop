@@ -6,7 +6,7 @@
 
 // Nomor WhatsApp admin, format internasional tanpa "+" atau "0" di depan
 // (62 = kode negara Indonesia), supaya valid dipakai di link wa.me.
-export const WHATSAPP_NUMBER = "6281386856074";
+export const WHATSAPP_NUMBER = "6281575982896";
 
 export const INSTAGRAM_URL = "https://www.instagram.com/glori.barbershop/";
 

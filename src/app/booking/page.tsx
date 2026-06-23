@@ -38,11 +38,13 @@ const SERVICE_CATEGORY_LABEL: Record<Exclude<ServiceCategory, "product">, string
   haircut: "Haircut",
   treatment: "Treatment",
   colouring: "Colouring",
+  home_service: "Home Service",
 };
 const SERVICE_CATEGORY_ORDER: Exclude<ServiceCategory, "product">[] = [
   "haircut",
   "treatment",
   "colouring",
+  "home_service",
 ];
 
 function BookingFlow() {
@@ -355,6 +357,53 @@ function BookingFlow() {
     [selectedServiceOrder, services]
   );
 
+  // HOME SERVICE: layanan ke rumah yang wajib booking di muka dan hanya
+  // bisa dikerjakan barber tertentu (diatur admin lewat service_barbers,
+  // lihat supabase/migration_walkin_homeservice_commission.sql). Begitu
+  // salah satu layanan ini terpilih, pelanggan WAJIB pilih barber spesifik
+  // dari daftar yang diizinkan — opsi "Tanpa Preferensi" tidak berlaku.
+  const homeServiceItems = useMemo(
+    () => selectedServices.filter((s) => s.is_home_service_only || s.category === "home_service"),
+    [selectedServices]
+  );
+  const requiresSpecificBarber = homeServiceItems.length > 0;
+
+  // Barber yang boleh dipilih = irisan (intersection) dari daftar barber_ids
+  // SEMUA layanan home service yang terpilih sekaligus — kalau pelanggan
+  // pilih 2 layanan home service yang barbernya berbeda, hanya barber yang
+  // menerima KEDUANYA yang valid dipilih.
+  const allowedBarberIds = useMemo(() => {
+    if (homeServiceItems.length === 0) return null;
+    const idLists: string[][] = homeServiceItems.map((s) => s.barber_ids ?? []);
+    const intersection = idLists.reduce<string[]>((acc, list, idx) => {
+      if (idx === 0) return list;
+      const listSet = new Set(list);
+      return acc.filter((id) => listSet.has(id));
+    }, []);
+    return new Set(intersection);
+  }, [homeServiceItems]);
+
+  const eligibleBarbersForPicker = useMemo(() => {
+    if (!allowedBarberIds) return barbers;
+    return barbers.filter((b) => allowedBarberIds.has(b.id));
+  }, [barbers, allowedBarberIds]);
+
+  // Begitu layanan home service terpilih: paksa buka section pilih barber
+  // (tidak bisa "Tanpa Preferensi" lagi), dan kalau barber yang sedang
+  // terpilih ternyata tidak ada di daftar yang diizinkan, kosongkan dulu
+  // pilihannya supaya pelanggan tidak salah pilih barber yang tidak
+  // menerima layanan tersebut.
+  useEffect(() => {
+    if (!requiresSpecificBarber) return;
+    setShowBarberPicker(true);
+    setSelectedBarber((prev) => {
+      if (prev === "any") return null;
+      if (prev && allowedBarberIds && !allowedBarberIds.has(prev.id)) return null;
+      return prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requiresSpecificBarber, allowedBarberIds]);
+
   const totalDurationMin = useMemo(
     () => totalServiceDuration(selectedServices),
     [selectedServices]
@@ -509,7 +558,10 @@ function BookingFlow() {
   // Pelanggan dianggap "siap lanjut" kalau sudah pilih minimal 1 layanan
   // DAN sudah pilih jam yang valid (selectedSlot otomatis terisi lewat
   // effect di atas begitu jam dipilih).
-  const canProceedToConfirm = selectedServices.length > 0 && !!selectedSlot;
+  const canProceedToConfirm =
+    selectedServices.length > 0 &&
+    !!selectedSlot &&
+    (!requiresSpecificBarber || (!!selectedBarber && selectedBarber !== "any"));
 
   function goNext() {
     if (step === "booking" && canProceedToConfirm) setStep("confirm");
@@ -583,6 +635,13 @@ function BookingFlow() {
 
   async function handleCreateBooking() {
     if (selectedServices.length === 0 || !selectedSlot) return;
+    // Layanan home service wajib barber spesifik yang memang menerima —
+    // dicek lagi di sini sebagai jaga-jaga UI, validasi sebenarnya tetap
+    // di server (POST /api/bookings).
+    if (requiresSpecificBarber && (!selectedBarber || selectedBarber === "any")) {
+      setError("Pilih barber tertentu dulu untuk layanan home service.");
+      return;
+    }
     setSubmitting(true);
     setError("");
     try {
@@ -917,51 +976,69 @@ function BookingFlow() {
 
             {/* 3. SAMA SIAPA — opsional, default "Tanpa Preferensi".
                 Collapsed by default supaya pelanggan yang tidak peduli
-                siapa barbernya tidak perlu berhenti di sini sama sekali. */}
+                siapa barbernya tidak perlu berhenti di sini sama sekali.
+                Kalau ada layanan home service terpilih, section ini WAJIB
+                terbuka dan tidak bisa ditutup — pelanggan harus pilih
+                barber spesifik dari daftar yang menerima layanan tersebut. */}
             <div>
               <button
                 type="button"
-                onClick={() => setShowBarberPicker((v) => !v)}
+                onClick={() => {
+                  if (requiresSpecificBarber) return;
+                  setShowBarberPicker((v) => !v);
+                }}
                 className="flex w-full items-center justify-between rounded-2xl border border-border-soft bg-surface px-4 py-3.5 text-left"
               >
                 <div>
-                  <p className="text-sm font-semibold">Pilih barber tertentu?</p>
+                  <p className="text-sm font-semibold">
+                    {requiresSpecificBarber ? "Pilih barber (wajib untuk home service)" : "Pilih barber tertentu?"}
+                  </p>
                   <p className="mt-0.5 text-xs text-text-secondary">
                     {selectedBarber === "any"
                       ? "Saat ini: Tanpa Preferensi"
-                      : `Saat ini: ${selectedBarber?.name ?? "—"}`}
+                      : `Saat ini: ${selectedBarber?.name ?? "Belum dipilih"}`}
                   </p>
                 </div>
-                <ChevronRight
-                  size={16}
-                  className={cn(
-                    "text-text-tertiary transition-transform",
-                    showBarberPicker && "rotate-90"
-                  )}
-                />
+                {!requiresSpecificBarber && (
+                  <ChevronRight
+                    size={16}
+                    className={cn(
+                      "text-text-tertiary transition-transform",
+                      showBarberPicker && "rotate-90"
+                    )}
+                  />
+                )}
               </button>
+
+              {requiresSpecificBarber && (
+                <p className="mt-2 text-xs text-text-tertiary">
+                  {homeServiceItems.map((s) => s.name).join(", ")} hanya bisa dikerjakan barber tertentu — pilih salah satu di bawah.
+                </p>
+              )}
 
               {showBarberPicker && (
                 <div className="mt-3 flex flex-col gap-3">
-                  <button
-                    onClick={() => {
-                      setSelectedBarber("any");
-                      setSelectedTime(null);
-                    }}
-                    className={cn(
-                      "flex items-center gap-4 rounded-2xl border bg-surface px-4 py-4 text-left transition-colors",
-                      selectedBarber === "any" ? "border-accent" : "border-border-soft hover:border-accent/40"
-                    )}
-                  >
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft text-accent font-display font-bold">
-                      ?
-                    </div>
-                    <div>
-                      <p className="font-display text-sm font-semibold">Tanpa Preferensi</p>
-                      <p className="text-xs text-text-secondary">Sistem akan assign barber otomatis</p>
-                    </div>
-                  </button>
-                  {barbers.map((b) => (
+                  {!requiresSpecificBarber && (
+                    <button
+                      onClick={() => {
+                        setSelectedBarber("any");
+                        setSelectedTime(null);
+                      }}
+                      className={cn(
+                        "flex items-center gap-4 rounded-2xl border bg-surface px-4 py-4 text-left transition-colors",
+                        selectedBarber === "any" ? "border-accent" : "border-border-soft hover:border-accent/40"
+                      )}
+                    >
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft text-accent font-display font-bold">
+                        ?
+                      </div>
+                      <div>
+                        <p className="font-display text-sm font-semibold">Tanpa Preferensi</p>
+                        <p className="text-xs text-text-secondary">Sistem akan assign barber otomatis</p>
+                      </div>
+                    </button>
+                  )}
+                  {eligibleBarbersForPicker.map((b) => (
                     <button
                       key={b.id}
                       onClick={() => {
@@ -990,10 +1067,17 @@ function BookingFlow() {
                       </div>
                     </button>
                   ))}
-                  <p className="text-xs text-text-tertiary">
-                    Ganti barber bisa mengubah jam yang tersedia — kalau jam yang
-                    sudah dipilih ternyata tidak cocok, pilih ulang jamnya di atas.
-                  </p>
+                  {requiresSpecificBarber && eligibleBarbersForPicker.length === 0 && (
+                    <p className="text-xs text-text-tertiary">
+                      Belum ada barber yang menerima kombinasi layanan home service ini. Coba kurangi layanan home service yang dipilih, atau hubungi barbershop langsung.
+                    </p>
+                  )}
+                  {!requiresSpecificBarber && (
+                    <p className="text-xs text-text-tertiary">
+                      Ganti barber bisa mengubah jam yang tersedia — kalau jam yang
+                      sudah dipilih ternyata tidak cocok, pilih ulang jamnya di atas.
+                    </p>
+                  )}
                 </div>
               )}
             </div>

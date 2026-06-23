@@ -3,17 +3,19 @@
 import { useEffect, useState, useCallback } from "react";
 import { formatRupiah, formatDateShort } from "@/lib/utils";
 import { ErrorState } from "@/components/ErrorState";
-import { Wallet, ShoppingBag } from "lucide-react";
+import { Wallet, ShoppingBag, HandCoins, Store } from "lucide-react";
 
 interface PopularService {
   name: string;
   count: number;
   revenue: number;
+  commission: number;
 }
 interface BarberPerf {
   name: string;
   count: number;
   revenue: number;
+  commission: number;
 }
 interface DailyRevenue {
   date: string;
@@ -27,6 +29,7 @@ export default function AdminLaporanPage() {
   const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
   const [data, setData] = useState<{
     totalOmset: number;
+    totalKomisi: number;
     totalTransaksi: number;
     popularServices: PopularService[];
     barberPerformance: BarberPerf[];
@@ -95,7 +98,7 @@ export default function AdminLaporanPage() {
 
       {!loadError && data && (
         <>
-          <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-2">
+          <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
             <div className="rounded-2xl border border-border-soft bg-surface p-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent">
                 <Wallet size={18} />
@@ -111,6 +114,24 @@ export default function AdminLaporanPage() {
               </div>
               <p className="mt-3 text-xs text-text-secondary">Total Transaksi Selesai</p>
               <p className="font-display mt-1 text-2xl font-extrabold">{data.totalTransaksi}</p>
+            </div>
+            <div className="rounded-2xl border border-border-soft bg-surface p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent">
+                <HandCoins size={18} />
+              </div>
+              <p className="mt-3 text-xs text-text-secondary">Total Komisi Barber</p>
+              <p className="font-display mt-1 text-2xl font-extrabold">
+                {formatRupiah(data.totalKomisi)}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border-soft bg-surface p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent">
+                <Store size={18} />
+              </div>
+              <p className="mt-3 text-xs text-text-secondary">Bagian Barbershop</p>
+              <p className="font-display mt-1 text-2xl font-extrabold">
+                {formatRupiah(data.totalOmset - data.totalKomisi)}
+              </p>
             </div>
           </div>
 
@@ -148,7 +169,14 @@ export default function AdminLaporanPage() {
                       <p className="text-sm font-semibold">{s.name}</p>
                       <p className="text-xs text-text-secondary">{s.count}x dibooking</p>
                     </div>
-                    <p className="text-sm font-bold text-accent">{formatRupiah(s.revenue)}</p>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-accent">{formatRupiah(s.revenue)}</p>
+                      {s.commission > 0 && (
+                        <p className="text-[11px] text-text-tertiary">
+                          Komisi {formatRupiah(s.commission)}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 ))}
                 {data.popularServices.length === 0 && (
@@ -169,7 +197,14 @@ export default function AdminLaporanPage() {
                       <p className="text-sm font-semibold">{b.name}</p>
                       <p className="text-xs text-text-secondary">{b.count} klien</p>
                     </div>
-                    <p className="text-sm font-bold text-accent">{formatRupiah(b.revenue)}</p>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-accent">{formatRupiah(b.revenue)}</p>
+                      {b.commission > 0 && (
+                        <p className="text-[11px] text-text-tertiary">
+                          Komisi {formatRupiah(b.commission)}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 ))}
                 {data.barberPerformance.length === 0 && (

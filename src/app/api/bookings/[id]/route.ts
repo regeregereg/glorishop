@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserSession, getStaffSession } from "@/lib/session";
 import { BookingStatus } from "@/types";
 import { sendPushToTarget } from "@/lib/push";
+import { recalcRowCommission } from "@/lib/commission";
 
 export async function PATCH(
   req: NextRequest,
@@ -93,12 +94,28 @@ export async function PATCH(
   // harga final PER LAYANAN satu-satu (terutama untuk layanan dengan range
   // harga seperti Colour/Bleaching). Dikirim terpisah dari final_price total
   // supaya tidak menabrak alur lama yang masih kirim final_price tunggal.
+  // Setiap kali final_price per layanan diisi/diubah, commission_amount
+  // dihitung ulang dari harga final tersebut (memakai commission_percentage
+  // yang sudah di-snapshot di baris itu — TIDAK ambil ulang dari tabel
+  // services, sesuai aturan snapshot di src/lib/commission.ts).
   if (body.final_prices && typeof body.final_prices === "object") {
     const entries = Object.entries(body.final_prices as Record<string, number>);
     for (const [bookingServiceId, price] of entries) {
+      const { data: rowBefore } = await supabase
+        .from("booking_services")
+        .select("commission_percentage")
+        .eq("id", bookingServiceId)
+        .eq("booking_id", id)
+        .maybeSingle();
+
+      const commissionAmount = recalcRowCommission({
+        final_price: price,
+        commission_percentage: rowBefore?.commission_percentage ?? null,
+      });
+
       await supabase
         .from("booking_services")
-        .update({ final_price: price })
+        .update({ final_price: price, commission_amount: commissionAmount })
         .eq("id", bookingServiceId)
         .eq("booking_id", id);
     }
@@ -113,6 +130,31 @@ export async function PATCH(
     }
   } else if (Array.isArray(updated.services)) {
     updated.services = [...updated.services].sort((a, c) => a.sort_order - c.sort_order);
+  }
+
+  // Saat booking ditandai DONE, pastikan commission_amount semua baris
+  // layanan sudah terhitung dari harga final terakhir (untuk layanan harga
+  // tetap yang tidak pernah lewat final_prices di atas, harga acuan
+  // service_price/service_price_min dipakai sebagai dasar — lihat
+  // getRowPriceForCommission di src/lib/commission.ts).
+  if (newStatus === "DONE" && Array.isArray(updated.services) && updated.services.length > 0) {
+    for (const row of updated.services as {
+      id: string;
+      final_price: number | null;
+      service_price: number | null;
+      service_price_min: number | null;
+      commission_percentage: number | null;
+      commission_amount: number | null;
+    }[]) {
+      const commissionAmount = recalcRowCommission(row);
+      if (commissionAmount !== row.commission_amount) {
+        await supabase
+          .from("booking_services")
+          .update({ commission_amount: commissionAmount })
+          .eq("id", row.id);
+        row.commission_amount = commissionAmount;
+      }
+    }
   }
 
   // Catat notifikasi terkait perubahan status

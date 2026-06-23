@@ -5,7 +5,7 @@ import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
 import { FloatingBackButton } from "@/components/FloatingBackButton";
 import { Service } from "@/types";
 import Image from "next/image";
-import { Clock, Scissors, Sparkles, Palette } from "lucide-react";
+import { Clock, Scissors, Sparkles, Palette, Home } from "lucide-react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { BUSINESS_NAME, SITE_URL } from "@/lib/contact";
@@ -15,8 +15,8 @@ import { BUSINESS_NAME, SITE_URL } from "@/lib/contact";
 // admin mengubah layanan ini (lihat revalidatePath di endpoint admin terkait).
 export const revalidate = 60;
 
-const CATEGORY_ICON = { haircut: Scissors, treatment: Sparkles, colouring: Palette, product: Scissors };
-const CATEGORY_LABEL = { haircut: "Haircut", treatment: "Paket Treatment", colouring: "Colouring", product: "Produk" };
+const CATEGORY_ICON = { haircut: Scissors, treatment: Sparkles, colouring: Palette, product: Scissors, home_service: Home };
+const CATEGORY_LABEL = { haircut: "Haircut", treatment: "Paket Treatment", colouring: "Colouring", product: "Produk", home_service: "Home Service" };
 
 async function getService(id: string) {
   const supabase = createAdminClient();

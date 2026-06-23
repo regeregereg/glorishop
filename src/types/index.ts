@@ -14,7 +14,7 @@ export type PaymentStatus = "WAITING_PROOF" | "PENDING_REVIEW" | "CONFIRMED" | "
 
 export type PaymentType = "DP" | "FULL";
 
-export type ServiceCategory = "haircut" | "treatment" | "colouring" | "product";
+export type ServiceCategory = "haircut" | "treatment" | "colouring" | "product" | "home_service";
 
 export type StaffRole = "admin" | "barber";
 
@@ -83,6 +83,16 @@ export interface Service {
   is_active: boolean;
   sort_order: number;
   created_at: string;
+  // persentase komisi/bagi hasil untuk barber dari layanan ini (0-100),
+  // null/0 = belum diatur. Lihat supabase/migration_walkin_homeservice_commission.sql
+  commission_percentage: number | null;
+  // true = layanan ke rumah, wajib booking di muka, tidak bisa dipakai
+  // untuk walk-in (barber maupun admin); hanya barber tertentu yang
+  // boleh menerima, lihat service_barbers di bawah.
+  is_home_service_only: boolean;
+  // daftar id barber yang boleh menerima layanan ini, HANYA relevan saat
+  // is_home_service_only = true (relasi, joined opsional)
+  barber_ids?: string[];
 }
 
 export interface Product {
@@ -141,6 +151,10 @@ export interface BookingService {
   final_price: number | null;
   sort_order: number;
   created_at: string;
+  // snapshot persentase komisi saat booking dibuat + nominal komisi (Rp)
+  // yang dihitung dari harga final layanan ini. Lihat src/lib/commission.ts
+  commission_percentage: number | null;
+  commission_amount: number | null;
   // relasi (joined, opsional) — data layanan saat ini (bisa beda dari snapshot
   // kalau admin sudah edit layanan setelah booking ini dibuat)
   service?: Service;
@@ -158,6 +172,9 @@ export interface Booking {
   final_price: number | null;
   notes: string | null;
   created_by_admin: boolean;
+  // true = booking walk-in yang diinput LANGSUNG oleh barber yang
+  // bersangkutan dari dashboard barber (bukan oleh admin)
+  walkin_by_barber: boolean;
   created_at: string;
   updated_at: string;
   // relasi (joined, opsional)
@@ -205,4 +222,12 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   PENDING_REVIEW: "Menunggu Verifikasi Admin",
   CONFIRMED: "Pembayaran Terverifikasi",
   REJECTED: "Pembayaran Ditolak",
+};
+
+export const SERVICE_CATEGORY_LABELS: Record<ServiceCategory, string> = {
+  haircut: "Haircut",
+  treatment: "Treatment",
+  colouring: "Colouring",
+  product: "Produk",
+  home_service: "Home Service (ke rumah)",
 };

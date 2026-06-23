@@ -31,11 +31,12 @@ export async function GET(req: NextRequest) {
       .from("bookings")
       .select(
         // Hanya kolom yang benar-benar dipakai di halaman riwayat barber
-        // (langsung atau lewat getBookingServiceNames/getBookingPriceLabel
-        // di src/lib/utils.ts) — sebelumnya "*" mengambil semua kolom
-        // termasuk yang tidak ditampilkan (notes, created_by_admin, dll),
-        // menambah ukuran response tanpa manfaat.
-        "id, status, updated_at, walkin_name, service:services(name, price, price_min, price_max), services:booking_services(service_name, service_price, service_price_min, service_price_max), user:users(id, name), slot:slots(date)"
+        // (langsung atau lewat getBookingServiceNames/getBookingPriceLabel/
+        // getBookingTotalCommission di src/lib/utils.ts & src/lib/commission.ts)
+        // — sebelumnya "*" mengambil semua kolom termasuk yang tidak
+        // ditampilkan (notes, created_by_admin, dll), menambah ukuran
+        // response tanpa manfaat.
+        "id, status, updated_at, walkin_name, walkin_by_barber, service:services(name, price, price_min, price_max), services:booking_services(service_name, service_price, service_price_min, service_price_max, final_price, commission_percentage, commission_amount), user:users(id, name), slot:slots(date)"
       )
       .eq("barber_id", barberId)
       .eq("status", "DONE")

@@ -2,21 +2,23 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
-import { Service, ServiceCategory } from "@/types";
+import { Service, ServiceCategory, Staff } from "@/types";
 import { Button } from "@/components/Button";
 import { ImageUpload } from "@/components/ImageUpload";
 import { ErrorState } from "@/components/ErrorState";
 import { formatServicePrice } from "@/lib/utils";
-import { Plus, X, Pencil, Trash2 } from "lucide-react";
+import { Plus, X, Pencil, Trash2, Check, Percent, Home } from "lucide-react";
 
 const CATEGORIES: { value: ServiceCategory; label: string }[] = [
   { value: "haircut", label: "Haircut" },
   { value: "treatment", label: "Paket Treatment" },
   { value: "colouring", label: "Colouring" },
+  { value: "home_service", label: "Home Service (ke rumah)" },
 ];
 
 export default function AdminLayananPage() {
   const [services, setServices] = useState<Service[]>([]);
+  const [barbers, setBarbers] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [editing, setEditing] = useState<Service | "new" | null>(null);
@@ -25,10 +27,17 @@ export default function AdminLayananPage() {
     setLoading(true);
     setLoadError(false);
     try {
-      const res = await fetch("/api/services?includeInactive=true");
-      if (!res.ok) throw new Error("Gagal memuat layanan.");
-      const data = await res.json();
+      const [resServices, resBarbers] = await Promise.all([
+        fetch("/api/services?includeInactive=true"),
+        fetch("/api/barbers?includeInactive=true"),
+      ]);
+      if (!resServices.ok) throw new Error("Gagal memuat layanan.");
+      const data = await resServices.json();
       setServices(data.services || []);
+      if (resBarbers.ok) {
+        const barberData = await resBarbers.json();
+        setBarbers(barberData.barbers || []);
+      }
     } catch {
       setLoadError(true);
     } finally {
@@ -102,6 +111,18 @@ export default function AdminLayananPage() {
                   {s.category} • {s.duration_minutes} menit • {formatServicePrice(s)}
                   {!s.is_active && " • Nonaktif"}
                 </p>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {s.commission_percentage != null && s.commission_percentage > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold text-accent">
+                      <Percent size={9} /> Komisi {s.commission_percentage}%
+                    </span>
+                  )}
+                  {s.is_home_service_only && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+                      <Home size={9} /> Booking only
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex gap-2">
@@ -131,6 +152,7 @@ export default function AdminLayananPage() {
       {editing && (
         <ServiceForm
           service={editing === "new" ? null : editing}
+          barbers={barbers}
           onClose={() => setEditing(null)}
           onSaved={load}
         />
@@ -141,10 +163,12 @@ export default function AdminLayananPage() {
 
 function ServiceForm({
   service,
+  barbers,
   onClose,
   onSaved,
 }: {
   service: Service | null;
+  barbers: Staff[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -159,14 +183,27 @@ function ServiceForm({
   const [priceMin, setPriceMin] = useState(service?.price_min?.toString() ?? "");
   const [priceMax, setPriceMax] = useState(service?.price_max?.toString() ?? "");
   const [duration, setDuration] = useState(service?.duration_minutes?.toString() ?? "30");
+  const [commissionPercentage, setCommissionPercentage] = useState(
+    service?.commission_percentage?.toString() ?? ""
+  );
+  const [isHomeServiceOnly, setIsHomeServiceOnly] = useState(service?.is_home_service_only ?? false);
+  const [barberIds, setBarberIds] = useState<string[]>(service?.barber_ids ?? []);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  function toggleBarber(id: string) {
+    setBarberIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     if (!name) {
       setError("Nama layanan wajib diisi.");
+      return;
+    }
+    if (isHomeServiceOnly && barberIds.length === 0) {
+      setError("Pilih minimal satu barber yang menerima layanan home service ini.");
       return;
     }
     setSubmitting(true);
@@ -180,6 +217,9 @@ function ServiceForm({
       price_min: priceMode === "range" ? Number(priceMin) : null,
       price_max: priceMode === "range" ? Number(priceMax) : null,
       photo_url: photoUrl,
+      commission_percentage: commissionPercentage ? Number(commissionPercentage) : null,
+      is_home_service_only: isHomeServiceOnly,
+      barber_ids: isHomeServiceOnly ? barberIds : [],
     };
 
     try {
@@ -209,7 +249,7 @@ function ServiceForm({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-md rounded-[var(--radius-card)] border border-border-soft bg-surface p-6">
+      <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-[var(--radius-card)] border border-border-soft bg-surface p-6">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg font-bold">
             {service ? "Edit Layanan" : "Tambah Layanan"}
@@ -307,6 +347,86 @@ function ServiceForm({
                 onChange={(e) => setPriceMax(e.target.value)}
                 className="w-1/2 rounded-xl border border-border-soft bg-surface-2 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
               />
+            </div>
+          )}
+
+          {/* Komisi/bagi hasil untuk barber dari layanan ini, contoh 40 = 40%.
+              Berlaku sama untuk semua barber yang mengerjakan layanan ini. */}
+          <div>
+            <p className="mb-1.5 text-xs font-semibold text-text-secondary">
+              Persentase komisi barber (%)
+            </p>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              step="0.5"
+              placeholder="Contoh: 40 untuk 40%"
+              value={commissionPercentage}
+              onChange={(e) => setCommissionPercentage(e.target.value)}
+              className="w-full rounded-xl border border-border-soft bg-surface-2 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+            />
+            <p className="mt-1 text-[11px] text-text-tertiary">
+              Kosongkan jika layanan ini tidak punya komisi khusus.
+            </p>
+          </div>
+
+          {/* Toggle home service: layanan ke rumah, wajib booking, tidak
+              bisa dipakai untuk walk-in di tempat (barber maupun admin). */}
+          <button
+            type="button"
+            onClick={() => setIsHomeServiceOnly((v) => !v)}
+            className={`flex items-center justify-between rounded-xl border px-3.5 py-3 text-left transition-colors ${
+              isHomeServiceOnly ? "border-accent bg-accent/10" : "border-border-soft bg-surface-2"
+            }`}
+          >
+            <div>
+              <p className="text-sm font-semibold">Wajib booking (home service)</p>
+              <p className="mt-0.5 text-[11px] text-text-secondary">
+                Tidak bisa dipakai untuk walk-in di tempat, hanya bisa lewat booking, dan hanya barber tertentu yang menerima.
+              </p>
+            </div>
+            <div
+              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 ${
+                isHomeServiceOnly ? "border-accent bg-accent text-black" : "border-border-soft"
+              }`}
+            >
+              {isHomeServiceOnly && <Check size={12} strokeWidth={3} />}
+            </div>
+          </button>
+
+          {isHomeServiceOnly && (
+            <div>
+              <p className="mb-1.5 text-xs font-semibold text-text-secondary">
+                Barber yang menerima layanan ini
+              </p>
+              <div className="flex max-h-40 flex-col gap-1.5 overflow-y-auto rounded-xl border border-border-soft bg-surface-2 p-2">
+                {barbers.map((b) => {
+                  const checked = barberIds.includes(b.id);
+                  return (
+                    <button
+                      type="button"
+                      key={b.id}
+                      onClick={() => toggleBarber(b.id)}
+                      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
+                        checked ? "bg-accent/15 text-text-primary" : "text-text-secondary hover:bg-surface"
+                      }`}
+                    >
+                      <div
+                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 ${
+                          checked ? "border-accent bg-accent text-black" : "border-border-soft"
+                        }`}
+                      >
+                        {checked && <Check size={10} strokeWidth={3} />}
+                      </div>
+                      {b.name}
+                    </button>
+                  );
+                })}
+                {barbers.length === 0 && (
+                  <p className="px-2 py-2 text-xs text-text-tertiary">Belum ada barber.</p>
+                )}
+              </div>
             </div>
           )}
 

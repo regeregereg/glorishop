@@ -1,6 +1,6 @@
 import { Service } from "@/types";
 import { formatServicePrice } from "@/lib/utils";
-import { Clock, Scissors, Sparkles, Palette } from "lucide-react";
+import { Clock, Scissors, Sparkles, Palette, Home } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PhotoPlaceholder } from "./PhotoPlaceholder";
@@ -10,6 +10,7 @@ const CATEGORY_ICON = {
   treatment: Sparkles,
   colouring: Palette,
   product: Scissors,
+  home_service: Home,
 };
 
 export function ServiceCard({ service }: { service: Service }) {

@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { Booking, Review } from "@/types";
 import { ErrorState } from "@/components/ErrorState";
-import { formatDateIndo, getBookingServiceNames, getBookingPriceLabel } from "@/lib/utils";
-import { Star, TrendingUp } from "lucide-react";
+import { formatDateIndo, formatRupiah, getBookingServiceNames, getBookingPriceLabel } from "@/lib/utils";
+import { getBookingTotalCommission } from "@/lib/commission";
+import { Star, TrendingUp, Wallet } from "lucide-react";
 
 export default function BarberRiwayatPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -62,6 +63,10 @@ export default function BarberRiwayatPage() {
     );
   }
 
+  // Total komisi dari SEMUA booking DONE yang sudah dimuat (lihat
+  // /api/barber-stats — hanya mengambil booking berstatus DONE).
+  const totalCommission = bookings.reduce((sum, b) => sum + getBookingTotalCommission(b), 0);
+
   return (
     <div className="px-5 pt-6">
       <h1 className="font-display text-2xl font-extrabold">Riwayat Kerja</h1>
@@ -80,6 +85,16 @@ export default function BarberRiwayatPage() {
           <p className="font-display mt-1 text-2xl font-extrabold text-accent">
             {avgRating ? avgRating.toFixed(1) : "—"}
           </p>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2.5 rounded-2xl border border-border-soft bg-surface px-4 py-3.5">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent">
+          <Wallet size={16} />
+        </div>
+        <div>
+          <p className="text-xs text-text-secondary">Total komisi (semua riwayat)</p>
+          <p className="font-display text-base font-bold text-accent">{formatRupiah(totalCommission)}</p>
         </div>
       </div>
 
@@ -110,22 +125,33 @@ export default function BarberRiwayatPage() {
         Riwayat Pekerjaan
       </h2>
       <div className="mt-3 flex flex-col gap-3">
-        {bookings.slice(0, 10).map((b) => (
-          <div
-            key={b.id}
-            className="flex items-center justify-between rounded-2xl border border-border-soft bg-surface p-4"
-          >
-            <div>
-              <p className="text-sm font-semibold">{getBookingServiceNames(b)}</p>
-              <p className="mt-0.5 text-xs text-text-secondary">
-                {b.user?.name ?? b.walkin_name} • {b.slot ? formatDateIndo(b.slot.date) : ""}
-              </p>
+        {bookings.slice(0, 10).map((b) => {
+          const commission = getBookingTotalCommission(b);
+          return (
+            <div
+              key={b.id}
+              className="flex items-center justify-between rounded-2xl border border-border-soft bg-surface p-4"
+            >
+              <div>
+                <p className="text-sm font-semibold">{getBookingServiceNames(b)}</p>
+                <p className="mt-0.5 text-xs text-text-secondary">
+                  {b.user?.name ?? b.walkin_name} • {b.slot ? formatDateIndo(b.slot.date) : ""}
+                  {b.walkin_by_barber && " • Walk-in"}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-bold text-accent">
+                  {getBookingPriceLabel(b)}
+                </p>
+                {commission > 0 && (
+                  <p className="mt-0.5 text-[11px] text-text-tertiary">
+                    Komisi {formatRupiah(commission)}
+                  </p>
+                )}
+              </div>
             </div>
-            <p className="text-sm font-bold text-accent">
-              {getBookingPriceLabel(b)}
-            </p>
-          </div>
-        ))}
+          );
+        })}
         {bookings.length === 0 && !loading && (
           <p className="text-sm text-text-tertiary">Belum ada riwayat pekerjaan.</p>
         )}

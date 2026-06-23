@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Plus, Scissors, Sparkles, Palette } from "lucide-react";
+import { Plus, Scissors, Sparkles, Palette, Home } from "lucide-react";
 import { Service } from "@/types";
 import { formatServicePrice } from "@/lib/utils";
 import { PhotoPlaceholder } from "./PhotoPlaceholder";
@@ -10,6 +10,7 @@ const CATEGORY_ICON = {
   treatment: Sparkles,
   colouring: Palette,
   product: Scissors,
+  home_service: Home,
 };
 
 export function ServiceGridCard({ service }: { service: Service }) {

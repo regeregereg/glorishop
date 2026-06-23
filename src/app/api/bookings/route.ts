@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserSession, getStaffSession } from "@/lib/session";
 import { getServicesBasePrice, calculatePaymentAmount, getPaymentExpiryDate } from "@/lib/payment";
+import { calculateCommissionAmount, getRowPriceForCommission } from "@/lib/commission";
 import { sendPushToAllAdmins } from "@/lib/push";
 import { PaymentType, Service } from "@/types";
 
@@ -213,6 +214,15 @@ export async function POST(req: NextRequest) {
   const totalDurationMin = orderedServices.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
   const basePrice = isAdminBooking ? 0 : getServicesBasePrice(orderedServices);
 
+  // Layanan home service (ke rumah) tidak boleh masuk lewat endpoint ini
+  // sama sekali kalau diinput admin sebagai walk-in TANPA slot — endpoint
+  // ini selalu butuh slot_id, jadi cek lengkapnya (barber wajib & wajib
+  // terdaftar di service_barbers) dilakukan di bawah, setelah slot dasar
+  // ditemukan (supaya tahu barber_id final-nya kalau body.barber_id kosong).
+  const homeServiceItems = orderedServices.filter(
+    (s) => s.is_home_service_only || s.category === "home_service"
+  );
+
   // Step 1: cari slot dasar yang dipilih pelanggan + barber-nya.
   const { data: baseSlot, error: baseSlotError } = await supabase
     .from("slots")
@@ -228,6 +238,33 @@ export async function POST(req: NextRequest) {
       { error: "Slot ini baru saja dibooking orang lain. Silakan pilih slot lain." },
       { status: 409 }
     );
+  }
+
+  // Validasi HOME SERVICE: layanan ke rumah WAJIB pilih barber spesifik
+  // (tidak boleh "Tanpa Preferensi") dan barber tersebut WAJIB sudah
+  // didaftarkan admin sebagai penerima layanan ini di service_barbers.
+  if (homeServiceItems.length > 0) {
+    const chosenBarberId = barber_id || baseSlot.barber_id;
+    const { data: allowedRows, error: allowedError } = await supabase
+      .from("service_barbers")
+      .select("service_id, barber_id")
+      .in("service_id", homeServiceItems.map((s) => s.id))
+      .eq("barber_id", chosenBarberId);
+
+    if (allowedError) {
+      return NextResponse.json({ error: allowedError.message }, { status: 500 });
+    }
+
+    const allowedServiceIds = new Set((allowedRows ?? []).map((r) => r.service_id));
+    const notAllowed = homeServiceItems.filter((s) => !allowedServiceIds.has(s.id));
+    if (notAllowed.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Barber yang dipilih belum bisa menerima layanan: ${notAllowed.map((s) => s.name).join(", ")}. Pilih barber lain untuk layanan ini.`,
+        },
+        { status: 400 }
+      );
+    }
   }
 
   // Step 2: cari slot-slot berurutan (barber & tanggal sama) yang cukup
@@ -298,6 +335,7 @@ export async function POST(req: NextRequest) {
       walkin_name: isAdminBooking ? walkin_name : null,
       walkin_phone: isAdminBooking ? walkin_phone : null,
       created_by_admin: !!isAdminBooking,
+      walkin_by_barber: false,
       status: isAdminBooking ? "PENDING" : "WAITING_PAYMENT",
     })
     .select("*, service:services(*), barber:staff(id, name, photo_url), slot:slots(*)")
@@ -310,16 +348,30 @@ export async function POST(req: NextRequest) {
   }
 
   // Step 5: insert baris booking_services untuk SETIAP layanan yang dipilih.
-  const bookingServiceRows = orderedServices.map((s, idx) => ({
-    booking_id: booking.id,
-    service_id: s.id,
-    service_name: s.name,
-    service_price: s.price,
-    service_price_min: s.price_min,
-    service_price_max: s.price_max,
-    duration_minutes: s.duration_minutes,
-    sort_order: idx,
-  }));
+  // commission_percentage di-snapshot dari services.commission_percentage
+  // saat ini (lihat src/lib/commission.ts) — tidak berubah lagi meski admin
+  // mengubah persentase layanan tersebut setelah booking ini dibuat.
+  // commission_amount dihitung dari harga acuan (belum final_price, karena
+  // final_price untuk layanan range baru diisi barber setelah selesai;
+  // PATCH /api/bookings/[id] akan menghitung ulang saat final_price diisi).
+  const bookingServiceRows = orderedServices.map((s, idx) => {
+    const priceForCommission = getRowPriceForCommission({
+      service_price: s.price,
+      service_price_min: s.price_min,
+    });
+    return {
+      booking_id: booking.id,
+      service_id: s.id,
+      service_name: s.name,
+      service_price: s.price,
+      service_price_min: s.price_min,
+      service_price_max: s.price_max,
+      duration_minutes: s.duration_minutes,
+      sort_order: idx,
+      commission_percentage: s.commission_percentage ?? null,
+      commission_amount: calculateCommissionAmount(priceForCommission, s.commission_percentage),
+    };
+  });
 
   const { data: insertedServices, error: bsError } = await supabase
     .from("booking_services")

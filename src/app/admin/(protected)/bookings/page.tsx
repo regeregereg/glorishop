@@ -72,6 +72,16 @@ export default function AdminBookingsPage() {
               <tr key={b.id} className="border-b border-border-soft last:border-0">
                 <td className="px-4 py-3 font-semibold">
                   {b.user?.name ?? b.walkin_name ?? "—"}
+                  {b.walkin_by_barber && (
+                    <span className="ml-1.5 inline-flex items-center rounded-full bg-accent-soft px-1.5 py-0.5 text-[9px] font-bold text-accent">
+                      Walk-in Barber
+                    </span>
+                  )}
+                  {!b.walkin_by_barber && b.created_by_admin && (
+                    <span className="ml-1.5 inline-flex items-center rounded-full bg-surface-2 px-1.5 py-0.5 text-[9px] font-bold text-text-secondary">
+                      Walk-in Admin
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-text-secondary">{getBookingServiceNames(b)}</td>
                 <td className="px-4 py-3 text-text-secondary">{b.barber?.name ?? "—"}</td>
@@ -135,6 +145,30 @@ function WalkinForm({ onClose, onCreated }: { onClose: () => void; onCreated: ()
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   }
+
+  // Layanan home service hanya bisa dikerjakan barber tertentu (diatur
+  // admin lewat halaman Kelola Layanan). Begitu salah satu terpilih,
+  // dropdown barber di bawah otomatis disaring hanya menampilkan barber
+  // yang memang menerima KOMBINASI layanan home service yang dipilih —
+  // server tetap memvalidasi ulang ini di POST /api/bookings sebagai
+  // jaga-jaga, tapi filter di UI ini supaya admin tidak salah pilih dulu.
+  const selectedHomeServiceItems = services.filter(
+    (s) => serviceIds.includes(s.id) && (s.is_home_service_only || s.category === "home_service")
+  );
+  const eligibleBarbersForWalkin =
+    selectedHomeServiceItems.length === 0
+      ? barbers
+      : barbers.filter((b) =>
+          selectedHomeServiceItems.every((s) => (s.barber_ids ?? []).includes(b.id))
+        );
+
+  useEffect(() => {
+    if (selectedHomeServiceItems.length === 0) return;
+    if (barberId && !eligibleBarbersForWalkin.some((b) => b.id === barberId)) {
+      setBarberId("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedHomeServiceItems.length, eligibleBarbersForWalkin.length]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -234,12 +268,17 @@ function WalkinForm({ onClose, onCreated }: { onClose: () => void; onCreated: ()
             className="rounded-xl border border-border-soft bg-surface-2 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
           >
             <option value="">Pilih barber</option>
-            {barbers.map((b) => (
+            {eligibleBarbersForWalkin.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
               </option>
             ))}
           </select>
+          {selectedHomeServiceItems.length > 0 && (
+            <p className="text-xs text-text-tertiary">
+              Daftar barber di atas sudah disaring — hanya barber yang menerima {selectedHomeServiceItems.map((s) => s.name).join(", ")} yang muncul.
+            </p>
+          )}
           <input
             type="date"
             value={date}

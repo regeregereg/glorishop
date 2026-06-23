@@ -33,6 +33,8 @@ export async function PATCH(
       category: body.category,
       is_active: body.is_active,
       sort_order: body.sort_order,
+      commission_percentage: body.commission_percentage,
+      is_home_service_only: body.is_home_service_only,
     })
     .eq("id", id)
     .select("*")
@@ -40,6 +42,19 @@ export async function PATCH(
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Sinkronisasi daftar barber yang menerima layanan ini, hanya kalau
+  // body.barber_ids dikirim (array, boleh kosong untuk menghapus semua).
+  // Pola sederhana: hapus semua relasi lama, insert ulang yang baru —
+  // aman untuk skala kecil/menengah seperti Glori Barbershop dan
+  // menghindari logika diff yang lebih kompleks.
+  if (Array.isArray(body.barber_ids)) {
+    await supabase.from("service_barbers").delete().eq("service_id", id);
+    if (body.barber_ids.length > 0) {
+      const rows = body.barber_ids.map((barberId: string) => ({ service_id: id, barber_id: barberId }));
+      await supabase.from("service_barbers").insert(rows);
+    }
   }
 
   // Paksa halaman home/daftar layanan/detail layanan ini segar lagi

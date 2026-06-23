@@ -16,6 +16,7 @@ const CATEGORY_LABEL: Record<ServiceCategory, string> = {
   treatment: "Paket Treatment",
   colouring: "Colouring",
   product: "Produk",
+  home_service: "Home Service (ke rumah)",
 };
 
 async function getServices() {

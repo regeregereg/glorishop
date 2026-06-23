@@ -8,7 +8,10 @@ export async function GET(req: NextRequest) {
   const includeInactive = searchParams.get("includeInactive") === "true";
 
   const supabase = createAdminClient();
-  let query = supabase.from("services").select("*").order("sort_order", { ascending: true });
+  let query = supabase
+    .from("services")
+    .select("*, service_barbers(barber_id)")
+    .order("sort_order", { ascending: true });
   if (!includeInactive) {
     query = query.eq("is_active", true);
   }
@@ -17,7 +20,16 @@ export async function GET(req: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  return NextResponse.json({ services: data });
+
+  // Ratakan relasi service_barbers jadi array id barber saja (barber_ids),
+  // supaya gampang dipakai langsung di form admin & validasi booking.
+  const services = (data ?? []).map((s) => ({
+    ...s,
+    barber_ids: Array.isArray(s.service_barbers) ? s.service_barbers.map((r: { barber_id: string }) => r.barber_id) : [],
+    service_barbers: undefined,
+  }));
+
+  return NextResponse.json({ services });
 }
 
 export async function POST(req: NextRequest) {
@@ -40,12 +52,23 @@ export async function POST(req: NextRequest) {
       category: body.category ?? "haircut",
       photo_url: body.photo_url ?? null,
       sort_order: body.sort_order ?? 0,
+      commission_percentage: body.commission_percentage ?? null,
+      is_home_service_only: !!body.is_home_service_only,
     })
     .select("*")
     .single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Kalau layanan ini home service & admin mengirim daftar barber yang
+  // menerima, simpan relasinya. Untuk layanan biasa (bukan home service),
+  // body.barber_ids diabaikan saja (tidak relevan, semua barber aktif
+  // boleh menerima layanan biasa).
+  if (body.is_home_service_only && Array.isArray(body.barber_ids) && body.barber_ids.length > 0) {
+    const rows = body.barber_ids.map((barberId: string) => ({ service_id: data.id, barber_id: barberId }));
+    await supabase.from("service_barbers").insert(rows);
   }
 
   // Layanan baru harus langsung muncul di halaman publik (home, daftar

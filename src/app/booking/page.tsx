@@ -232,20 +232,27 @@ function BookingFlow() {
     const year = viewMonth.getFullYear();
     const month = viewMonth.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const todayStr = toLocalDateString(new Date());
+
+    // Untuk bulan yang sedang berjalan, tanggal yang sudah lewat tidak
+    // usah dimasukkan ke array sama sekali (bukan cuma di-disable) —
+    // supaya date picker langsung mulai dari hari ini, tanpa pelanggan
+    // harus geser melewati tanggal-tanggal mati duluan. Untuk bulan lain
+    // (sudah pasti di masa depan, karena navigasi mundur dikunci ke bulan
+    // ini), semua tanggal otomatis valid.
     const arr: string[] = [];
     for (let day = 1; day <= daysInMonth; day++) {
-      arr.push(toLocalDateString(new Date(year, month, day)));
+      const dateStr = toLocalDateString(new Date(year, month, day));
+      if (dateStr >= todayStr) arr.push(dateStr);
     }
     setDates(arr);
 
     // kalau tanggal yang sedang dipilih bukan di bulan ini, pilih tanggal
     // pertama yang valid (hari ini kalau bulan ini, atau tanggal 1 kalau
     // bulan depan; tidak boleh memilih tanggal yang sudah lewat)
-    const todayStr = toLocalDateString(new Date());
     setSelectedDate((prev) => {
-      if (prev && arr.includes(prev) && prev >= todayStr) return prev;
-      const firstValid = arr.find((d) => d >= todayStr);
-      return firstValid || arr[0];
+      if (prev && arr.includes(prev)) return prev;
+      return arr[0] || "";
     });
   }, [viewMonth]);
 
@@ -770,19 +777,15 @@ function BookingFlow() {
                 const dateObj = new Date(d + "T00:00:00");
                 const dayNum = dateObj.getDate();
                 const dayName = dateObj.toLocaleDateString("id-ID", { weekday: "short" });
-                const isPast = d < todayStr;
                 const isSelected = d === selectedDate;
                 return (
                   <button
                     key={d}
-                    onClick={() => !isPast && setSelectedDate(d)}
-                    disabled={isPast}
+                    onClick={() => setSelectedDate(d)}
                     className={cn(
                       "flex shrink-0 flex-col items-center justify-center rounded-xl px-3.5 py-2.5 text-center transition-colors",
                       isSelected
                         ? "bg-accent text-black"
-                        : isPast
-                        ? "cursor-not-allowed bg-surface/50 text-text-tertiary/40"
                         : "bg-surface border border-border-soft text-text-secondary hover:border-accent/40"
                     )}
                   >

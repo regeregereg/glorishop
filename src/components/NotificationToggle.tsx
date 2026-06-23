@@ -13,9 +13,8 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 /**
- * Deteksi Safari iOS — Safari < 16.4 tidak mendukung Push API sama sekali.
- * Safari >= 16.4 mendukung tapi harus dari interaksi user (tidak bisa
- * auto-request), jadi kita tetap tampilkan tombol.
+ * Deteksi Safari — Safari harus dipicu dari user gesture (tap),
+ * tidak bisa auto-request dari useEffect.
  */
 function isSafari() {
   if (typeof navigator === "undefined") return false;
@@ -23,28 +22,16 @@ function isSafari() {
 }
 
 /**
- * Cek apakah browser ini mendukung Push Notification.
- * Safari iOS < 16.4 mengembalikan false.
- */
-function isPushSupported() {
-  if (typeof window === "undefined") return false;
-  if (!("serviceWorker" in navigator)) return false;
-  if (!("PushManager" in window)) return false;
-  // Notification API harus ada
-  if (!("Notification" in window)) return false;
-  return true;
-}
-
-/**
- * Komponen notifikasi dengan dua mode:
- * 1. Auto-subscribe: kalau browser sudah pernah mengizinkan (permission=granted),
- *    langsung subscribe tanpa perlu interaksi user.
- * 2. Manual: kalau belum pernah mengizinkan, tampilkan tombol.
+ * Tombol untuk mengaktifkan/menonaktifkan web push notification.
+ * Menangani seluruh siklus: registrasi Service Worker, permintaan izin
+ * browser, pembuatan subscription, dan sinkronisasi ke server.
  *
- * Safari iOS (>= 16.4): Web Push didukung tapi HARUS dipicu dari interaksi
- * user langsung (tap/click), tidak bisa dipanggil dari useEffect otomatis.
- * Untuk itu, auto-subscribe hanya berjalan di non-Safari, dan Safari
- * selalu menampilkan tombol.
+ * Pelanggan/staff HARUS sudah login (sesi cookie aktif) sebelum subscription
+ * bisa disimpan — lihat /api/push/subscribe.
+ *
+ * Auto-subscribe: kalau browser sudah pernah granted izin (mis. login ulang
+ * di device yang sama), langsung subscribe tanpa perlu tap tombol lagi.
+ * Khusus Safari: tidak bisa auto karena Apple wajibkan user gesture.
  */
 export function NotificationToggle() {
   const [permission, setPermission] = useState<PermissionState>("default");
@@ -53,22 +40,19 @@ export function NotificationToggle() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  // Fungsi inti: subscribe ke push server
+  // Inti subscribe — dipakai baik dari auto-subscribe maupun tombol manual
   const doSubscribe = useCallback(async (): Promise<boolean> => {
     const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
     if (!vapidPublicKey) {
       setError("Konfigurasi notifikasi belum lengkap. Hubungi admin.");
       return false;
     }
-
     try {
       const registration = await navigator.serviceWorker.ready;
 
-      // Bersihkan subscription lama yang mungkin sudah expired/stale
-      const staleSubscription = await registration.pushManager.getSubscription();
-      if (staleSubscription) {
-        await staleSubscription.unsubscribe();
-      }
+      // Bersihkan subscription lama yang "nyangkut" supaya tidak konflik
+      const stale = await registration.pushManager.getSubscription();
+      if (stale) await stale.unsubscribe();
 
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
@@ -93,19 +77,22 @@ export function NotificationToggle() {
     } catch (err) {
       console.error("Push subscribe error:", err);
       const message = err instanceof Error ? err.message : "";
-      // DOMException: NotAllowedError = user blokir di level OS, bukan level browser
-      if (message.includes("NotAllowedError") || message.includes("not allowed")) {
-        setError("Notifikasi diblokir di pengaturan. Buka Pengaturan HP → Notifikasi → aktifkan untuk browser ini.");
-      } else {
-        setError(message ? `Gagal mengaktifkan: ${message}` : "Gagal mengaktifkan notifikasi. Coba lagi.");
-      }
+      setError(
+        message
+          ? `Gagal mengaktifkan notifikasi: ${message}`
+          : "Gagal mengaktifkan notifikasi. Coba lagi."
+      );
       return false;
     }
   }, []);
 
   useEffect(() => {
     async function init() {
-      if (!isPushSupported()) {
+      if (
+        typeof window === "undefined" ||
+        !("serviceWorker" in navigator) ||
+        !("PushManager" in window)
+      ) {
         setPermission("unsupported");
         setLoading(false);
         return;
@@ -119,26 +106,20 @@ export function NotificationToggle() {
         const existingSub = await registration.pushManager.getSubscription();
 
         if (existingSub) {
-          // Sudah subscribe — sinkronisasi ke server (kalau misalnya endpoint
-          // berubah setelah browser update atau app di-reinstall)
           setIsSubscribed(true);
-
-          // Re-sync subscription ke server secara diam-diam
-          await fetch("/api/push/subscribe", {
+          // Re-sync diam-diam ke server (antisipasi endpoint berubah)
+          fetch("/api/push/subscribe", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ subscription: existingSub.toJSON() }),
-          }).catch(() => {/* silent — tidak critical */});
-
+          }).catch(() => {});
         } else if (currentPermission === "granted" && !isSafari()) {
-          // AUTO-SUBSCRIBE: izin sudah ada, belum ada subscription aktif,
-          // dan bukan Safari (Safari butuh user gesture).
-          // Langsung subscribe tanpa perlu interaksi user.
+          // AUTO-SUBSCRIBE: izin sudah ada, belum ada subscription aktif.
+          // Safari dikecualikan — wajib user gesture.
           await doSubscribe();
         }
-      } catch (err) {
-        console.error("SW init error:", err);
-        // Service worker gagal — biarkan tombol tampil, user bisa coba manual
+      } catch {
+        // Service worker gagal register — tombol tetap tampil supaya user bisa coba lagi
       } finally {
         setLoading(false);
       }
@@ -150,17 +131,17 @@ export function NotificationToggle() {
     setBusy(true);
     setError("");
     try {
-      // Untuk Safari iOS, requestPermission HARUS dipanggil dari sini
-      // (langsung dari event handler click), bukan dari useEffect.
+      // requestPermission HARUS dipanggil dari sini (event handler),
+      // bukan dari useEffect — wajib untuk Safari iOS.
       const permissionResult = await Notification.requestPermission();
       setPermission(permissionResult as PermissionState);
 
       if (permissionResult !== "granted") {
-        if (permissionResult === "denied") {
-          setError("Notifikasi diblokir. Buka Pengaturan HP → Notifikasi → aktifkan untuk browser ini, lalu coba lagi.");
-        } else {
-          setError("Izin notifikasi tidak diberikan. Coba lagi jika berubah pikiran.");
-        }
+        setError(
+          permissionResult === "denied"
+            ? "Notifikasi diblokir. Buka Pengaturan HP → Notifikasi → aktifkan untuk browser ini."
+            : "Izin notifikasi tidak diberikan. Aktifkan lewat pengaturan browser jika berubah pikiran."
+        );
         return;
       }
 
@@ -192,14 +173,13 @@ export function NotificationToggle() {
     }
   }
 
-  // Browser tidak mendukung sama sekali — sembunyikan
-  if (permission === "unsupported") return null;
+  if (permission === "unsupported") return null; // browser tidak mendukung, sembunyikan saja
 
   if (loading) {
     return (
       <div className="flex items-center gap-3 rounded-2xl border border-border-soft bg-surface px-4 py-3.5">
         <Loader2 size={18} className="animate-spin text-text-tertiary" />
-        <span className="text-sm text-text-secondary">Menyiapkan notifikasi...</span>
+        <span className="text-sm text-text-secondary">Memeriksa status notifikasi...</span>
       </div>
     );
   }
@@ -223,12 +203,10 @@ export function NotificationToggle() {
             </p>
             <p className="mt-0.5 text-xs text-text-secondary">
               {permission === "denied"
-                ? "Notifikasi diblokir — buka Pengaturan HP untuk mengizinkan"
+                ? "Izin diblokir — ubah lewat pengaturan browser"
                 : isSubscribed
-                  ? "Kamu akan langsung dapat update status booking"
-                  : isSafari()
-                    ? "Tap di sini untuk aktifkan notifikasi (Safari)"
-                    : "Dapatkan notifikasi booking langsung di HP"}
+                  ? "Dapatkan update status booking di perangkat ini"
+                  : "Dapat update booking tanpa buka WhatsApp"}
             </p>
           </div>
         </div>

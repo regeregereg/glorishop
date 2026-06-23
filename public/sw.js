@@ -1,10 +1,10 @@
 // Service Worker untuk Web Push Notification — Glori Barbershop.
-// Berjalan di background browser, terpisah dari halaman web biasa.
-// Aktif bahkan saat tab tertutup (selama browser/OS berjalan).
-// Kompatibel: Chrome, Firefox, Edge, dan Safari iOS >= 16.4.
+// File ini berjalan di background browser, terpisah dari halaman web biasa,
+// dan TETAP AKTIF walau tab/app sedang tertutup (selama browser/OS masih
+// berjalan). Tidak perlu build step apa pun — file statis biasa.
 
 self.addEventListener("install", () => {
-  // Langsung aktifkan service worker baru tanpa tunggu tab lama ditutup.
+  // Langsung aktifkan service worker baru tanpa menunggu tab lama ditutup.
   self.skipWaiting();
 });
 
@@ -12,7 +12,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-// Event utama: browser menerima push message terenkripsi dari server
+// Event utama: browser menerima push message terenkripsi dari server kita
 // (dikirim lewat src/lib/push.ts menggunakan VAPID keys).
 self.addEventListener("push", (event) => {
   if (!event.data) return;
@@ -30,19 +30,16 @@ self.addEventListener("push", (event) => {
     icon: payload.icon || "/icon-192.png",
     badge: "/icon-192.png",
     tag: payload.tag || "glori-notification",
-    // renotify: true supaya notifikasi baru tampil meski tag sama
-    // (Safari iOS kadang suppress kalau tag sama tanpa renotify)
     renotify: true,
     data: { url: payload.url || "/" },
     vibrate: [100, 50, 100],
-    // requireInteraction: notif tidak hilang otomatis (khusus desktop)
-    requireInteraction: false,
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
-// Saat notifikasi diklik: fokus tab yang sudah terbuka, atau buka tab baru.
+// Saat notifikasi diklik: fokus ke tab yang sudah terbuka kalau ada,
+// kalau tidak buka tab baru ke URL yang relevan (mis. halaman status booking).
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const targetUrl = event.notification.data?.url || "/";
@@ -64,9 +61,8 @@ self.addEventListener("notificationclick", (event) => {
   );
 });
 
-// Fetch handler minimal — wajib ada untuk Safari iOS agar SW diakui valid
-// sebagai "push-capable" service worker. Tanpa ini, Safari bisa reject.
+// Fetch handler minimal — WAJIB ADA untuk Safari iOS agar SW diakui sebagai
+// "push-capable" service worker. Tanpa event ini Safari menolak registrasi SW.
 self.addEventListener("fetch", () => {
-  // Tidak intercept apa pun — cukup ada agar SW valid.
-  return;
+  return; // tidak intercept apa pun
 });

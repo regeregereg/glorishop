@@ -91,11 +91,12 @@ function BookingFlow() {
   // tertutup.
   const [showBarberPicker, setShowBarberPicker] = useState(false);
 
-  // Filter kategori untuk daftar layanan — "Semua" by default. Dengan 13
-  // layanan, list 1 kolom bikin scroll sangat panjang; tab kategori +
-  // grid 2 kolom membuat pelanggan bisa langsung loncat ke kategori yang
-  // dicari tanpa scroll lewatin semuanya.
-  const [serviceCategoryFilter, setServiceCategoryFilter] = useState<ServiceCategory | "all">("all");
+  // Filter kategori untuk daftar layanan — default ke "haircut" (bukan
+  // "Semua"), karena haircut adalah layanan paling umum dicari dan
+  // pelanggan awam tidak perlu scroll panjang melewati semua kategori
+  // dulu sebelum ketemu yang mereka cari. Tab kategori + grid 2 kolom
+  // tetap memudahkan loncat ke kategori lain kalau memang dibutuhkan.
+  const [serviceCategoryFilter, setServiceCategoryFilter] = useState<ServiceCategory | "all">("haircut");
 
   // Beberapa layanan bisa dipilih sekaligus (mis. Haircut + Creambath),
   // sama seperti memilih beberapa barang saat checkout. Dipakai sebagai Set
@@ -213,6 +214,13 @@ function BookingFlow() {
           if (found) {
             setSelectedServiceIds(new Set([found.id]));
             setSelectedServiceOrder([found.id]);
+            // Pindahkan filter kategori ke kategori layanan yang di-preselect
+            // ini — kalau tidak, default "haircut" bisa menyembunyikan
+            // layanan yang justru sudah dipilih pelanggan (mis. datang dari
+            // halaman detail layanan Treatment).
+            if (found.category !== "product") {
+              setServiceCategoryFilter(found.category);
+            }
           }
         }
       })

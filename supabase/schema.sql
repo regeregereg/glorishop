@@ -61,7 +61,11 @@ create table if not exists public.work_schedules (
 -- Layanan (haircut, treatment, colouring) — harga tetap atau range
 create table if not exists public.services (
   id uuid primary key default gen_random_uuid(),
-  name text not null,
+  -- unique: tanpa ini, blok "insert ... on conflict do nothing" di seed
+  -- data (lihat bagian SEED DATA di bawah) tidak benar-benar mencegah
+  -- duplikat kalau file ini sempat dijalankan ulang setelah database
+  -- sudah terisi data asli — baris seed akan ikut terduplikasi diam-diam.
+  name text not null unique,
   description text,
   price numeric(12,0),          -- harga tetap (null jika pakai range)
   price_min numeric(12,0),      -- untuk layanan dengan range (colour/bleaching)
@@ -77,7 +81,7 @@ create table if not exists public.services (
 -- Produk add-on (tidak butuh slot booking)
 create table if not exists public.products (
   id uuid primary key default gen_random_uuid(),
-  name text not null,
+  name text not null unique, -- lihat catatan unique di atas (tabel services)
   price numeric(12,0) not null,
   photo_url text,
   stock int not null default 0,
@@ -231,7 +235,7 @@ insert into public.services (name, description, price, price_min, price_max, dur
   ('Colour - Full / Block', 'Pewarnaan seluruh rambut, sesuai panjang rambut', null, 150000, 300000, 90, 'colouring', 11),
   ('Bleaching - Hairlight', 'Bleaching sebagian rambut, sesuai panjang rambut', null, 70000, 150000, 60, 'colouring', 12),
   ('Bleaching - Full / Block', 'Bleaching seluruh rambut, sesuai panjang rambut', null, 100000, 200000, 90, 'colouring', 13)
-on conflict do nothing;
+on conflict (name) do nothing;
 
 insert into public.products (name, price, stock) values
   ('Hair Tonic', 10000, 50),
@@ -239,7 +243,7 @@ insert into public.products (name, price, stock) values
   ('Gatsby Grease', 23000, 50),
   ('Gatsby Pomade', 23000, 50),
   ('Gatsby Powder', 50000, 50)
-on conflict do nothing;
+on conflict (name) do nothing;
 
 -- Akun admin default. Username: admin  Password: glori123
 -- (hash di bawah adalah bcrypt dari 'glori123' — GANTI setelah login pertama kali!)

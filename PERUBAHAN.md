@@ -1,5 +1,42 @@
 # Perubahan yang Dilakukan
 
+## 0. Fitur: Kalender Ketersediaan di Home
+
+**Tujuan:** sebelum ini, pelanggan awam yang cuma mau cek "tanggal sekian ada
+slot kosong nggak?" harus masuk ke flow booking penuh (pilih layanan → pilih
+barber → baru lihat tanggal) cuma untuk sekadar mengecek. Sekarang ada
+kalender ringkas di Home, tepat di atas section Antrian, yang menjawab
+pertanyaan itu langsung tanpa komitmen apa pun.
+
+**Cara kerja:**
+- Kalender bulanan dengan dot warna per tanggal: hijau = ada slot kosong,
+  merah/abu = penuh, polos = belum ada jadwal dibuat. Status **gabungan semua
+  barber** — pelanggan belum perlu tahu/pilih nama barber di tahap ini.
+- Tap tanggal berwarna hijau → muncul daftar jam kosong (gabungan semua
+  barber) di bawah kalender.
+- Tap salah satu jam → tombol "Booking jam HH:MM" muncul → lanjut ke
+  `/booking?date=YYYY-MM-DD&time=HH:MM`.
+- Di halaman booking, tanggal & jam itu otomatis terkunci (badge "Jam HH:MM
+  sudah dipilih dari halaman utama" + tombol "Ubah jam" untuk lepas kuncian).
+  Pelanggan tinggal pilih layanan & barber seperti biasa; barber yang tidak
+  available di jam itu otomatis tidak muncul.
+
+**File baru:**
+- `src/app/api/slots/availability-calendar/route.ts` — endpoint publik (tanpa
+  login), beda dari `/api/slots/summary` yang admin-only & per-satu-barber.
+  Endpoint ini menggabungkan slot dari SEMUA barber jadi satu status per
+  tanggal dalam satu bulan.
+- `src/components/AvailabilityCalendar.tsx` — komponen kalender + daftar jam
+  + tombol booking, dipasang di `HomeView.tsx` sebagai section baru
+  "Cek Ketersediaan" tepat sebelum `LiveQueuePanel`.
+
+**File diubah:**
+- `src/components/HomeView.tsx` — tambah section + import komponen baru.
+- `src/app/booking/page.tsx` — baca query param `date`/`time` di awal,
+  inisialisasi `selectedDate`/`viewMonth` sesuai itu, dan filter slot di step
+  "Pilih Tanggal & Waktu" supaya hanya jam yang terkunci yang ditampilkan
+  (state `lockedTime`, bisa dilepas lewat tombol "Ubah jam").
+
 ## 1. Bug: sesi admin & customer saling tertukar antar tab
 
 **Akar masalah:** endpoint `GET /api/me` (dipakai untuk mengecek "siapa yang

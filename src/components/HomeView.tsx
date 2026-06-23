@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -24,7 +24,7 @@ import { QuickAccess } from "@/components/QuickAccess";
 import { LiveQueuePanel } from "@/components/LiveQueuePanel";
 import { AvailabilityCalendar } from "@/components/AvailabilityCalendar";
 import { cn, initials, formatRupiah } from "@/lib/utils";
-import { MAPS_URL } from "@/lib/contact";
+import { MAPS_URL, BUSINESS_FULL_ADDRESS } from "@/lib/contact";
 
 export type BarberCard = Staff & {
   avgRating: number | null;
@@ -48,6 +48,14 @@ function greeting() {
   return "Selamat malam!";
 }
 
+// Teks yang berganti-ganti di headline Home
+const HEADLINES = [
+  "barber terbaikmu!",
+  "gaya rambutmu!",
+  "tampilan terbaikmu!",
+  "waktu santaimu!",
+];
+
 export function HomeView({
   sessionName,
   avatarUrl,
@@ -66,6 +74,20 @@ export function HomeView({
   banners: { id: string; image_url: string }[];
 }) {
   const [query, setQuery] = useState("");
+  const [headlineIdx, setHeadlineIdx] = useState(0);
+  const [headlineVisible, setHeadlineVisible] = useState(true);
+
+  // Ganti headline setiap 3 detik dengan fade transition
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setHeadlineVisible(false);
+      setTimeout(() => {
+        setHeadlineIdx((prev) => (prev + 1) % HEADLINES.length);
+        setHeadlineVisible(true);
+      }, 350); // durasi fade-out sebelum ganti teks
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
   const [category, setCategory] = useState<string>("all");
   const [liked, setLiked] = useState<Set<string>>(new Set());
 
@@ -174,7 +196,16 @@ export function HomeView({
         </div>
 
         <h1 className="font-display mt-5 text-[26px] font-extrabold leading-[1.15] text-text-primary">
-          Yuk, cari <span className="text-accent">barber terbaikmu!</span>
+          Yuk, cari{" "}
+          <span
+            className="text-accent inline-block transition-all duration-350 ease-in-out"
+            style={{
+              opacity: headlineVisible ? 1 : 0,
+              transform: headlineVisible ? "translateY(0)" : "translateY(6px)",
+            }}
+          >
+            {HEADLINES[headlineIdx]}
+          </span>
         </h1>
         <a
           href={MAPS_URL}
@@ -182,7 +213,7 @@ export function HomeView({
           rel="noopener noreferrer"
           className="mt-1 inline-flex items-center gap-1 text-xs text-text-secondary"
         >
-          <MapPin size={12} /> Ciporos
+          <MapPin size={12} /> {BUSINESS_FULL_ADDRESS}
         </a>
 
         {/* Search */}

@@ -63,3 +63,6 @@ export function buildWhatsAppUrl(message?: string) {
   const base = `https://wa.me/${WHATSAPP_NUMBER}`;
   return message ? `${base}?text=${encodeURIComponent(message)}` : base;
 }
+
+// Alamat lengkap untuk ditampilkan di UI (header Home, footer, dsb)
+export const BUSINESS_FULL_ADDRESS = "Ciporos, Kec. Karangpucung, Kab. Cilacap, Jawa Tengah 53255";

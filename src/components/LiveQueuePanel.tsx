@@ -88,7 +88,7 @@ export function LiveQueuePanel() {
   const activeCount = data?.activeCount ?? 0;
 
   return (
-    <section id="antrian" className="mt-7 px-5 scroll-mt-4">
+    <section className="mt-7 px-5">
       {/* Section header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

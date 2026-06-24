@@ -9,7 +9,7 @@ const WA_MESSAGE = "Halo Admin Glori Barbershop, saya ingin bertanya 😊";
 // Shortcut grid 5 kolom di halaman Home.
 const SHORTCUTS = [
   {
-    href: "#antrian",
+    href: "/antrian",
     icon: ListOrdered,
     label: "Cek Antrian",
     color: "text-bg",

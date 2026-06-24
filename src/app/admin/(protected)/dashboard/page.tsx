@@ -43,6 +43,14 @@ interface PembayaranMenunggu {
   slotDate: string | null;
   slotTime: string | null;
 }
+interface BookingTerlambat {
+  bookingId: string;
+  barberId: string;
+  barberName: string;
+  customerName: string;
+  slotDate: string | null;
+  slotTime: string | null;
+}
 interface AdminNotification {
   id: string;
   type: string;
@@ -62,6 +70,7 @@ export default function AdminDashboardPage() {
     walkinByBarberCount: number;
     barberPerformance: BarberPerf[];
     pembayaranMenungguVerifikasi: PembayaranMenunggu[];
+    bookingTerlambat: BookingTerlambat[];
     notifications: AdminNotification[];
     unreadNotificationCount: number;
   } | null>(null);
@@ -139,6 +148,38 @@ export default function AdminDashboardPage() {
     <div>
       <h1 className="font-display text-2xl font-extrabold">Dashboard</h1>
       <p className="mt-1 text-sm text-text-secondary">Ringkasan operasional hari ini.</p>
+
+      {/* ALERT: booking IN_PROGRESS yang barber lupa klik "Selesai" */}
+      {data.bookingTerlambat.length > 0 && (
+        <div className="mt-5 rounded-[var(--radius-card)] border border-status-progress/40 bg-status-progress/10 p-4">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={18} className="shrink-0 text-status-progress" />
+            <h2 className="font-display text-sm font-bold text-status-progress">
+              {data.bookingTerlambat.length} booking belum ditandai selesai
+            </h2>
+          </div>
+          <p className="mt-1 text-xs text-text-secondary">
+            Barber kemungkinan lupa klik &ldquo;Selesai&rdquo;. Tandai manual lewat halaman Booking.
+          </p>
+          <div className="mt-3 flex flex-col gap-2">
+            {data.bookingTerlambat.map((b) => (
+              <Link
+                key={b.bookingId}
+                href={`/admin/bookings`}
+                className="flex items-center justify-between rounded-xl bg-surface px-3.5 py-2.5 transition-colors hover:bg-surface-2"
+              >
+                <div>
+                  <p className="text-sm font-semibold">{b.customerName}</p>
+                  <p className="mt-0.5 text-xs text-text-secondary">
+                    {b.barberName} • {b.slotDate} {b.slotTime ? b.slotTime.slice(0, 5) : ""}
+                  </p>
+                </div>
+                <ArrowRight size={15} className="text-status-progress" />
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ALERT PALING ATAS & PALING MENCOLOK: pembayaran yang sudah upload
           bukti transfer dan menunggu admin verifikasi. Ini paling urgent

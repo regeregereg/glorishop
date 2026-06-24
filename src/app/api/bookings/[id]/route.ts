@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserSession, getStaffSession } from "@/lib/session";
 import { BookingStatus } from "@/types";
-import { sendPushToTarget } from "@/lib/push";
+import { sendPushToTarget, sendPushToAllAdmins } from "@/lib/push";
 import { recalcRowCommission } from "@/lib/commission";
 
 export async function PATCH(
@@ -203,7 +203,6 @@ export async function PATCH(
       message: doneMsg,
     });
     try {
-      const { sendPushToAllAdmins } = await import("@/lib/push");
       await sendPushToAllAdmins({
         title: "Pekerjaan Selesai — Glori Barbershop",
         body: doneMsg,

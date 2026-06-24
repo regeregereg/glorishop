@@ -7,7 +7,7 @@ import { Button } from "@/components/Button";
 import { ErrorState } from "@/components/ErrorState";
 import { formatTime, formatRupiah, getBookingServiceNames, getBookingPriceLabel, toLocalDateString } from "@/lib/utils";
 import { getBookingTotalCommission } from "@/lib/commission";
-import { Play, Check, Star, Plus, X, Scissors, Wallet } from "lucide-react";
+import { Play, Check, Star, Plus, X, Scissors, Wallet, AlertCircle } from "lucide-react";
 
 export default function BarberDashboardPage() {
   const [staffId, setStaffId] = useState<string | null>(null);
@@ -17,6 +17,7 @@ export default function BarberDashboardPage() {
   const [loadError, setLoadError] = useState(false);
   const [sessionError, setSessionError] = useState(false);
   const [actingId, setActingId] = useState<string | null>(null);
+  const [confirmDoneId, setConfirmDoneId] = useState<string | null>(null);
   const [showWalkinForm, setShowWalkinForm] = useState(false);
 
   const today = toLocalDateString(new Date());
@@ -104,8 +105,28 @@ export default function BarberDashboardPage() {
     .filter((b) => ["CONFIRMED", "IN_PROGRESS", "DONE"].includes(b.status))
     .reduce((sum, b) => sum + getBookingTotalCommission(b), 0);
 
+  // Booking IN_PROGRESS yang sudah lebih dari 45 menit — reminder ke barber
+  const bookingTerlupakan = queue.filter((b) => {
+    if (b.status !== "IN_PROGRESS" || !b.slot?.date || !b.slot?.start_time) return false;
+    const slotStart = new Date(`${b.slot?.date ?? ""}T${b.slot?.start_time ?? ""}`);
+    return Date.now() - slotStart.getTime() > 45 * 60 * 1000;
+  });
+
   return (
     <div className="px-5 pt-6">
+      {bookingTerlupakan.length > 0 && (
+        <div className="mb-5 rounded-2xl border border-status-progress/40 bg-status-progress/10 p-4">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={16} className="shrink-0 text-status-progress" />
+            <p className="text-sm font-bold text-status-progress">
+              Jangan lupa tandai selesai!
+            </p>
+          </div>
+          <p className="mt-1 text-xs text-text-secondary">
+            {bookingTerlupakan.map((b) => b.user?.name ?? b.walkin_name ?? "Pelanggan").join(", ")} sudah selesai lebih dari 45 menit. Scroll ke bawah dan klik &ldquo;Selesai&rdquo;.
+          </p>
+        </div>
+      )}
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-extrabold">Hai, {staffName.split(" ")[0] || "Barber"} 👋</h1>
@@ -207,16 +228,43 @@ export default function BarberDashboardPage() {
                 </Button>
               )}
               {b.status === "IN_PROGRESS" && (
-                <Button
-                  size="lg"
-                  fullWidth
-                  variant="secondary"
-                  icon={<Check size={18} />}
-                  onClick={() => updateStatus(b.id, "DONE")}
-                  disabled={actingId === b.id}
-                >
-                  Selesai
-                </Button>
+                confirmDoneId === b.id ? (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-center text-xs font-semibold text-text-primary">
+                      Tandai pekerjaan ini selesai?
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        fullWidth
+                        variant="ghost"
+                        onClick={() => setConfirmDoneId(null)}
+                      >
+                        Batal
+                      </Button>
+                      <Button
+                        size="sm"
+                        fullWidth
+                        icon={<Check size={15} />}
+                        onClick={() => { setConfirmDoneId(null); updateStatus(b.id, "DONE"); }}
+                        disabled={actingId === b.id}
+                      >
+                        Ya, Selesai
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    size="lg"
+                    fullWidth
+                    variant="secondary"
+                    icon={<Check size={18} />}
+                    onClick={() => setConfirmDoneId(b.id)}
+                    disabled={actingId === b.id}
+                  >
+                    Selesai
+                  </Button>
+                )
               )}
             </div>
           </div>

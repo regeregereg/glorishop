@@ -24,6 +24,39 @@ function buildWaLink(phone: string, bookingCtx: string): string {
   return `https://wa.me/${p}?text=${msg}`;
 }
 
+function WaChatButton({
+  booking,
+  onRequestPhone,
+}: {
+  booking: Booking;
+  onRequestPhone: () => void;
+}) {
+  const waNum = getWaNumber(booking);
+  const ctx = `Booking ${booking.user?.name ?? booking.walkin_name ?? "Pelanggan"} pada ${booking.slot?.date ?? ""} jam ${booking.slot?.start_time?.slice(0, 5) ?? ""}.`;
+  if (waNum) {
+    return (
+      <a
+        href={buildWaLink(waNum, ctx)}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={`Chat WA: ${waNum.startsWith("62") ? "0" + waNum.slice(2) : waNum}`}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[#25D366]/15 text-[#25D366] transition-colors hover:bg-[#25D366]/25"
+      >
+        <MessageCircle size={15} />
+      </a>
+    );
+  }
+  return (
+    <button
+      title="Tambah nomor WA"
+      onClick={onRequestPhone}
+      className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-dashed border-border-soft text-text-tertiary transition-colors hover:border-accent hover:text-accent"
+    >
+      <MessageCircle size={15} />
+    </button>
+  );
+}
+
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [statusFilter, setStatusFilter] = useState<BookingStatus | "ALL">("ALL");
@@ -141,29 +174,12 @@ export default function AdminBookingsPage() {
                         <X size={13} />
                       </button>
                     </div>
-                  ) : (() => {
-                    const waNum = getWaNumber(b);
-                    const ctx = `Booking ${b.user?.name ?? b.walkin_name ?? "Pelanggan"} pada ${b.slot?.date ?? ""} jam ${b.slot?.start_time?.slice(0, 5) ?? ""}.`;
-                    return waNum ? (
-                      <a
-                        href={buildWaLink(waNum, ctx)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title={`Chat WA: ${waNum.startsWith("62") ? "0" + waNum.slice(2) : waNum}`}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[#25D366]/15 text-[#25D366] transition-colors hover:bg-[#25D366]/25"
-                      >
-                        <MessageCircle size={15} />
-                      </a>
-                    ) : (
-                      <button
-                        title="Tambah nomor WA"
-                        onClick={() => { setInlinePhoneId(b.id); setInlinePhone(""); }}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-dashed border-border-soft text-text-tertiary transition-colors hover:border-accent hover:text-accent"
-                      >
-                        <MessageCircle size={15} />
-                      </button>
-                    );
-                  })()}
+                  ) : (
+                    <WaChatButton
+                      booking={b}
+                      onRequestPhone={() => { setInlinePhoneId(b.id); setInlinePhone(""); }}
+                    />
+                  )}
                 </td>
               </tr>
             ))}

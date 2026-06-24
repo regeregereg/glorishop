@@ -142,7 +142,7 @@ export default function OnboardingPage() {
   // tidak sebelum datang) tidak perlu login dulu untuk itu.
   function handleCheckQueue() {
     finishOnboarding();
-    router.push("/#antrian");
+    router.push("/antrian");
   }
 
   return (
@@ -301,7 +301,7 @@ export default function OnboardingPage() {
             ))}
           </div>
 
-          {/* Tombol Cek Antrian — di samping kanan badges */}
+          {/* Tombol Cek Antrian — menuju halaman /antrian tersendiri */}
           <button
             onClick={handleCheckQueue}
             className="flex items-center gap-1.5 rounded-full border border-accent/35 bg-surface-2 px-3.5 py-2 text-[11px] font-semibold text-text-primary transition-all duration-200 active:scale-[0.96] hover:border-accent/60"

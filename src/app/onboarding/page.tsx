@@ -160,9 +160,9 @@ export default function OnboardingPage() {
             src="/glori-logo.png"
             alt="Glori Barbershop"
             width={120}
-            height={43}
+            height={44}
             priority
-            className="invert object-contain"
+            className="object-contain"
           />
         </div>
         {/* Social proof chip */}

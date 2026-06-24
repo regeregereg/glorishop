@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Scissors } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import Image from "next/image";
 import { LiveQueuePanel } from "@/components/LiveQueuePanel";
 
 export default function AntrianPage() {
@@ -20,13 +21,14 @@ export default function AntrianPage() {
           <ArrowLeft size={17} />
         </button>
 
-        <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-accent">
-            <Scissors size={12} strokeWidth={2.5} className="text-black" />
-          </div>
-          <span className="font-display text-[15px] font-extrabold tracking-tight text-text-primary">
-            GLORI
-          </span>
+        <div className="flex items-center">
+          <Image
+            src="/glori-logo.png"
+            alt="Glori Barbershop"
+            width={98}
+            height={36}
+            className="h-9 w-auto object-contain"
+          />
         </div>
       </div>
 

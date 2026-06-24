@@ -50,17 +50,22 @@ export async function GET() {
 
   const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
   const bookingTerlambat = (allInProgress ?? []).filter((b) => {
-    if (!b.slot?.date || !b.slot?.start_time) return false;
-    const slotStart = new Date(`${b.slot.date}T${b.slot.start_time}`);
+    // slot dari Supabase join adalah array — ambil elemen pertama
+    const slot = Array.isArray(b.slot) ? b.slot[0] : b.slot;
+    if (!slot?.date || !slot?.start_time) return false;
+    const slotStart = new Date(`${slot.date}T${slot.start_time}`);
     return slotStart < threeHoursAgo;
-  }).map((b) => ({
-    bookingId: b.id,
-    barberId: b.barber_id,
-    barberName: (b.barber as { name?: string } | null)?.name ?? "Barber",
-    customerName: (b.user as { name?: string } | null)?.name ?? b.walkin_name ?? "Pelanggan",
-    slotDate: b.slot?.date ?? null,
-    slotTime: b.slot?.start_time ?? null,
-  }));
+  }).map((b) => {
+    const slot = Array.isArray(b.slot) ? b.slot[0] : b.slot;
+    return {
+      bookingId: b.id,
+      barberId: b.barber_id,
+      barberName: (Array.isArray(b.barber) ? b.barber[0] : b.barber as { name?: string } | null)?.name ?? "Barber",
+      customerName: (Array.isArray(b.user) ? b.user[0] : b.user as { name?: string } | null)?.name ?? b.walkin_name ?? "Pelanggan",
+      slotDate: slot?.date ?? null,
+      slotTime: slot?.start_time ?? null,
+    };
+  });
 
   // PEMBAYARAN MENUNGGU VERIFIKASI — paling urgent untuk admin: pelanggan
   // sudah upload bukti transfer (PENDING_REVIEW) dan sedang menunggu di

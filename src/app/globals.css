@@ -296,3 +296,17 @@ h1, h2, h3, h4, .font-display {
   from { opacity: 0; transform: translateY(6px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+/* ── Halaman cetak struk & laporan harian ──────────────────────────────
+   Elemen ber-class "no-print" (toolbar tombol Print/Download/Kembali)
+   disembunyikan saat dialog print browser dipakai, supaya yang tercetak
+   hanya dokumen struk/laporannya saja, bukan UI tombolnya. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+  }
+}
+

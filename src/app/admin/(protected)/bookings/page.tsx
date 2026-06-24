@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { Booking, BookingStatus, STATUS_LABELS, Service, Staff, Slot } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/Button";
 import { formatTime, getBookingServiceNames, getBookingPriceLabel, formatDateShort, toLocalDateString } from "@/lib/utils";
-import { Plus, X, Check, MessageCircle } from "lucide-react";
+import { Plus, X, Check, MessageCircle, Receipt } from "lucide-react";
 
 // Ambil nomor WA pelanggan — wa_number diprioritaskan, fallback ke phone,
 // fallback ke walkin_phone. Return null jika tidak ada nomor sama sekali.
@@ -118,6 +119,7 @@ export default function AdminBookingsPage() {
               <th className="px-4 py-3">Harga</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3 text-right">Chat</th>
+              <th className="px-4 py-3 text-right">Struk</th>
             </tr>
           </thead>
           <tbody>
@@ -181,11 +183,30 @@ export default function AdminBookingsPage() {
                     />
                   )}
                 </td>
+                <td className="px-4 py-3 text-right">
+                  {b.status === "DONE" ? (
+                    <Link
+                      href={`/admin/struk/${b.id}`}
+                      target="_blank"
+                      title="Cetak struk"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-accent-soft text-accent transition-colors hover:bg-accent/25"
+                    >
+                      <Receipt size={15} />
+                    </Link>
+                  ) : (
+                    <span
+                      title="Struk hanya tersedia untuk booking yang sudah selesai"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-dashed border-border-soft text-text-tertiary"
+                    >
+                      <Receipt size={15} />
+                    </span>
+                  )}
+                </td>
               </tr>
             ))}
             {filtered.length === 0 && !loading && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-text-secondary">
+                <td colSpan={7} className="px-4 py-8 text-center text-text-secondary">
                   Tidak ada booking.
                 </td>
               </tr>

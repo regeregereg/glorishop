@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, X, LayoutDashboard, ListOrdered, CalendarRange, CalendarClock, Scissors, Users, Package, Image as ImageIcon, BarChart3, Wallet, Settings, LogOut } from "lucide-react";
+import { Menu, X, LayoutDashboard, ListOrdered, CalendarRange, CalendarClock, Scissors, Users, Package, Image as ImageIcon, BarChart3, Receipt, Wallet, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAdminBadgeCounts } from "@/lib/useAdminBadge";
 
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: "/admin/barber", label: "Kelola Barber", icon: Users },
   { href: "/admin/produk", label: "Kelola Produk", icon: Package },
   { href: "/admin/banner", label: "Banner Promo", icon: ImageIcon },
+  { href: "/admin/struk", label: "Struk Transaksi", icon: Receipt },
   { href: "/admin/laporan", label: "Laporan", icon: BarChart3 },
   { href: "/admin/resolve", label: "Resolve Data", icon: ListOrdered },
   { href: "/admin/pengaturan", label: "Pengaturan", icon: Settings },

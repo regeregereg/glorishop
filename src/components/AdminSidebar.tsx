@@ -14,7 +14,6 @@ import {
   BarChart3,
   Wallet,
   Settings,
-  AlertTriangle,
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,7 +30,7 @@ const NAV_ITEMS = [
   { href: "/admin/produk", label: "Kelola Produk", icon: Package },
   { href: "/admin/banner", label: "Banner Promo", icon: ImageIcon },
   { href: "/admin/laporan", label: "Laporan", icon: BarChart3 },
-  { href: "/admin/resolve", label: "Resolve Data", icon: AlertTriangle },
+  { href: "/admin/resolve", label: "Resolve Data", icon: ListOrdered },
   { href: "/admin/pengaturan", label: "Pengaturan", icon: Settings },
 ];
 

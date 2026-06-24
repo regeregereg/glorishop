@@ -77,6 +77,17 @@ export function HomeView({
   const [headlineIdx, setHeadlineIdx] = useState(0);
   const [headlineVisible, setHeadlineVisible] = useState(true);
 
+  // Scroll otomatis ke section antrian kalau datang dari onboarding via /#antrian
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== "#antrian") return;
+    const timer = setTimeout(() => {
+      const el = document.getElementById("antrian");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Ganti headline setiap 3 detik dengan fade transition
   useEffect(() => {
     const interval = setInterval(() => {
@@ -440,7 +451,9 @@ export function HomeView({
       </section>
 
       {/* Live Queue Panel — bisa dilihat semua orang tanpa login */}
-      <LiveQueuePanel />
+      <section id="antrian" className="scroll-mt-4">
+        <LiveQueuePanel />
+      </section>
 
       {/* CTA bawah kalau belum pernah booking */}
       {!hasActiveBooking && (

@@ -121,10 +121,18 @@ export async function POST(req: NextRequest) {
   }
 
   if (type === "payment") {
-    // expire = tutup pembayaran, booking kembali ke PENDING
+    // expire = tutup pembayaran, booking kembali ke PENDING.
+    // Nilai status harus salah satu dari enum payment_status di database
+    // (WAITING_PROOF | PENDING_REVIEW | CONFIRMED | REJECTED) — "EXPIRED"
+    // bukan nilai yang valid, jadi update ini akan gagal kalau tidak diganti
+    // ke REJECTED (konsisten dengan cara file lain menutup payment basi,
+    // lihat src/app/api/bookings/route.ts & payments/upload-proof/route.ts).
     const { error: payErr } = await supabase
       .from("payments")
-      .update({ status: "EXPIRED" })
+      .update({
+        status: "REJECTED",
+        rejection_reason: "Pembayaran kedaluwarsa (lebih dari 24 jam menunggu verifikasi).",
+      })
       .eq("booking_id", bookingId)
       .eq("status", "PENDING_REVIEW");
 

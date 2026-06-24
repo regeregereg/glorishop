@@ -221,7 +221,7 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
         <StatCard
           icon={<Wallet size={18} />}
           label="Omset Hari Ini"

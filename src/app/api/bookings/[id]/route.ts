@@ -90,6 +90,28 @@ export async function PATCH(
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
+  // Booking yang dibatalkan (oleh pelanggan ATAU admin) harus ikut menutup
+  // payment terkait kalau masih PENDING_REVIEW — supaya tidak ada bukti
+  // transfer yang "menggantung" selamanya menunggu verifikasi padahal
+  // booking-nya sendiri sudah batal. Tanpa ini, badge notifikasi di sidebar
+  // (lihat /api/admin-stats/badge, yang hanya menghitung tabel payments
+  // tanpa peduli status booking) akan terus menampilkan angka yang tidak
+  // pernah bisa hilang, karena halaman Verifikasi Pembayaran sendiri
+  // mensyaratkan booking.status === "PENDING" untuk menampilkan barisnya.
+  // PENTING: status harus salah satu dari enum payment_status yang valid
+  // (WAITING_PROOF | PENDING_REVIEW | CONFIRMED | REJECTED) — "EXPIRED"
+  // BUKAN nilai yang ada di enum database, jadi tidak boleh dipakai di sini.
+  if (newStatus === "CANCELLED_USER" || newStatus === "CANCELLED_ADMIN") {
+    await supabase
+      .from("payments")
+      .update({
+        status: "REJECTED",
+        rejection_reason: "Booking dibatalkan, pembayaran otomatis ditutup.",
+      })
+      .eq("booking_id", id)
+      .eq("status", "PENDING_REVIEW");
+  }
+
   // final_prices: { [booking_service_id]: number } — barber/admin konfirmasi
   // harga final PER LAYANAN satu-satu (terutama untuk layanan dengan range
   // harga seperti Colour/Bleaching). Dikirim terpisah dari final_price total

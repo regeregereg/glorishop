@@ -52,13 +52,16 @@ export function AdminSidebar({ adminName }: { adminName: string }) {
   }
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-border-soft bg-surface px-4 py-6 lg:flex">
-      <div className="px-2">
-        <p className="font-display text-lg font-extrabold">Glori Barbershop</p>
-        <p className="mt-0.5 text-xs text-text-secondary">Admin Dashboard</p>
+    <aside className="hidden w-16 shrink-0 flex-col border-r border-border-soft bg-surface px-2 py-6 md:flex lg:w-64 lg:px-4">
+      <div className="px-1 lg:px-2">
+        <p className="hidden font-display text-lg font-extrabold lg:block">Glori Barbershop</p>
+        <p className="hidden mt-0.5 text-xs text-text-secondary lg:block">Admin Dashboard</p>
+        {/* Versi ringkas (md sampai sebelum lg): cuma inisial, supaya tetap
+            ada identitas tanpa makan tempat di lebar sidebar yang sempit. */}
+        <p className="text-center font-display text-lg font-extrabold lg:hidden">GB</p>
       </div>
 
-      <nav className="mt-8 flex flex-1 flex-col gap-1">
+      <nav className="mt-8 flex flex-1 flex-col gap-1 overflow-y-auto">
         {NAV_ITEMS.map((item) => {
           const active = pathname.startsWith(item.href);
           const Icon = item.icon;
@@ -77,17 +80,27 @@ export function AdminSidebar({ adminName }: { adminName: string }) {
             <Link
               key={item.href}
               href={item.href}
+              title={item.label}
               className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
+                "relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
+                "justify-center lg:justify-start",
                 active
                   ? "bg-accent-soft text-accent"
                   : "text-text-secondary hover:bg-white/5 hover:text-text-primary"
               )}
             >
-              <Icon size={18} />
-              <span className="flex-1">{item.label}</span>
+              <Icon size={18} className="shrink-0" />
+              <span className="hidden flex-1 lg:inline">{item.label}</span>
               {badgeCount > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-status-cancelled px-1.5 text-[10px] font-bold text-white">
+                <span
+                  className={cn(
+                    "flex h-5 min-w-5 items-center justify-center rounded-full bg-status-cancelled px-1.5 text-[10px] font-bold text-white",
+                    // Di mode ikon-saja (md), badge ditempel di pojok ikon
+                    // (absolute) supaya tidak mendorong layout berantakan
+                    // karena tidak ada label teks di sebelahnya.
+                    "absolute right-1 top-1 lg:static lg:right-auto lg:top-auto"
+                  )}
+                >
                   {badgeCount > 99 ? "99+" : badgeCount}
                 </span>
               )}
@@ -97,13 +110,15 @@ export function AdminSidebar({ adminName }: { adminName: string }) {
       </nav>
 
       <div className="border-t border-border-soft pt-4">
-        <p className="px-3 text-xs text-text-tertiary">Masuk sebagai</p>
-        <p className="px-3 text-sm font-semibold">{adminName}</p>
+        <p className="hidden px-3 text-xs text-text-tertiary lg:block">Masuk sebagai</p>
+        <p className="hidden px-3 text-sm font-semibold lg:block">{adminName}</p>
         <button
           onClick={handleLogout}
-          className="mt-3 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-status-cancelled hover:bg-status-cancelled/10"
+          title="Keluar"
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-status-cancelled hover:bg-status-cancelled/10 lg:justify-start"
         >
-          <LogOut size={16} /> Keluar
+          <LogOut size={16} className="shrink-0" />
+          <span className="hidden lg:inline">Keluar</span>
         </button>
       </div>
     </aside>

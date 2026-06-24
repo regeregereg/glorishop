@@ -47,7 +47,7 @@ export function AdminMobileBar() {
   }
 
   return (
-    <div className="lg:hidden">
+    <div className="md:hidden">
       <div className="flex items-center justify-between border-b border-border-soft bg-surface px-5 py-4">
         <p className="font-display text-base font-bold">Glori Admin</p>
         <button onClick={() => setOpen(true)} className="relative text-text-secondary">

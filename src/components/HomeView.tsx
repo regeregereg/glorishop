@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useLayoutEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -88,13 +88,14 @@ export function HomeView({
     return () => clearInterval(interval);
   }, []);
 
-  // Lazy initializer — baca sessionStorage sekali saat pertama render,
-  // bukan lewat useEffect, supaya tidak ada render "all" → kategori tersimpan
-  // yang menyebabkan glitch/flicker.
-  const [category, setCategory] = useState<string>(() => {
-    if (typeof window === "undefined") return "all";
-    return sessionStorage.getItem("home-category") ?? "all";
-  });
+  // useLayoutEffect jalan setelah hydration tapi SEBELUM browser paint,
+  // jadi tidak ada frame yang keliatan "all" dulu sebelum loncat ke
+  // kategori tersimpan — fix glitch saat refresh.
+  const [category, setCategory] = useState<string>("all");
+  useLayoutEffect(() => {
+    const saved = sessionStorage.getItem("home-category");
+    if (saved && saved !== "all") setCategory(saved);
+  }, []);
 
   function handleSetCategory(cat: string) {
     setCategory(cat);

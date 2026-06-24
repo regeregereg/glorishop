@@ -88,15 +88,13 @@ export function HomeView({
     return () => clearInterval(interval);
   }, []);
 
-  // Simpan kategori aktif di sessionStorage supaya saat user balik dari
-  // halaman detail layanan, filter tidak ter-reset ke "Semua" — tapi
-  // tetap pakai useState supaya klik pill instant tanpa network request.
-  const [category, setCategory] = useState<string>("all");
-
-  useEffect(() => {
-    const saved = sessionStorage.getItem("home-category");
-    if (saved) setCategory(saved);
-  }, []);
+  // Lazy initializer — baca sessionStorage sekali saat pertama render,
+  // bukan lewat useEffect, supaya tidak ada render "all" → kategori tersimpan
+  // yang menyebabkan glitch/flicker.
+  const [category, setCategory] = useState<string>(() => {
+    if (typeof window === "undefined") return "all";
+    return sessionStorage.getItem("home-category") ?? "all";
+  });
 
   function handleSetCategory(cat: string) {
     setCategory(cat);

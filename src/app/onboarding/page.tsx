@@ -155,14 +155,15 @@ export default function OnboardingPage() {
 
       {/* ── Brand mark — eyebrow di atas carousel ── */}
       <div className="relative z-10 mb-4 flex items-center justify-between px-6">
-        <div className="flex items-center gap-2">
-          {/* Scissor logomark kecil */}
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent">
-            <Scissors size={14} strokeWidth={2.5} className="text-black" />
-          </div>
-          <span className="font-display text-[15px] font-extrabold tracking-tight text-text-primary">
-            GLORI
-          </span>
+        <div className="flex items-center">
+          <Image
+            src="/glori-logo.png"
+            alt="Glori Barbershop"
+            width={120}
+            height={43}
+            priority
+            className="invert object-contain"
+          />
         </div>
         {/* Social proof chip */}
         <div className="flex items-center gap-1.5 rounded-full border border-border-soft bg-surface px-3 py-1">

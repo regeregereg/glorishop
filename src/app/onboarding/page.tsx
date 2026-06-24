@@ -301,24 +301,28 @@ export default function OnboardingPage() {
         </div>
       </div>
 
-      {/* ── Floating pill "Cek Antrian" — melayang fixed di atas CTA,
-          konsisten terlihat di semua slide carousel. Mengarah ke section
-          antrian publik di "/", BUKAN /booking/status, karena yang itu
-          butuh login (lihat handleCheckQueue di atas). Pakai fixed (bukan
-          absolute) supaya tidak ikut ke-scroll bersama konten halaman yang
-          cukup panjang ini. z-20 supaya tetap di atas ambient glow (z-0)
-          dan carousel (z-10), translate-x center manual karena fixed tidak
-          ikut constraint parent relative. ── */}
-      <button
-        onClick={handleCheckQueue}
-        className="fixed bottom-[122px] left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-accent/35 bg-surface/90 px-3.5 py-2 text-[11px] font-semibold text-text-primary shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-200 active:scale-[0.96]"
-      >
-        <Clock size={13} className="text-accent" />
-        Cek Antrian
-      </button>
-
       {/* ── CTA — lebih premium ── */}
       <div className="relative z-10 mt-7 px-6">
+        {/* Pill "Cek Antrian" — sebelumnya pakai position fixed dengan angka
+            piksel tebakan dari bawah viewport, ternyata gampang ketabrak
+            konten lain begitu tinggi halaman berbeda dari perkiraan (lihat
+            screenshot bug: pill nyangkut di tengah judul "Tampil Terbaik").
+            Sekarang ditaruh di DALAM flow CTA section ini sebagai elemen
+            biasa (bukan fixed/absolute) — otomatis selalu pas di atas
+            divider & tombol Booking, di device manapun, karena ikut alur
+            layout normal alih-alih koordinat absolut yang ditebak manual.
+            Mengarah ke "/#antrian" (section publik tanpa login di HomeView,
+            BUKAN /booking/status yang butuh sesi) — lihat handleCheckQueue. */}
+        <div className="mb-4 flex justify-center">
+          <button
+            onClick={handleCheckQueue}
+            className="flex items-center gap-1.5 rounded-full border border-accent/35 bg-surface-2 px-3.5 py-2 text-[11px] font-semibold text-text-primary transition-all duration-200 active:scale-[0.96] hover:border-accent/60"
+          >
+            <Clock size={13} className="text-accent" />
+            Cek Antrian
+          </button>
+        </div>
+
         {/* Divider tipis */}
         <div className="mb-5 h-px bg-gradient-to-r from-transparent via-border-soft to-transparent" />
 

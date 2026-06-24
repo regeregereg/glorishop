@@ -53,7 +53,6 @@ function greeting() {
 const HEADLINES = [
   "barber terbaikmu!",
   "gaya rambutmu!",
-  "tampilan terbaikmu!",
   "waktu santaimu!",
 ];
 
@@ -216,21 +215,14 @@ export function HomeView({
 
         <h1 className="font-display mt-5 text-[26px] font-extrabold leading-[1.15] text-text-primary">
           Yuk, cari{" "}
-          {/* Wrapper dengan tinggi tetap supaya saat teks berganti-ganti
-              (ada yang lebih panjang, ada yang lebih pendek) elemen di
-              bawah h1 tidak terdorong naik-turun — layout shift dihindari
-              dengan menetapkan min-height setara baris teks terpanjang. */}
-          <span className="relative block" style={{ minHeight: "1.2em" }}>
-            <span
-              className="text-accent transition-all duration-350 ease-in-out"
-              style={{
-                opacity: headlineVisible ? 1 : 0,
-                transform: headlineVisible ? "translateY(0)" : "translateY(6px)",
-                display: "inline-block",
-              }}
-            >
-              {HEADLINES[headlineIdx]}
-            </span>
+          <span
+            className="text-accent inline-block transition-all duration-350 ease-in-out"
+            style={{
+              opacity: headlineVisible ? 1 : 0,
+              transform: headlineVisible ? "translateY(0)" : "translateY(6px)",
+            }}
+          >
+            {HEADLINES[headlineIdx]}
           </span>
         </h1>
         <a
@@ -392,7 +384,7 @@ export function HomeView({
       )}
 
       {/* Layanan Utama — grid showcase 2 kolom */}
-      {!query.trim() && category === "all" && featuredServices.length > 0 && (
+      {!query.trim() && (category === "all" || category === "haircut") && featuredServices.length > 0 && (
         <section className="mt-6 px-5">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-base font-bold">Layanan Utama</h2>

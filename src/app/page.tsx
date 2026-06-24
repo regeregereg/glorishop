@@ -1,24 +1,19 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getUserSession } from "@/lib/session";
 import { BottomNav } from "@/components/BottomNav";
 import { HomeView, type BarberCard } from "@/components/HomeView";
 import { BusinessStructuredData } from "@/components/BusinessStructuredData";
 import { Service, Staff } from "@/types";
 import { unstable_cache } from "next/cache";
 
-// PENTING: halaman ini membaca cookie sesi (getUserSession) dan menampilkan
-// nama pengguna + status booking aktif yang BERBEDA per orang — karena itu
-// halaman secara keseluruhan TIDAK boleh di-cache penuh (export const
-// revalidate di level halaman), supaya tidak ada risiko HTML hasil cache
-// milik satu pengguna (mis. sudah login + ada booking aktif) tersaji ke
-// pengunjung lain yang sesinya berbeda — ini persis jenis bug yang pernah
-// terjadi sebelumnya (lihat PERUBAHAN.md, bug sesi admin/customer tertukar).
+// Halaman ini sekarang BISA di-cache & diindeks Google karena data sesi
+// (nama user, status booking aktif) dipindahkan ke client-side lewat
+// /api/me — sehingga HTML yang dikirim server selalu sama untuk semua
+// pengunjung, aman di-cache 60 detik, dan Googlebot bisa membacanya.
 //
-// Yang dicache di sini HANYA query Supabase untuk data layanan/barber/rating
-// (lewat unstable_cache di bawah) — data ini sama untuk semua orang dan
-// jarang berubah, jadi aman dibagi/cache selama 60 detik. Bagian session
-// tetap selalu dibaca langsung dari cookie tiap request, tidak ikut cache.
-export const dynamic = "force-dynamic";
+// Data sesi (personal, per-user) tetap aman karena diambil client-side
+// setelah halaman dimuat — tidak ada risiko HTML cache satu user
+// tersaji ke user lain.
+export const revalidate = 60;
 
 const getCachedHomeData = unstable_cache(
   async () => {
@@ -37,10 +32,6 @@ const getCachedHomeData = unstable_cache(
           .eq("role", "barber")
           .eq("is_active", true)
           .limit(6),
-        // Agregasi rata-rata & jumlah review per barber dilakukan LANGSUNG
-        // di database lewat RPC (lihat migration_barber_ratings_rpc.sql),
-        // bukan ambil semua baris reviews mentah lalu dihitung manual di
-        // sini — supaya tidak makin lambat seiring jumlah review bertambah.
         supabase.rpc("get_barber_ratings"),
         supabase
           .from("banners")
@@ -63,10 +54,6 @@ const getCachedHomeData = unstable_cache(
       };
     });
 
-    // Rating keseluruhan TOKO (bukan per-barber) — dipakai di structured
-    // data JSON-LD (lihat components/BusinessStructuredData.tsx), dihitung
-    // dari agregat yang sama yang sudah diambil di atas, tidak ada query
-    // tambahan ke database.
     const allRatings = [...ratingMap.values()];
     const totalReviewCount = allRatings.reduce((sum, r) => sum + r.count, 0);
     const storeAvgRating =
@@ -93,24 +80,22 @@ const getCachedHomeData = unstable_cache(
   { revalidate: 60, tags: ["home-data", "services", "barbers", "banners"] }
 );
 
-async function getData() {
-  return getCachedHomeData();
-}
-
 export default async function HomePage() {
-  const [session, { services, barbers, minPrice, banners, storeAvgRating, totalReviewCount }] =
-    await Promise.all([getUserSession(), getData()]);
+  const { services, barbers, minPrice, banners, storeAvgRating, totalReviewCount } =
+    await getCachedHomeData();
 
   return (
     <>
       <BusinessStructuredData avgRating={storeAvgRating} reviewCount={totalReviewCount} />
+      {/* sessionName & hasActiveBooking diambil client-side di HomeView
+          lewat /api/me supaya halaman ini tetap statis & bisa diindeks Google */}
       <HomeView
-        sessionName={session?.name ?? null}
+        sessionName={null}
         avatarUrl={null}
         services={services}
         barbers={barbers}
         minPrice={minPrice}
-        hasActiveBooking={!!session}
+        hasActiveBooking={false}
         banners={banners}
       />
       <BottomNav />

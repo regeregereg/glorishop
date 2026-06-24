@@ -56,12 +56,12 @@ const HEADLINES = [
 ];
 
 export function HomeView({
-  sessionName,
+  sessionName: sessionNameProp,
   avatarUrl,
   services,
   barbers,
   minPrice,
-  hasActiveBooking,
+  hasActiveBooking: hasActiveBookingProp,
   banners,
 }: {
   sessionName: string | null;
@@ -72,6 +72,22 @@ export function HomeView({
   hasActiveBooking: boolean;
   banners: { id: string; image_url: string }[];
 }) {
+  // Fetch sesi user di client-side supaya halaman Home bisa di-cache
+  // & diindeks Google (server tidak perlu baca cookie per-request lagi).
+  const [sessionName, setSessionName] = useState<string | null>(sessionNameProp);
+  const [hasActiveBooking, setHasActiveBooking] = useState(hasActiveBookingProp);
+
+  useEffect(() => {
+    fetch("/api/me", { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (!d) return;
+        if (d.user?.name) setSessionName(d.user.name);
+        setHasActiveBooking(!!d.user);
+      })
+      .catch(() => {/* gagal fetch sesi — tampilan guest tetap */});
+  }, []);
+
   const [query, setQuery] = useState("");
   const [headlineIdx, setHeadlineIdx] = useState(0);
   const [headlineVisible, setHeadlineVisible] = useState(true);

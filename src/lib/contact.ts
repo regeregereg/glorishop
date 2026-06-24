@@ -22,13 +22,13 @@ export const MAPS_URL = `https://www.google.com/maps?q=${MAPS_LATITUDE},${MAPS_L
 // masih difinalkan dengan owner) — field yang sudah pasti diisi penuh,
 // field yang belum pasti diisi seakurat mungkin berdasarkan kecamatan resmi.
 export const BUSINESS_ADDRESS = {
-  addressLocality: "Ciporos", // nama desa/kelurahan
+  addressLocality: "Cikondang", // nama desa/kelurahan
   addressRegion: "Jawa Tengah", // provinsi
   addressCountry: "ID",
   // Karangpucung adalah kecamatan resmi tempat Desa Ciporos berada
   // (Kabupaten Cilacap), dicantumkan di "Pemerintah Daerah" karena
   // schema.org PostalAddress tidak punya field kecamatan terpisah.
-  postalCode: "53255",
+  postalCode: "53256",
 };
 export const BUSINESS_CITY = "Kabupaten Cilacap";
 
@@ -65,4 +65,4 @@ export function buildWhatsAppUrl(message?: string) {
 }
 
 // Alamat lengkap untuk ditampilkan di UI (header Home, footer, dsb)
-export const BUSINESS_FULL_ADDRESS = "Ciporos, Kec. Karangpucung, Kab. Cilacap, Jawa Tengah 53255";
+export const BUSINESS_FULL_ADDRESS = "Jl. Raya Cikondang, Cimanggu, Cilacap";

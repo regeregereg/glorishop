@@ -18,7 +18,7 @@ const NAV_ITEMS = [
   { href: "/admin/produk", label: "Kelola Produk", icon: Package },
   { href: "/admin/banner", label: "Banner Promo", icon: ImageIcon },
   { href: "/admin/laporan", label: "Laporan", icon: BarChart3 },
-  { href: "/admin/resolve", label: "Resolve Data", icon: ShieldAlert },
+  { href: "/admin/resolve", label: "Resolve Data", icon: AlertTriangle },
   { href: "/admin/pengaturan", label: "Pengaturan", icon: Settings },
 ];
 

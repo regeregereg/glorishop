@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import Image from "next/image";
-import { Scissors, Droplet, Palette, Sparkles, ArrowUpRight, Star } from "lucide-react";
+import { Scissors, Droplet, Palette, Sparkles, ArrowUpRight, Star, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
 
@@ -132,6 +132,17 @@ export default function OnboardingPage() {
   function handleEnter() {
     finishOnboarding();
     router.push("/");
+  }
+
+  // Beda dari handleEnter (yang ke "/" biasa): ini langsung scroll ke section
+  // antrian publik di HomeView (LiveQueuePanel, id="antrian") — TIDAK butuh
+  // login sama sekali, beda dengan /booking/status yang menampilkan status
+  // booking milik pengguna sendiri dan mengharuskan sesi aktif. Pelanggan
+  // yang sekadar mau lihat antrian hari ini (misal mau tahu masih lama atau
+  // tidak sebelum datang) tidak perlu login dulu untuk itu.
+  function handleCheckQueue() {
+    finishOnboarding();
+    router.push("/#antrian");
   }
 
   return (
@@ -289,6 +300,22 @@ export default function OnboardingPage() {
           ))}
         </div>
       </div>
+
+      {/* ── Floating pill "Cek Antrian" — melayang fixed di atas CTA,
+          konsisten terlihat di semua slide carousel. Mengarah ke section
+          antrian publik di "/", BUKAN /booking/status, karena yang itu
+          butuh login (lihat handleCheckQueue di atas). Pakai fixed (bukan
+          absolute) supaya tidak ikut ke-scroll bersama konten halaman yang
+          cukup panjang ini. z-20 supaya tetap di atas ambient glow (z-0)
+          dan carousel (z-10), translate-x center manual karena fixed tidak
+          ikut constraint parent relative. ── */}
+      <button
+        onClick={handleCheckQueue}
+        className="fixed bottom-[122px] left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-accent/35 bg-surface/90 px-3.5 py-2 text-[11px] font-semibold text-text-primary shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-200 active:scale-[0.96]"
+      >
+        <Clock size={13} className="text-accent" />
+        Cek Antrian
+      </button>
 
       {/* ── CTA — lebih premium ── */}
       <div className="relative z-10 mt-7 px-6">

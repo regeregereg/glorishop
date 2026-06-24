@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from("bookings")
     .select(
-      "*, service:services(*), services:booking_services(*, service:services(*)), barber:staff(id, name, photo_url), slot:slots(*), user:users(id, name, phone), payment:payments(*)"
+      "*, service:services(*), services:booking_services(*, service:services(*)), barber:staff(id, name, photo_url), slot:slots(*), user:users(id, name, phone, wa_number), payment:payments(*)"
     )
     .order("created_at", { ascending: false });
 

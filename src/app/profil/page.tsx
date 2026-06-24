@@ -13,9 +13,15 @@ import { buildWhatsAppUrl, INSTAGRAM_URL, MAPS_URL } from "@/lib/contact";
 
 export default function ProfilPage() {
   const router = useRouter();
-  const [session, setSession] = useState<{ id: string; name: string } | null | undefined>(
+  const [session, setSession] = useState<{ id: string; name: string; phone: string; wa_number: string | null } | null | undefined>(
     undefined
   );
+  // State untuk edit nomor WA
+  const [waMode, setWaMode] = useState<"same" | "different" | null>(null); // null = belum load
+  const [waInput, setWaInput] = useState("");
+  const [waSaving, setWaSaving] = useState(false);
+  const [waError, setWaError] = useState("");
+  const [waSuccess, setWaSuccess] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
   function loadSession() {
@@ -26,7 +32,19 @@ export default function ProfilPage() {
         if (!r.ok) throw new Error("Gagal memuat sesi.");
         return r.json();
       })
-      .then((d) => setSession(d.user))
+      .then((d) => {
+        setSession(d.user);
+        if (d.user) {
+          if (d.user.wa_number && d.user.wa_number !== d.user.phone) {
+            setWaMode("different");
+            setWaInput(d.user.wa_number.startsWith("62")
+              ? "0" + d.user.wa_number.slice(2)
+              : d.user.wa_number);
+          } else {
+            setWaMode("same");
+          }
+        }
+      })
       .catch(() => setLoadError(true));
   }
 
@@ -38,6 +56,35 @@ export default function ProfilPage() {
     await fetch("/api/auth/logout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "user" }) });
     router.push("/");
     router.refresh();
+  }
+
+  async function saveWaNumber() {
+    setWaSaving(true);
+    setWaError("");
+    setWaSuccess(false);
+    try {
+      const payload = waMode === "same" ? { wa_number: null } : { wa_number: waInput };
+      const res = await fetch("/api/me/update", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setWaError(data.error || "Gagal menyimpan.");
+        return;
+      }
+      setWaSuccess(true);
+      setTimeout(() => setWaSuccess(false), 3000);
+      // Update session lokal
+      if (session) {
+        setSession({ ...session, wa_number: waMode === "same" ? null : waInput });
+      }
+    } catch {
+      setWaError("Terjadi kesalahan. Coba lagi.");
+    } finally {
+      setWaSaving(false);
+    }
   }
 
   return (
@@ -83,6 +130,72 @@ export default function ProfilPage() {
                 <p className="mt-0.5 flex items-center gap-1 text-xs text-text-secondary">
                   <Phone size={12} /> Pelanggan Glori Barbershop
                 </p>
+              </div>
+            </div>
+
+            {/* Section Nomor WhatsApp */}
+            <div className="mt-4 rounded-2xl border border-border-soft bg-surface p-4">
+              <p className="text-xs font-semibold text-text-secondary">Nomor WhatsApp</p>
+              <p className="mt-0.5 text-[11px] text-text-tertiary">
+                Dipakai admin untuk menghubungi kamu soal booking.
+              </p>
+              <div className="mt-3 flex flex-col gap-2">
+                {/* Pilihan: sama atau beda */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setWaMode("same"); setWaError(""); setWaSuccess(false); }}
+                    className={`flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors ${
+                      waMode === "same"
+                        ? "border-accent bg-accent-soft text-accent"
+                        : "border-border-soft bg-surface-2 text-text-secondary"
+                    }`}
+                  >
+                    Sama dengan nomor login
+                  </button>
+                  <button
+                    onClick={() => { setWaMode("different"); setWaError(""); setWaSuccess(false); }}
+                    className={`flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors ${
+                      waMode === "different"
+                        ? "border-accent bg-accent-soft text-accent"
+                        : "border-border-soft bg-surface-2 text-text-secondary"
+                    }`}
+                  >
+                    Nomor WA berbeda
+                  </button>
+                </div>
+
+                {/* Info nomor aktif saat ini */}
+                {waMode === "same" && session && (
+                  <p className="rounded-xl bg-surface-2 px-3.5 py-2.5 text-sm text-text-secondary">
+                    📱 {session.phone.startsWith("62") ? "0" + session.phone.slice(2) : session.phone}
+                  </p>
+                )}
+
+                {/* Input nomor WA berbeda */}
+                {waMode === "different" && (
+                  <input
+                    type="tel"
+                    value={waInput}
+                    onChange={(e) => { setWaInput(e.target.value); setWaError(""); setWaSuccess(false); }}
+                    placeholder="08xxxxxxxxxx"
+                    className="w-full rounded-xl border border-border-soft bg-surface-2 px-3.5 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent outline-none"
+                  />
+                )}
+
+                {waError && (
+                  <p className="text-xs text-status-cancelled">{waError}</p>
+                )}
+                {waSuccess && (
+                  <p className="text-xs text-status-done">✓ Nomor WhatsApp berhasil disimpan.</p>
+                )}
+
+                <Button
+                  size="sm"
+                  onClick={saveWaNumber}
+                  disabled={waSaving || (waMode === "different" && !waInput.trim())}
+                >
+                  {waSaving ? "Menyimpan..." : "Simpan"}
+                </Button>
               </div>
             </div>
 

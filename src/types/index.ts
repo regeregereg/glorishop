@@ -22,6 +22,9 @@ export interface AppUser {
   id: string;
   name: string;
   phone: string;
+  // Nomor WA khusus — diset pelanggan di halaman Profil jika beda dari phone.
+  // Null = belum diset, gunakan phone sebagai fallback.
+  wa_number: string | null;
   avatar_url: string | null;
   created_at: string;
 }

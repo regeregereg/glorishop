@@ -5,13 +5,32 @@ import { Booking, BookingStatus, STATUS_LABELS, Service, Staff, Slot } from "@/t
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/Button";
 import { formatTime, getBookingServiceNames, getBookingPriceLabel, formatDateShort, toLocalDateString } from "@/lib/utils";
-import { Plus, X, Check } from "lucide-react";
+import { Plus, X, Check, MessageCircle } from "lucide-react";
+
+// Ambil nomor WA pelanggan — wa_number diprioritaskan, fallback ke phone,
+// fallback ke walkin_phone. Return null jika tidak ada nomor sama sekali.
+function getWaNumber(b: Booking): string | null {
+  const num = (b.user as (typeof b.user & { wa_number?: string | null }) | undefined)?.wa_number
+    || b.user?.phone
+    || b.walkin_phone;
+  return num ?? null;
+}
+
+function buildWaLink(phone: string, bookingCtx: string): string {
+  let p = phone.replace(/[\s-]/g, "");
+  if (p.startsWith("0")) p = "62" + p.slice(1);
+  if (p.startsWith("+")) p = p.slice(1);
+  const msg = encodeURIComponent(`Halo kak, ini Admin Glori Barbershop 👋\n${bookingCtx}\n\nAda yang bisa kami bantu?`);
+  return `https://wa.me/${p}?text=${msg}`;
+}
 
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [statusFilter, setStatusFilter] = useState<BookingStatus | "ALL">("ALL");
   const [loading, setLoading] = useState(true);
   const [showWalkinForm, setShowWalkinForm] = useState(false);
+  const [inlinePhoneId, setInlinePhoneId] = useState<string | null>(null);
+  const [inlinePhone, setInlinePhone] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch("/api/bookings");
@@ -65,6 +84,7 @@ export default function AdminBookingsPage() {
               <th className="px-4 py-3">Tanggal</th>
               <th className="px-4 py-3">Harga</th>
               <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3 text-right">Chat</th>
             </tr>
           </thead>
           <tbody>
@@ -93,6 +113,57 @@ export default function AdminBookingsPage() {
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={b.status} size="sm" />
+                </td>
+                <td className="px-4 py-3 text-right">
+                  {inlinePhoneId === b.id ? (
+                    <div className="flex items-center justify-end gap-1.5">
+                      <input
+                        type="tel"
+                        value={inlinePhone}
+                        onChange={(e) => setInlinePhone(e.target.value)}
+                        placeholder="08xx..."
+                        autoFocus
+                        className="w-28 rounded-lg border border-border-soft bg-surface px-2.5 py-1.5 text-xs outline-none focus:border-accent"
+                      />
+                      <a
+                        href={inlinePhone.trim() ? buildWaLink(inlinePhone.trim(), `Booking: ${b.user?.name ?? b.walkin_name ?? "Pelanggan"}`) : "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => { if (!inlinePhone.trim()) return; setInlinePhoneId(null); setInlinePhone(""); }}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#25D366] text-white disabled:opacity-40"
+                      >
+                        <MessageCircle size={13} />
+                      </a>
+                      <button
+                        onClick={() => { setInlinePhoneId(null); setInlinePhone(""); }}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-border-soft text-text-tertiary"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ) : (() => {
+                    const waNum = getWaNumber(b);
+                    const ctx = `Booking ${b.user?.name ?? b.walkin_name ?? "Pelanggan"} pada ${b.slot?.date ?? ""} jam ${b.slot?.start_time?.slice(0, 5) ?? ""}.`;
+                    return waNum ? (
+                      <a
+                        href={buildWaLink(waNum, ctx)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={`Chat WA: ${waNum.startsWith("62") ? "0" + waNum.slice(2) : waNum}`}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[#25D366]/15 text-[#25D366] transition-colors hover:bg-[#25D366]/25"
+                      >
+                        <MessageCircle size={15} />
+                      </a>
+                    ) : (
+                      <button
+                        title="Tambah nomor WA"
+                        onClick={() => { setInlinePhoneId(b.id); setInlinePhone(""); }}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-dashed border-border-soft text-text-tertiary transition-colors hover:border-accent hover:text-accent"
+                      >
+                        <MessageCircle size={15} />
+                      </button>
+                    );
+                  })()}
                 </td>
               </tr>
             ))}

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -88,7 +89,25 @@ export function HomeView({
     }, 3000);
     return () => clearInterval(interval);
   }, []);
-  const [category, setCategory] = useState<string>("all");
+
+  // Simpan kategori aktif di URL (?category=haircut) supaya saat user
+  // balik dari halaman detail layanan, filter tidak ter-reset ke "Semua".
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const category = searchParams.get("category") ?? "all";
+  const setCategory = useCallback(
+    (cat: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (cat === "all") {
+        params.delete("category");
+      } else {
+        params.set("category", cat);
+      }
+      router.replace(params.toString() ? `/?${params.toString()}` : "/", { scroll: false });
+    },
+    [router, searchParams]
+  );
+
   const [liked, setLiked] = useState<Set<string>>(new Set());
 
   const categories = useMemo(() => {
@@ -197,14 +216,21 @@ export function HomeView({
 
         <h1 className="font-display mt-5 text-[26px] font-extrabold leading-[1.15] text-text-primary">
           Yuk, cari{" "}
-          <span
-            className="text-accent inline-block transition-all duration-350 ease-in-out"
-            style={{
-              opacity: headlineVisible ? 1 : 0,
-              transform: headlineVisible ? "translateY(0)" : "translateY(6px)",
-            }}
-          >
-            {HEADLINES[headlineIdx]}
+          {/* Wrapper dengan tinggi tetap supaya saat teks berganti-ganti
+              (ada yang lebih panjang, ada yang lebih pendek) elemen di
+              bawah h1 tidak terdorong naik-turun — layout shift dihindari
+              dengan menetapkan min-height setara baris teks terpanjang. */}
+          <span className="relative block" style={{ minHeight: "1.2em" }}>
+            <span
+              className="text-accent transition-all duration-350 ease-in-out"
+              style={{
+                opacity: headlineVisible ? 1 : 0,
+                transform: headlineVisible ? "translateY(0)" : "translateY(6px)",
+                display: "inline-block",
+              }}
+            >
+              {HEADLINES[headlineIdx]}
+            </span>
           </span>
         </h1>
         <a
@@ -366,7 +392,7 @@ export function HomeView({
       )}
 
       {/* Layanan Utama — grid showcase 2 kolom */}
-      {!query.trim() && featuredServices.length > 0 && (
+      {!query.trim() && category === "all" && featuredServices.length > 0 && (
         <section className="mt-6 px-5">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-base font-bold">Layanan Utama</h2>

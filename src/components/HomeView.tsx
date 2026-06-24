@@ -77,17 +77,6 @@ export function HomeView({
   const [headlineIdx, setHeadlineIdx] = useState(0);
   const [headlineVisible, setHeadlineVisible] = useState(true);
 
-  // Scroll otomatis ke section antrian kalau datang dari onboarding via /#antrian
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.location.hash !== "#antrian") return;
-    const timer = setTimeout(() => {
-      const el = document.getElementById("antrian");
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 400);
-    return () => clearTimeout(timer);
-  }, []);
-
   // Ganti headline setiap 3 detik dengan fade transition
   useEffect(() => {
     const interval = setInterval(() => {
@@ -293,8 +282,8 @@ export function HomeView({
         </section>
       )}
 
-      {/* Barber pilihan — kartu visual besar ala showcase */}
-      {filteredBarbers.length > 0 && (
+      {/* Barber pilihan — hanya tampil saat tidak ada filter kategori/query aktif */}
+      {filteredBarbers.length > 0 && !query.trim() && category === "all" && (
         <section className="mt-6 px-5">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-base font-bold">Barber Pilihan</h2>
@@ -377,7 +366,7 @@ export function HomeView({
       )}
 
       {/* Layanan Utama — grid showcase 2 kolom */}
-      {!query.trim() && category === "all" && featuredServices.length > 0 && (
+      {!query.trim() && featuredServices.length > 0 && (
         <section className="mt-6 px-5">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-base font-bold">Layanan Utama</h2>
@@ -451,9 +440,7 @@ export function HomeView({
       </section>
 
       {/* Live Queue Panel — bisa dilihat semua orang tanpa login */}
-      <section id="antrian" className="scroll-mt-4">
-        <LiveQueuePanel />
-      </section>
+      <LiveQueuePanel />
 
       {/* CTA bawah kalau belum pernah booking */}
       {!hasActiveBooking && (

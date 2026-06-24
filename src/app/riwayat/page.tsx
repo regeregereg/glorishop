@@ -33,7 +33,7 @@ export default function RiwayatPage() {
       })
       .then((d) => {
         setSession(d.user);
-        if (!d.user) router.push("/login?next=/riwayat");
+        if (!d.user) router.replace("/login?next=/riwayat");
       })
       .catch(() => {
         setLoading(false);

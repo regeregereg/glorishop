@@ -30,7 +30,7 @@ export default function BookingStatusPage() {
       .then((d) => {
         setSession(d.user);
         if (!d.user) {
-          router.push("/login?next=/booking/status");
+          router.replace("/login?next=/booking/status");
         }
       })
       .catch(() => {

@@ -635,7 +635,7 @@ function BookingFlow() {
           paymentType: paymentTypeChoice,
         })
       );
-      router.push(`/login?next=/booking`);
+      router.replace(`/login?next=/booking`);
       return;
     }
     handleCreateBooking();

@@ -38,7 +38,7 @@ export default function BookingPaymentDetailPage() {
       if (!meRes.ok) throw new Error("Gagal memuat sesi pengguna");
       const me = await meRes.json();
       if (!me.user) {
-        router.push(`/login?next=/booking/status/${params.id}`);
+        router.replace(`/login?next=/booking/status/${params.id}`);
         return;
       }
       const bookingsRes = await fetch(`/api/bookings?userId=${me.user.id}`);

@@ -22,12 +22,10 @@ export const MAPS_URL = `https://www.google.com/maps?q=${MAPS_LATITUDE},${MAPS_L
 // masih difinalkan dengan owner) — field yang sudah pasti diisi penuh,
 // field yang belum pasti diisi seakurat mungkin berdasarkan kecamatan resmi.
 export const BUSINESS_ADDRESS = {
-  addressLocality: "Cikondang", // nama desa/kelurahan
-  addressRegion: "Jawa Tengah", // provinsi
+  streetAddress: "Jl. Raya Cikondang, Panimbang",
+  addressLocality: "Cikondang",
+  addressRegion: "Jawa Tengah",
   addressCountry: "ID",
-  // Karangpucung adalah kecamatan resmi tempat Desa Ciporos berada
-  // (Kabupaten Cilacap), dicantumkan di "Pemerintah Daerah" karena
-  // schema.org PostalAddress tidak punya field kecamatan terpisah.
   postalCode: "53256",
 };
 export const BUSINESS_CITY = "Kabupaten Cilacap";
@@ -43,7 +41,7 @@ export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://glori-barbe
 
 export const BUSINESS_NAME = "Glori Barbershop";
 export const BUSINESS_DESCRIPTION =
-  "Glori Barbershop adalah barbershop premium di Ciporos, Karangpucung, Cilacap — booking online untuk haircut, treatment, dan colouring tanpa antri.";
+  "Glori Barbershop adalah barbershop premium di Cikondang, Cimanggu, Kabupaten Cilacap — booking online untuk haircut, treatment, dan colouring tanpa antri.";
 
 // Jam operasional toko — buka setiap hari (Senin-Minggu) 10:00-21:00,
 // tanpa hari libur. Dipakai di structured data (openingHoursSpecification)
@@ -65,4 +63,4 @@ export function buildWhatsAppUrl(message?: string) {
 }
 
 // Alamat lengkap untuk ditampilkan di UI (header Home, footer, dsb)
-export const BUSINESS_FULL_ADDRESS = "Jl. Raya Cikondang, Cimanggu, Cilacap";
+export const BUSINESS_FULL_ADDRESS = "Jl. Raya Cikondang, Panimbang, Cimanggu, Cilacap";

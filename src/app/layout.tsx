@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     // generateMetadata di halaman layanan/barber), jadi hasilnya misal
     // "Haircut Dewasa | Glori Barbershop" — bagus untuk SEO karena nama
     // brand tetap konsisten muncul di setiap tab/hasil pencarian.
-    default: `${BUSINESS_NAME} — Booking Online di Ciporos, Cilacap`,
+    default: `${BUSINESS_NAME} — Booking Online di Cimanggu, Cilacap`,
     template: `%s | ${BUSINESS_NAME}`,
   },
   description: BUSINESS_DESCRIPTION,
@@ -46,9 +46,10 @@ export const metadata: Metadata = {
   // halaman ini dengan cepat tanpa perlu membaca seluruh isi halaman).
   keywords: [
     "barbershop Cilacap",
-    "barber terdekat Ciporos",
-    "potong rambut Karangpucung",
-    "booking barber online",
+    "barber Cimanggu",
+    "barber Cikondang",
+    "potong rambut Cimanggu",
+    "booking barber online Cilacap",
     "haircut Cilacap",
     "salon pria Cilacap",
     "Glori Barbershop",
@@ -73,7 +74,7 @@ export const metadata: Metadata = {
     locale: "id_ID",
     url: SITE_URL,
     siteName: BUSINESS_NAME,
-    title: `${BUSINESS_NAME} — Booking Online di Ciporos, Cilacap`,
+    title: `${BUSINESS_NAME} — Booking Online di Cimanggu, Cilacap`,
     description: BUSINESS_DESCRIPTION,
     images: [
       {
@@ -87,7 +88,7 @@ export const metadata: Metadata = {
 
   twitter: {
     card: "summary_large_image",
-    title: `${BUSINESS_NAME} — Booking Online di Ciporos, Cilacap`,
+    title: `${BUSINESS_NAME} — Booking Online di Cimanggu, Cilacap`,
     description: BUSINESS_DESCRIPTION,
     images: ["/og-image.png"],
   },

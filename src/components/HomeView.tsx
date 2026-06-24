@@ -1,7 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -89,23 +88,20 @@ export function HomeView({
     return () => clearInterval(interval);
   }, []);
 
-  // Simpan kategori aktif di URL (?category=haircut) supaya saat user
-  // balik dari halaman detail layanan, filter tidak ter-reset ke "Semua".
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const category = searchParams.get("category") ?? "all";
-  const setCategory = useCallback(
-    (cat: string) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (cat === "all") {
-        params.delete("category");
-      } else {
-        params.set("category", cat);
-      }
-      router.replace(params.toString() ? `/?${params.toString()}` : "/", { scroll: false });
-    },
-    [router, searchParams]
-  );
+  // Simpan kategori aktif di sessionStorage supaya saat user balik dari
+  // halaman detail layanan, filter tidak ter-reset ke "Semua" — tapi
+  // tetap pakai useState supaya klik pill instant tanpa network request.
+  const [category, setCategory] = useState<string>("all");
+
+  useEffect(() => {
+    const saved = sessionStorage.getItem("home-category");
+    if (saved) setCategory(saved);
+  }, []);
+
+  function handleSetCategory(cat: string) {
+    setCategory(cat);
+    sessionStorage.setItem("home-category", cat);
+  }
 
   const [liked, setLiked] = useState<Set<string>>(new Set());
 
@@ -248,7 +244,7 @@ export function HomeView({
         {/* Category pills */}
         <div className="mt-4 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button
-            onClick={() => setCategory("all")}
+            onClick={() => handleSetCategory("all")}
             className={cn(
               "flex shrink-0 items-center gap-1.5 rounded-full px-4 py-[9px] text-xs font-semibold transition-colors",
               category === "all"
@@ -264,7 +260,7 @@ export function HomeView({
             return (
               <button
                 key={key}
-                onClick={() => setCategory(key)}
+                onClick={() => handleSetCategory(key)}
                 className={cn(
                   "flex shrink-0 items-center gap-1.5 rounded-full px-4 py-[9px] text-xs font-semibold transition-colors",
                   active

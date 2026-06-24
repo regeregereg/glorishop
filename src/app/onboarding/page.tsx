@@ -288,7 +288,6 @@ export default function OnboardingPage() {
 
         {/* Trust badges + tombol Cek Antrian dalam satu baris */}
         <div className="mt-4 flex items-center justify-between">
-          {/* Badges kiri */}
           <div className="flex items-center gap-4">
             {[
               { val: "4+", lbl: "Layanan" },

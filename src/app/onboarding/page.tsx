@@ -146,7 +146,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-bg pb-10 pt-8">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-bg pb-8 pt-6">
 
       {/* ── Ambient glow — lebih kaya dari sebelumnya ── */}
       <div className="pointer-events-none absolute -left-32 -top-8 h-72 w-72 rounded-full bg-accent/15 blur-[100px]" />
@@ -154,7 +154,7 @@ export default function OnboardingPage() {
       <div className="pointer-events-none absolute bottom-0 left-1/2 h-48 w-96 -translate-x-1/2 rounded-full bg-accent/5 blur-[80px]" />
 
       {/* ── Brand mark — eyebrow di atas carousel ── */}
-      <div className="relative z-10 mb-5 flex items-center justify-between px-6">
+      <div className="relative z-10 mb-4 flex items-center justify-between px-6">
         <div className="flex items-center gap-2">
           {/* Scissor logomark kecil */}
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent">
@@ -181,7 +181,7 @@ export default function OnboardingPage() {
         onPointerLeave={endDrag}
         onTouchMove={handleTouchMove}
         className={cn(
-          "relative z-10 flex gap-3 overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth px-[11%] py-4 [-ms-overflow-style:none] [scroll-padding-inline:11%] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          "relative z-10 flex gap-3 overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth px-[11%] py-3 [-ms-overflow-style:none] [scroll-padding-inline:11%] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           isDragging ? "cursor-grabbing" : "cursor-grab"
         )}
 
@@ -189,7 +189,7 @@ export default function OnboardingPage() {
         {SLIDES.map((slide, i) => (
           <div
             key={slide.label}
-            className="onboarding-card-reveal relative h-[370px] w-[78%] shrink-0 select-none overflow-hidden rounded-[28px] snap-center"
+            className="onboarding-card-reveal relative h-[300px] w-[78%] shrink-0 select-none overflow-hidden rounded-[28px] snap-center"
             style={{
               border: "1px solid rgba(255,255,255,0.08)",
               boxShadow: activeSlide === i
@@ -252,7 +252,7 @@ export default function OnboardingPage() {
       </div>
 
       {/* ── Dot indicators — lebih halus ── */}
-      <div className="relative z-10 mt-5 flex items-center justify-center gap-2">
+      <div className="relative z-10 mt-3 flex items-center justify-center gap-2">
         {SLIDES.map((_, i) => (
           <button
             key={i}
@@ -269,51 +269,40 @@ export default function OnboardingPage() {
       </div>
 
       {/* ── Copy section — hierarki lebih kuat ── */}
-      <div className="relative z-10 mt-8 flex-1 px-6">
+      <div className="relative z-10 mt-5 px-6">
         {/* Eyebrow label */}
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">
+        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">
           Premium Barbershop · Sejak 2020
         </p>
 
-        <h1 className="font-display text-[32px] font-extrabold leading-[1.1] text-text-primary onboarding-headline-slide">
+        <h1 className="font-display text-[28px] font-extrabold leading-[1.1] text-text-primary onboarding-headline-slide">
           Tampil Terbaik,{" "}
           <br />
           <span className="text-order-gradient-animated">Booking Mudah.</span>
         </h1>
 
-        <p className="mt-3 text-[14px] leading-relaxed text-text-secondary">
+        <p className="mt-2 text-[13px] leading-relaxed text-text-secondary">
           Pilih barber, tentukan layanan, dan konfirmasi jadwal — semua dalam
           hitungan detik.
         </p>
 
-        {/* Trust badges kecil */}
-        <div className="mt-5 flex items-center gap-4">
-          {[
-            { val: "4+", lbl: "Layanan" },
-            { val: "100%", lbl: "Terjamin" },
-            { val: "Fast", lbl: "Booking" },
-          ].map(({ val, lbl }) => (
-            <div key={lbl} className="flex flex-col">
-              <span className="text-[15px] font-bold text-text-primary">{val}</span>
-              <span className="text-[11px] text-text-tertiary">{lbl}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+        {/* Trust badges + tombol Cek Antrian dalam satu baris */}
+        <div className="mt-4 flex items-center justify-between">
+          {/* Badges kiri */}
+          <div className="flex items-center gap-4">
+            {[
+              { val: "4+", lbl: "Layanan" },
+              { val: "100%", lbl: "Terjamin" },
+              { val: "Fast", lbl: "Booking" },
+            ].map(({ val, lbl }) => (
+              <div key={lbl} className="flex flex-col">
+                <span className="text-[15px] font-bold text-text-primary">{val}</span>
+                <span className="text-[11px] text-text-tertiary">{lbl}</span>
+              </div>
+            ))}
+          </div>
 
-      {/* ── CTA — lebih premium ── */}
-      <div className="relative z-10 mt-7 px-6">
-        {/* Pill "Cek Antrian" — sebelumnya pakai position fixed dengan angka
-            piksel tebakan dari bawah viewport, ternyata gampang ketabrak
-            konten lain begitu tinggi halaman berbeda dari perkiraan (lihat
-            screenshot bug: pill nyangkut di tengah judul "Tampil Terbaik").
-            Sekarang ditaruh di DALAM flow CTA section ini sebagai elemen
-            biasa (bukan fixed/absolute) — otomatis selalu pas di atas
-            divider & tombol Booking, di device manapun, karena ikut alur
-            layout normal alih-alih koordinat absolut yang ditebak manual.
-            Mengarah ke "/#antrian" (section publik tanpa login di HomeView,
-            BUKAN /booking/status yang butuh sesi) — lihat handleCheckQueue. */}
-        <div className="mb-4 flex justify-center">
+          {/* Tombol Cek Antrian — di samping kanan badges */}
           <button
             onClick={handleCheckQueue}
             className="flex items-center gap-1.5 rounded-full border border-accent/35 bg-surface-2 px-3.5 py-2 text-[11px] font-semibold text-text-primary transition-all duration-200 active:scale-[0.96] hover:border-accent/60"
@@ -322,9 +311,12 @@ export default function OnboardingPage() {
             Cek Antrian
           </button>
         </div>
+      </div>
 
+      {/* ── CTA ── */}
+      <div className="relative z-10 mt-5 px-6">
         {/* Divider tipis */}
-        <div className="mb-5 h-px bg-gradient-to-r from-transparent via-border-soft to-transparent" />
+        <div className="mb-4 h-px bg-gradient-to-r from-transparent via-border-soft to-transparent" />
 
         <div className="flex items-center gap-3">
           <button

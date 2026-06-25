@@ -45,6 +45,7 @@ interface PembayaranMenunggu {
 }
 interface BookingTerlambat {
   bookingId: string;
+  status: "CONFIRMED" | "IN_PROGRESS";
   barberId: string;
   barberName: string;
   customerName: string;
@@ -149,7 +150,10 @@ export default function AdminDashboardPage() {
       <h1 className="font-display text-2xl font-extrabold">Dashboard</h1>
       <p className="mt-1 text-sm text-text-secondary">Ringkasan operasional hari ini.</p>
 
-      {/* ALERT: booking IN_PROGRESS yang barber lupa klik "Selesai" */}
+      {/* ALERT: booking CONFIRMED/IN_PROGRESS yang barber lupa diproses
+          (lupa klik "Mulai" ATAU lupa klik "Selesai") padahal slotnya
+          sudah lama lewat. Klik baris -> ke halaman Antrian, di sana ada
+          tombol "Tandai Selesai" untuk membersihkannya langsung. */}
       {data.bookingTerlambat.length > 0 && (
         <div className="mt-5 rounded-[var(--radius-card)] border border-status-progress/40 bg-status-progress/10 p-4">
           <div className="flex items-center gap-2">
@@ -159,19 +163,21 @@ export default function AdminDashboardPage() {
             </h2>
           </div>
           <p className="mt-1 text-xs text-text-secondary">
-            Barber kemungkinan lupa klik &ldquo;Selesai&rdquo;. Tandai manual lewat halaman Booking.
+            Barber kemungkinan lupa klik &ldquo;Mulai&rdquo; atau &ldquo;Selesai&rdquo;. Tandai manual lewat halaman Antrian.
           </p>
           <div className="mt-3 flex flex-col gap-2">
             {data.bookingTerlambat.map((b) => (
               <Link
                 key={b.bookingId}
-                href={`/admin/bookings`}
+                href={`/admin/antrian`}
                 className="flex items-center justify-between rounded-xl bg-surface px-3.5 py-2.5 transition-colors hover:bg-surface-2"
               >
                 <div>
                   <p className="text-sm font-semibold">{b.customerName}</p>
                   <p className="mt-0.5 text-xs text-text-secondary">
                     {b.barberName} • {b.slotDate} {b.slotTime ? b.slotTime.slice(0, 5) : ""}
+                    {" • "}
+                    {b.status === "CONFIRMED" ? "Lupa dimulai" : "Lupa diselesaikan"}
                   </p>
                 </div>
                 <ArrowRight size={15} className="text-status-progress" />

@@ -194,15 +194,39 @@ export default function AdminAntrianPage() {
                       </p>
                     )}
                     {b.status === "CONFIRMED" && (
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          fullWidth
+                          icon={<Check size={15} />}
+                          onClick={() => updateStatus(b.id, "DONE")}
+                          disabled={actingId === b.id}
+                        >
+                          Tandai Selesai
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          fullWidth
+                          onClick={() => updateStatus(b.id, "CANCELLED_ADMIN")}
+                          disabled={actingId === b.id}
+                        >
+                          Batalkan
+                        </Button>
+                      </div>
+                    )}
+                    {b.status === "IN_PROGRESS" && (
                       <Button
                         size="sm"
-                        variant="danger"
+                        variant="secondary"
                         className="mt-3"
                         fullWidth
-                        onClick={() => updateStatus(b.id, "CANCELLED_ADMIN")}
+                        icon={<Check size={15} />}
+                        onClick={() => updateStatus(b.id, "DONE")}
                         disabled={actingId === b.id}
                       >
-                        Batalkan
+                        Tandai Selesai
                       </Button>
                     )}
                   </div>

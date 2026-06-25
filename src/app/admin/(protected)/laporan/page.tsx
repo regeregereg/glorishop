@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { formatRupiah, formatDateShort } from "@/lib/utils";
 import { ErrorState } from "@/components/ErrorState";
-import { Wallet, ShoppingBag, HandCoins, Store } from "lucide-react";
+import { Button } from "@/components/Button";
+import { Wallet, ShoppingBag, HandCoins, Store, ClipboardCheck, Printer, Clock3, AlertTriangle, UserX } from "lucide-react";
 
 interface PopularService {
   name: string;
@@ -21,6 +23,23 @@ interface DailyRevenue {
   date: string;
   total: number;
 }
+interface AttendanceStaffRow {
+  staff_id: string;
+  name: string;
+  role: "admin" | "barber";
+  photo_url: string | null;
+  hadir: number;
+  terlambat: number;
+  tidak_masuk: number;
+  total_jam_kerja_menit: number;
+}
+
+function formatJamKerja(menit: number): string {
+  if (menit <= 0) return "0j";
+  const jam = Math.floor(menit / 60);
+  const sisa = menit % 60;
+  return sisa === 0 ? `${jam}j` : `${jam}j ${sisa}m`;
+}
 
 export default function AdminLaporanPage() {
   const [from, setFrom] = useState(
@@ -36,6 +55,25 @@ export default function AdminLaporanPage() {
     dailyRevenue: DailyRevenue[];
   } | null>(null);
   const [loadError, setLoadError] = useState(false);
+
+  const [attendance, setAttendance] = useState<AttendanceStaffRow[] | null>(null);
+  const [attendanceError, setAttendanceError] = useState(false);
+
+  const loadAttendance = useCallback(async () => {
+    setAttendanceError(false);
+    try {
+      const res = await fetch(`/api/admin-reports/attendance?from=${from}&to=${to}`);
+      if (!res.ok) throw new Error("Gagal memuat rekap absensi.");
+      const json = await res.json();
+      setAttendance(json.staff ?? []);
+    } catch {
+      setAttendanceError(true);
+    }
+  }, [from, to]);
+
+  useEffect(() => {
+    loadAttendance();
+  }, [loadAttendance]);
 
   const load = useCallback(async () => {
     setLoadError(false);
@@ -212,6 +250,104 @@ export default function AdminLaporanPage() {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* ── Rekap Absensi Staff ── */}
+          <div className="mt-8 rounded-[var(--radius-card)] border border-border-soft bg-surface p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="font-display text-sm font-bold flex items-center gap-2">
+                  <ClipboardCheck size={16} className="text-accent" />
+                  Rekap Absensi Staff
+                </h2>
+                <p className="mt-1 text-xs text-text-secondary">
+                  Kehadiran, keterlambatan, dan total jam kerja pada rentang tanggal yang dipilih di atas — untuk bahan evaluasi.
+                </p>
+              </div>
+              <Link href={`/admin/laporan-absensi?from=${from}&to=${to}`} target="_blank">
+                <Button size="sm" variant="secondary" icon={<Printer size={14} />}>
+                  Cetak Rekap
+                </Button>
+              </Link>
+            </div>
+
+            {attendanceError && (
+              <ErrorState
+                className="mt-4"
+                title="Gagal memuat rekap absensi"
+                message="Periksa koneksi internet kamu, lalu coba lagi."
+                onRetry={loadAttendance}
+              />
+            )}
+
+            {!attendanceError && attendance === null && (
+              <p className="mt-4 text-sm text-text-secondary">Memuat rekap absensi...</p>
+            )}
+
+            {!attendanceError && attendance && attendance.length === 0 && (
+              <p className="mt-4 text-sm text-text-secondary">Belum ada staff aktif.</p>
+            )}
+
+            {!attendanceError && attendance && attendance.length > 0 && (
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-border-soft text-xs text-text-secondary">
+                      <th className="py-2 pr-3 font-semibold">Staff</th>
+                      <th className="py-2 pr-3 font-semibold text-center">Hadir</th>
+                      <th className="py-2 pr-3 font-semibold text-center">Terlambat</th>
+                      <th className="py-2 pr-3 font-semibold text-center">Tidak Masuk</th>
+                      <th className="py-2 pr-3 font-semibold text-right">Total Jam Kerja</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {attendance.map((s) => (
+                      <tr key={s.staff_id} className="border-b border-border-soft/60 last:border-0">
+                        <td className="py-2.5 pr-3">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{s.name}</span>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                                s.role === "admin" ? "bg-accent/15 text-accent" : "bg-border-soft text-text-secondary"
+                              }`}
+                            >
+                              {s.role}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 pr-3 text-center font-semibold text-status-done">{s.hadir}</td>
+                        <td className="py-2.5 pr-3 text-center">
+                          {s.terlambat > 0 ? (
+                            <span className="inline-flex items-center gap-1 font-semibold text-amber-500">
+                              <AlertTriangle size={12} />
+                              {s.terlambat}
+                            </span>
+                          ) : (
+                            <span className="text-text-tertiary">0</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 pr-3 text-center">
+                          {s.tidak_masuk > 0 ? (
+                            <span className="inline-flex items-center gap-1 font-semibold text-status-cancelled">
+                              <UserX size={12} />
+                              {s.tidak_masuk}
+                            </span>
+                          ) : (
+                            <span className="text-text-tertiary">0</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 pr-3 text-right">
+                          <span className="inline-flex items-center gap-1 font-semibold">
+                            <Clock3 size={12} className="text-text-tertiary" />
+                            {formatJamKerja(s.total_jam_kerja_menit)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </>
       )}

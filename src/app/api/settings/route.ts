@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStaffSession } from "@/lib/session";
 
-const PUBLIC_KEYS = ["qris_image_url", "payment_account_name", "dp_percentage"];
+const PUBLIC_KEYS = ["qris_image_url", "payment_account_name", "dp_percentage", "work_start_time"];
 
 // GET /api/settings -> kembalikan setting yang memang publik (dipakai di halaman booking).
 export async function GET() {

@@ -10,6 +10,7 @@ export default function AdminSettingsPage() {
   const [qrisUrl, setQrisUrl] = useState<string | null>(null);
   const [accountName, setAccountName] = useState("");
   const [dpPercentage, setDpPercentage] = useState("50");
+  const [workStartTime, setWorkStartTime] = useState("09:00");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -27,6 +28,7 @@ export default function AdminSettingsPage() {
         setQrisUrl(d.settings?.qris_image_url ?? null);
         setAccountName(d.settings?.payment_account_name ?? "");
         setDpPercentage(d.settings?.dp_percentage ?? "50");
+        setWorkStartTime(d.settings?.work_start_time ?? "09:00");
       })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
@@ -47,6 +49,7 @@ export default function AdminSettingsPage() {
           qris_image_url: qrisUrl,
           payment_account_name: accountName,
           dp_percentage: dpPercentage,
+          work_start_time: workStartTime,
         }),
       });
       const data = await res.json();
@@ -130,6 +133,32 @@ export default function AdminSettingsPage() {
           </Button>
         </div>
       )}
+
+      <div className="mt-8 max-w-md">
+        <h2 className="font-display text-lg font-bold">Jam Kerja & Absensi</h2>
+        <p className="mt-1 text-sm text-text-secondary">
+          Dipakai sebagai acuan jam masuk standar untuk menghitung keterlambatan di rekap absensi (halaman Laporan).
+        </p>
+        <div className="mt-3 rounded-[var(--radius-card)] border border-border-soft bg-surface p-5">
+          <label className="mb-1.5 block text-sm font-semibold text-text-secondary">
+            Jam Masuk Standar
+          </label>
+          <input
+            type="time"
+            value={workStartTime}
+            onChange={(e) => setWorkStartTime(e.target.value)}
+            className="w-full max-w-[160px] rounded-xl border border-border-soft bg-surface-2 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+          />
+          <p className="mt-1.5 text-xs text-text-tertiary">
+            Staff yang absen masuk setelah jam ini akan dihitung &quot;Terlambat&quot; di rekap.
+          </p>
+          <div className="mt-4">
+            <Button onClick={handleSave} disabled={saving} fullWidth>
+              {saving ? "Menyimpan..." : saved ? "Tersimpan!" : "Simpan Pengaturan"}
+            </Button>
+          </div>
+        </div>
+      </div>
 
       <div className="mt-8 max-w-md">
         <h2 className="font-display text-lg font-bold">Notifikasi</h2>

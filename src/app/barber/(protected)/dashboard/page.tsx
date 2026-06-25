@@ -60,11 +60,38 @@ function QrScanModal({
     setSub(true);
     setError("");
     stopCamera();
+
+    // ─── Ambil GPS sebelum kirim ke server ───────────────────────────────────
+    let lat: number | undefined;
+    let lng: number | undefined;
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        if (!navigator.geolocation) { reject(new Error("no-geo")); return; }
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 8000,
+          maximumAge: 0,
+        });
+      });
+      lat = pos.coords.latitude;
+      lng = pos.coords.longitude;
+    } catch (geoErr: unknown) {
+      const err = geoErr as { code?: number; message?: string };
+      // code 1 = izin ditolak user
+      if (err?.code === 1) {
+        setError("Izin lokasi ditolak. Aktifkan GPS di pengaturan browser untuk bisa absen.");
+        setSub(false);
+        return;
+      }
+      // code 2/3 = tidak dapat sinyal — tetap kirim tanpa koordinat,
+      // server yang memutuskan apakah GPS wajib atau tidak.
+    }
+
     try {
       const res = await fetch("/api/attendance-qr", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: cleaned, action }),
+        body: JSON.stringify({ token: cleaned, action, lat, lng }),
       });
       const d = await res.json();
       if (!res.ok) { setError(d.error || "Gagal absen."); setSub(false); return; }
@@ -266,6 +293,11 @@ function QrScanModal({
                 Arahkan kamera ke QR yang tampil di layar kasir
               </p>
             )}
+
+            {/* Info GPS */}
+            <div className="flex items-center justify-center gap-1.5 mb-2">
+              <span className="text-[10px] text-text-tertiary">📍 Lokasi GPS akan dicek saat absen</span>
+            </div>
 
             {error && (
               <p className="rounded-xl bg-status-cancelled/10 px-3 py-2 text-xs text-status-cancelled text-center mb-2">

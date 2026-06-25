@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStaffSession } from "@/lib/session";
-import { generateQrToken, verifyQrToken, secondsUntilNextWindow, QR_WINDOW_SECONDS } from "@/lib/attendance-qr";
+import { generateQrToken, verifyQrToken, secondsUntilNextWindow, QR_WINDOW_SECONDS, checkGpsRadius, GpsCoords } from "@/lib/attendance-qr";
 import { createAdminClient } from "@/lib/supabase/admin";
 import QRCode from "qrcode";
 
@@ -8,8 +8,6 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 // ─── GET /api/attendance-qr ──────────────────────────────────────────────────
-// Hanya admin yang boleh. Return: token saat ini + SVG QR code + countdown.
-// Client poll ini tiap ~10 detik untuk refresh countdown.
 export async function GET() {
   const session = await getStaffSession();
   if (!session || session.role !== "admin") {
@@ -18,12 +16,8 @@ export async function GET() {
 
   const token = generateQrToken(0);
   const remaining = secondsUntilNextWindow();
-
-  // Payload yang di-encode ke QR: format "GLORI-ABSEN:<token>"
-  // Prefix mencegah QR lama/random dipakai untuk absen.
   const qrPayload = `GLORI-ABSEN:${token}`;
 
-  // Generate QR sebagai SVG (tidak butuh canvas, tidak ada file disimpan)
   const svg = await QRCode.toString(qrPayload, {
     type: "svg",
     width: 280,
@@ -33,24 +27,13 @@ export async function GET() {
   });
 
   return NextResponse.json(
-    {
-      token,          // untuk ditampilkan sebagai teks fallback
-      svg,            // SVG string, langsung di-render di browser
-      remaining,      // detik sampai QR berikutnya
-      windowSeconds: QR_WINDOW_SECONDS,
-    },
-    {
-      headers: {
-        // Jangan di-cache sama sekali — QR harus selalu fresh
-        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-      },
-    }
+    { token, svg, remaining, windowSeconds: QR_WINDOW_SECONDS },
+    { headers: { "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0" } }
   );
 }
 
 // ─── POST /api/attendance-qr ─────────────────────────────────────────────────
-// Barber kirim hasil scan QR. Verifikasi token, lalu clock_in / clock_out.
-// body: { token: string, action: "clock_in" | "clock_out" }
+// body: { token: string, action: "clock_in"|"clock_out", lat: number, lng: number }
 export async function POST(request: NextRequest) {
   const session = await getStaffSession();
   if (!session || session.role !== "barber") {
@@ -65,7 +48,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Action tidak valid." }, { status: 400 });
   }
 
-  // Strip prefix kalau barber scan QR (payload "GLORI-ABSEN:XXXXXXXXXXXXXXXX")
+  // ─── Validasi GPS ─────────────────────────────────────────────────────────
+  const lat = body.lat as number | undefined;
+  const lng = body.lng as number | undefined;
+
+  if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) {
+    return NextResponse.json(
+      { error: "Lokasi GPS diperlukan untuk absen. Pastikan izin lokasi diaktifkan di browser." },
+      { status: 400 }
+    );
+  }
+
+  const gps = checkGpsRadius({ lat, lng } as GpsCoords);
+  if (!gps.ok) {
+    return NextResponse.json({ error: gps.reason }, { status: 400 });
+  }
+
+  // ─── Verifikasi token QR ──────────────────────────────────────────────────
   const tokenOnly = rawToken.startsWith("GLORI-ABSEN:")
     ? rawToken.replace("GLORI-ABSEN:", "")
     : rawToken;
@@ -77,6 +76,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // ─── Simpan absensi ───────────────────────────────────────────────────────
   const supabase = createAdminClient();
   const staffId = session.id;
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
@@ -93,8 +93,6 @@ export async function POST(request: NextRequest) {
     if (existing?.clock_in) {
       return NextResponse.json({ error: "Sudah absen masuk hari ini." }, { status: 400 });
     }
-
-    // Tutup absensi kemarin yang lupa clock_out
     await supabase.rpc("auto_close_attendance");
 
     let data, error;
@@ -112,12 +110,11 @@ export async function POST(request: NextRequest) {
         .select()
         .single());
     }
-
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ attendance: data, message: "Absen masuk berhasil!" });
   }
 
-  // action === "clock_out"
+  // clock_out
   if (!existing?.clock_in) {
     return NextResponse.json({ error: "Belum absen masuk hari ini." }, { status: 400 });
   }

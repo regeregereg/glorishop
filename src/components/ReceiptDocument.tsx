@@ -23,9 +23,16 @@ const WIDTH_BY_SIZE: Record<ReceiptPaperSize, string> = {
 export function ReceiptDocument({
   data,
   paperSize,
+  amountTendered,
+  changeAmount,
 }: {
   data: ReceiptData;
   paperSize: ReceiptPaperSize;
+  // Uang cash yang diterima kasir & kembaliannya — dihitung sesaat di halaman
+  // struk (lihat PrintActions/StrukDetailPage), TIDAK disimpan ke booking.
+  // null/undefined = kasir belum isi, baris ini disembunyikan dari struk.
+  amountTendered?: number | null;
+  changeAmount?: number | null;
 }) {
   const isThermal = paperSize !== "a4";
 
@@ -88,6 +95,17 @@ export function ReceiptDocument({
       <Divider thermal={isThermal} />
 
       <Row label="Metode Bayar" value={data.paymentTypeLabel ?? "—"} />
+
+      {amountTendered != null && (
+        <>
+          <Row label="Uang Diterima" value={formatRupiah(amountTendered)} />
+          <Row
+            label="Kembalian"
+            value={formatRupiah(changeAmount ?? 0)}
+            bold
+          />
+        </>
+      )}
 
       <Divider thermal={isThermal} />
 

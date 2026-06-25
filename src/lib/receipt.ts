@@ -128,3 +128,16 @@ export const PAPER_SIZE_LABELS: Record<ReceiptPaperSize, string> = {
   thermal80: "Thermal 80mm",
   a4: "A4 / Surat",
 };
+
+// Nominal yang harus dibayar TUNAI saat ini juga (dipakai untuk hitung
+// kembalian di halaman struk). Aturan:
+// - Kalau sudah lunas via DP Full (remaining === 0) -> tidak ada uang cash
+//   yang berpindah tangan sekarang, jadi null (input kembalian disembunyikan).
+// - Kalau ada DP tapi masih ada sisa -> basisnya SISA di tempat saja.
+// - Kalau tanpa DP sama sekali (walk-in/tunai langsung) -> basisnya TOTAL.
+export function getCashDueAmount(data: ReceiptData): number | null {
+  if (data.paidUpfront != null) {
+    return data.remaining > 0 ? data.remaining : null;
+  }
+  return data.subtotal;
+}

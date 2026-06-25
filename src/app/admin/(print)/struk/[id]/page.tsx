@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { Booking } from "@/types";
-import { buildReceiptData, ReceiptPaperSize } from "@/lib/receipt";
+import { buildReceiptData, getCashDueAmount, ReceiptPaperSize } from "@/lib/receipt";
 import { ReceiptDocument } from "@/components/ReceiptDocument";
 import { PrintActions } from "@/components/PrintActions";
 import { ErrorState } from "@/components/ErrorState";
@@ -18,6 +18,10 @@ export default function StrukDetailPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [paperSize, setPaperSize] = useState<ReceiptPaperSize>("thermal58");
+  // Uang tunai yang diterima kasir, diisi manual sesaat di halaman ini saja
+  // (tidak disimpan ke booking) — basis kembaliannya beda-beda tergantung
+  // ada/tidaknya DP, lihat getCashDueAmount() di lib/receipt.ts.
+  const [cashInputValue, setCashInputValue] = useState("");
 
   const load = useCallback(async () => {
     setLoadError(false);
@@ -61,6 +65,8 @@ export default function StrukDetailPage() {
   }
 
   const receiptData = buildReceiptData(booking);
+  const cashDue = getCashDueAmount(receiptData);
+  const tenderedNum = cashInputValue !== "" ? Number(cashInputValue) : null;
 
   return (
     <div className="min-h-screen bg-bg">
@@ -69,9 +75,19 @@ export default function StrukDetailPage() {
         fileName={`Struk-${receiptData.receiptNumber}`}
         paperSize={paperSize}
         onPaperSizeChange={setPaperSize}
+        cashInput={
+          cashDue != null
+            ? { amountDue: cashDue, value: cashInputValue, onChange: setCashInputValue }
+            : undefined
+        }
       />
       <div className="px-4 py-8">
-        <ReceiptDocument data={receiptData} paperSize={paperSize} />
+        <ReceiptDocument
+          data={receiptData}
+          paperSize={paperSize}
+          amountTendered={tenderedNum}
+          changeAmount={tenderedNum != null && cashDue != null ? tenderedNum - cashDue : null}
+        />
       </div>
     </div>
   );

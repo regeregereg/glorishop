@@ -166,8 +166,10 @@ async function expireOverduePayments(supabase: ReturnType<typeof createAdminClie
 // status WAITING_PAYMENT dan langsung disertai baris "payments" yang berisi
 // nominal yang harus dibayar (DP atau Lunas, sesuai payment_type dari body),
 // dihitung dari TOTAL harga semua layanan yang dipilih.
-// Booking walk-in yang diinput admin langsung (created_by_admin) tidak butuh
-// alur pembayaran online ini karena dianggap sudah dibayar/diatur di tempat.
+// Booking walk-in yang diinput admin langsung (created_by_admin) langsung
+// berstatus CONFIRMED (sama seperti walk-in barber) karena dianggap sudah
+// dibayar/diatur di tempat — tidak ada alur pembayaran online maupun
+// langkah konfirmasi manual tambahan.
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const userSession = await getUserSession();
@@ -336,7 +338,7 @@ export async function POST(req: NextRequest) {
       walkin_phone: isAdminBooking ? walkin_phone : null,
       created_by_admin: !!isAdminBooking,
       walkin_by_barber: false,
-      status: isAdminBooking ? "PENDING" : "WAITING_PAYMENT",
+      status: isAdminBooking ? "CONFIRMED" : "WAITING_PAYMENT",
     })
     .select("*, service:services(*), barber:staff(id, name, photo_url), slot:slots(*)")
     .single();

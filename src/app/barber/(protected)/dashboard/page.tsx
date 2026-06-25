@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import jsQR from "jsqr";
 import { Booking, Service } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/Button";
@@ -44,13 +45,11 @@ function QrScanModal({
   const [submitting, setSub]      = useState(false);
   const [error, setError]         = useState("");
   const [success, setSuccess]     = useState("");
-  const [camError, setCamError]   = useState("");
   const [scanning, setScanning]   = useState(false);
   const videoRef                  = useRef<HTMLVideoElement>(null);
   const canvasRef                 = useRef<HTMLCanvasElement>(null);
   const streamRef                 = useRef<MediaStream | null>(null);
   const rafRef                    = useRef<number | null>(null);
-  const jsqrRef                   = useRef<((data: Uint8ClampedArray, w: number, h: number) => { data: string } | null) | null>(null);
 
   // Submit token ke API
   async function submitToken(raw: string) {
@@ -111,33 +110,9 @@ function QrScanModal({
     setScanning(false);
   }
 
-  // Load jsQR dari CDN lalu mulai kamera
+  // Mulai kamera (jsQR sudah di-bundle, tidak perlu load CDN)
   async function startCamera() {
-    setCamError("");
     setError("");
-
-    // Load jsQR sekali
-    if (!jsqrRef.current) {
-      try {
-        await new Promise<void>((resolve, reject) => {
-          if ((window as unknown as Record<string, unknown>).jsQR) {
-            jsqrRef.current = (window as unknown as Record<string, { jsQR: typeof jsqrRef.current }>).jsQR.jsQR ?? (window as unknown as Record<string, unknown>).jsQR as typeof jsqrRef.current;
-            return resolve();
-          }
-          const s = document.createElement("script");
-          s.src = "https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js";
-          s.onload = () => {
-            jsqrRef.current = (window as unknown as { jsQR: typeof jsqrRef.current }).jsQR;
-            resolve();
-          };
-          s.onerror = () => reject(new Error("Gagal load library scan"));
-          document.head.appendChild(s);
-        });
-      } catch {
-        setCamError("Gagal memuat library kamera. Gunakan kode manual.");
-        return;
-      }
-    }
 
     // Minta izin kamera
     try {
@@ -152,7 +127,10 @@ function QrScanModal({
       setScanning(true);
       scanLoop();
     } catch {
-      setCamError("Izin kamera ditolak atau tidak tersedia. Gunakan kode manual.");
+      // Izin kamera ditolak atau tidak tersedia — langsung ke mode manual
+      stopCamera();
+      setMode("manual");
+      setError("Izin kamera ditolak. Gunakan kode manual yang tampil di layar kasir.");
     }
   }
 
@@ -160,7 +138,7 @@ function QrScanModal({
   function scanLoop() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas || !jsqrRef.current) return;
+    if (!video || !canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
@@ -173,7 +151,7 @@ function QrScanModal({
       canvas!.height = video.videoHeight;
       ctx!.drawImage(video, 0, 0);
       const imageData = ctx!.getImageData(0, 0, canvas!.width, canvas!.height);
-      const code = jsqrRef.current!(imageData.data, imageData.width, imageData.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height);
       if (code?.data) {
         submitToken(code.data);
         return; // stop loop setelah berhasil scan
@@ -194,7 +172,6 @@ function QrScanModal({
   function switchToManual() {
     stopCamera();
     setMode("manual");
-    setCamError("");
   }
   function switchToCamera() {
     setToken("");
@@ -275,7 +252,7 @@ function QrScanModal({
                   </div>
                 </div>
               )}
-              {!scanning && !camError && (
+              {!scanning && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="animate-spin w-8 h-8 border-2 border-accent border-t-transparent rounded-full" />
                 </div>
@@ -284,15 +261,9 @@ function QrScanModal({
               <canvas ref={canvasRef} className="hidden" />
             </div>
 
-            {camError ? (
-              <div className="rounded-xl bg-status-cancelled/10 px-3 py-2 text-xs text-status-cancelled text-center mb-3">
-                {camError}
-              </div>
-            ) : (
-              <p className="text-center text-xs text-text-tertiary mb-3">
-                Arahkan kamera ke QR yang tampil di layar kasir
-              </p>
-            )}
+            <p className="text-center text-xs text-text-tertiary mb-3">
+              Arahkan kamera ke QR yang tampil di layar kasir
+            </p>
 
             {/* Info GPS */}
             <div className="flex items-center justify-center gap-1.5 mb-2">

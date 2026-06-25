@@ -130,8 +130,8 @@ export default function AdminQrDisplayPage() {
             {/* Token teks (fallback kalau kamera tidak bisa scan) */}
             <div className="mt-5 rounded-xl border border-border-soft bg-surface-2 px-4 py-3 text-center">
               <p className="text-xs text-text-tertiary mb-1">Kode manual (jika kamera bermasalah)</p>
-              <p className="font-display text-xl font-extrabold tracking-widest text-text-primary">
-                {qr.token.slice(0, 4)}-{qr.token.slice(4, 8)}-{qr.token.slice(8, 12)}-{qr.token.slice(12)}
+              <p className="font-display text-4xl font-extrabold tracking-[0.3em] text-text-primary">
+                {qr.token}
               </p>
             </div>
           </>

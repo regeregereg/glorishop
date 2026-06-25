@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Booking, Service } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/Button";
@@ -39,34 +39,141 @@ function QrScanModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const [token, setToken]     = useState("");
-  const [submitting, setSub]  = useState(false);
-  const [error, setError]     = useState("");
-  const [success, setSuccess] = useState("");
+  const [mode, setMode]           = useState<"camera" | "manual">("camera");
+  const [token, setToken]         = useState("");
+  const [submitting, setSub]      = useState(false);
+  const [error, setError]         = useState("");
+  const [success, setSuccess]     = useState("");
+  const [camError, setCamError]   = useState("");
+  const [scanning, setScanning]   = useState(false);
+  const videoRef                  = useRef<HTMLVideoElement>(null);
+  const canvasRef                 = useRef<HTMLCanvasElement>(null);
+  const streamRef                 = useRef<MediaStream | null>(null);
+  const rafRef                    = useRef<number | null>(null);
+  const jsqrRef                   = useRef<((data: Uint8ClampedArray, w: number, h: number) => { data: string } | null) | null>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!token.trim()) { setError("Masukkan kode QR atau ketik kode manual."); return; }
+  // Submit token ke API
+  async function submitToken(raw: string) {
+    if (submitting) return;
+    const cleaned = raw.replace(/GLORI-ABSEN:/i, "").replace(/-/g, "").trim().toUpperCase();
+    if (!cleaned) { setError("Token tidak valid."); return; }
     setSub(true);
     setError("");
+    stopCamera();
     try {
       const res = await fetch("/api/attendance-qr", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token: token.replace(/-/g, "").trim(),
-          action,
-        }),
+        body: JSON.stringify({ token: cleaned, action }),
       });
       const d = await res.json();
-      if (!res.ok) { setError(d.error || "Gagal absen."); return; }
+      if (!res.ok) { setError(d.error || "Gagal absen."); setSub(false); return; }
       setSuccess(d.message || "Berhasil!");
       setTimeout(() => { onSuccess(); onClose(); }, 1500);
     } catch {
       setError("Gagal terhubung. Periksa koneksi internet.");
-    } finally {
       setSub(false);
     }
+  }
+
+  // Hentikan kamera
+  function stopCamera() {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    setScanning(false);
+  }
+
+  // Load jsQR dari CDN lalu mulai kamera
+  async function startCamera() {
+    setCamError("");
+    setError("");
+
+    // Load jsQR sekali
+    if (!jsqrRef.current) {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          if ((window as unknown as Record<string, unknown>).jsQR) {
+            jsqrRef.current = (window as unknown as Record<string, { jsQR: typeof jsqrRef.current }>).jsQR.jsQR ?? (window as unknown as Record<string, unknown>).jsQR as typeof jsqrRef.current;
+            return resolve();
+          }
+          const s = document.createElement("script");
+          s.src = "https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js";
+          s.onload = () => {
+            jsqrRef.current = (window as unknown as { jsQR: typeof jsqrRef.current }).jsQR;
+            resolve();
+          };
+          s.onerror = () => reject(new Error("Gagal load library scan"));
+          document.head.appendChild(s);
+        });
+      } catch {
+        setCamError("Gagal memuat library kamera. Gunakan kode manual.");
+        return;
+      }
+    }
+
+    // Minta izin kamera
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } },
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      setScanning(true);
+      scanLoop();
+    } catch {
+      setCamError("Izin kamera ditolak atau tidak tersedia. Gunakan kode manual.");
+    }
+  }
+
+  // Loop scan frame
+  function scanLoop() {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || !jsqrRef.current) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    function tick() {
+      if (!video || video.readyState < video.HAVE_ENOUGH_DATA) {
+        rafRef.current = requestAnimationFrame(tick);
+        return;
+      }
+      canvas!.width  = video.videoWidth;
+      canvas!.height = video.videoHeight;
+      ctx!.drawImage(video, 0, 0);
+      const imageData = ctx!.getImageData(0, 0, canvas!.width, canvas!.height);
+      const code = jsqrRef.current!(imageData.data, imageData.width, imageData.height);
+      if (code?.data) {
+        submitToken(code.data);
+        return; // stop loop setelah berhasil scan
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    }
+    rafRef.current = requestAnimationFrame(tick);
+  }
+
+  // Auto-start kamera saat modal buka
+  useEffect(() => {
+    startCamera();
+    return () => stopCamera();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Switch mode
+  function switchToManual() {
+    stopCamera();
+    setMode("manual");
+    setCamError("");
+  }
+  function switchToCamera() {
+    setToken("");
+    setError("");
+    setMode("camera");
+    startCamera();
   }
 
   const label = action === "clock_in" ? "Absen Masuk" : "Absen Pulang";
@@ -74,46 +181,119 @@ function QrScanModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4">
       <div className="w-full max-w-sm rounded-t-3xl sm:rounded-3xl border border-border-soft bg-surface p-6">
-        <div className="flex items-center justify-between mb-5">
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <QrCode size={18} className="text-accent" />
             <h2 className="font-display text-lg font-bold">{label}</h2>
           </div>
-          <button onClick={onClose} className="text-text-secondary">
+          <button onClick={() => { stopCamera(); onClose(); }} className="text-text-secondary">
             <X size={20} />
           </button>
         </div>
 
-        {/* Ilustrasi instruksi */}
-        <div className="mb-5 rounded-2xl border border-border-soft bg-surface-2 px-4 py-5 text-center">
-          <div className="flex justify-center mb-3">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft">
-              <ScanLine size={28} className="text-accent" />
-            </div>
+        {/* Tab mode */}
+        {!success && (
+          <div className="flex rounded-xl border border-border-soft bg-surface-2 p-1 mb-4 gap-1">
+            <button
+              onClick={switchToCamera}
+              className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all ${
+                mode === "camera" ? "bg-surface text-text-primary shadow-sm" : "text-text-tertiary"
+              }`}
+            >
+              <ScanLine size={13} /> Scan QR
+            </button>
+            <button
+              onClick={switchToManual}
+              className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all ${
+                mode === "manual" ? "bg-surface text-text-primary shadow-sm" : "text-text-tertiary"
+              }`}
+            >
+              <QrCode size={13} /> Kode Manual
+            </button>
           </div>
-          <p className="text-sm font-semibold text-text-primary">Minta admin buka halaman QR</p>
-          <p className="mt-1 text-xs text-text-secondary">
-            Scan QR yang tampil di layar kasir, atau ketik kode manual di bawah.
-          </p>
-        </div>
+        )}
 
-        {success ? (
-          <div className="flex flex-col items-center gap-2 py-4">
-            <CheckCircle2 size={36} className="text-status-done" />
+        {/* Sukses */}
+        {success && (
+          <div className="flex flex-col items-center gap-2 py-6">
+            <CheckCircle2 size={40} className="text-status-done" />
             <p className="font-display text-base font-bold text-status-done">{success}</p>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        )}
+
+        {/* Mode kamera */}
+        {!success && mode === "camera" && (
+          <div>
+            {/* Viewfinder */}
+            <div className="relative rounded-2xl overflow-hidden bg-black aspect-square w-full mb-3">
+              <video
+                ref={videoRef}
+                className="w-full h-full object-cover"
+                muted
+                playsInline
+              />
+              {/* Target overlay */}
+              {scanning && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-48 h-48 relative">
+                    {/* Corner brackets */}
+                    <span className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-accent rounded-tl-lg" />
+                    <span className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-accent rounded-tr-lg" />
+                    <span className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-accent rounded-bl-lg" />
+                    <span className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-accent rounded-br-lg" />
+                    {/* Scan line animasi */}
+                    <span className="absolute left-2 right-2 h-0.5 bg-accent/70 animate-bounce top-1/2" />
+                  </div>
+                </div>
+              )}
+              {!scanning && !camError && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="animate-spin w-8 h-8 border-2 border-accent border-t-transparent rounded-full" />
+                </div>
+              )}
+              {/* Canvas tersembunyi untuk decode */}
+              <canvas ref={canvasRef} className="hidden" />
+            </div>
+
+            {camError ? (
+              <div className="rounded-xl bg-status-cancelled/10 px-3 py-2 text-xs text-status-cancelled text-center mb-3">
+                {camError}
+              </div>
+            ) : (
+              <p className="text-center text-xs text-text-tertiary mb-3">
+                Arahkan kamera ke QR yang tampil di layar kasir
+              </p>
+            )}
+
+            {error && (
+              <p className="rounded-xl bg-status-cancelled/10 px-3 py-2 text-xs text-status-cancelled text-center mb-2">
+                {error}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Mode manual */}
+        {!success && mode === "manual" && (
+          <div className="flex flex-col gap-3">
+            <div className="rounded-2xl border border-border-soft bg-surface-2 px-4 py-4 text-center">
+              <p className="text-xs text-text-tertiary mb-1">Lihat kode di layar kasir</p>
+              <p className="text-xs text-text-secondary">Ketik 6 karakter yang tampil di bawah QR</p>
+            </div>
+
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-text-secondary">
-                Kode dari QR / kode manual
+                Kode manual (6 karakter)
               </label>
               <input
                 autoFocus
                 value={token}
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="Contoh: 4242-5395-019B-8B66"
-                className="w-full rounded-xl border border-border-soft bg-surface-2 px-3.5 py-3 text-sm font-mono outline-none focus:border-accent tracking-wider"
+                onChange={(e) => setToken(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))}
+                placeholder="Contoh: A3K9ZR"
+                maxLength={6}
+                className="w-full rounded-xl border border-border-soft bg-surface-2 px-3.5 py-3 text-center text-2xl font-mono font-bold outline-none focus:border-accent tracking-[0.4em] uppercase"
               />
             </div>
 
@@ -123,10 +303,14 @@ function QrScanModal({
               </p>
             )}
 
-            <Button type="submit" fullWidth disabled={submitting} className="mt-1">
+            <button
+              disabled={submitting || token.length < 6}
+              onClick={() => submitToken(token)}
+              className="w-full rounded-xl bg-accent py-3 text-sm font-bold text-black disabled:opacity-40 transition-opacity mt-1"
+            >
               {submitting ? "Memverifikasi..." : `Konfirmasi ${label}`}
-            </Button>
-          </form>
+            </button>
+          </div>
         )}
       </div>
     </div>

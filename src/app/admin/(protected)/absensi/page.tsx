@@ -6,6 +6,127 @@ import { Clock, LogIn, LogOut, ChevronLeft, ChevronRight, Users, CheckCircle2, X
 import { Button } from "@/components/Button";
 import Link from "next/link";
 
+// ─── Widget absen diri sendiri (admin) ───────────────────────────────────────
+interface SelfAttendance {
+  id: string;
+  clock_in: string | null;
+  clock_out: string | null;
+}
+
+function AdminSelfAttendanceWidget({ onAbsen }: { onAbsen: () => void }) {
+  const [att, setAtt]         = useState<SelfAttendance | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [acting, setActing]   = useState(false);
+  const [error, setError]     = useState("");
+  const [flash, setFlash]     = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/attendance");
+      if (!res.ok) return;
+      const d = await res.json();
+      setAtt(d.attendance ?? null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleAbsen(action: "clock_in" | "clock_out") {
+    setActing(true);
+    setError("");
+    try {
+      const res = await fetch("/api/attendance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setError(d.error || "Gagal absen."); return; }
+      setFlash(action === "clock_in" ? "Absen masuk berhasil!" : "Absen pulang berhasil!");
+      setTimeout(() => setFlash(""), 3000);
+      await load();
+      onAbsen(); // refresh tabel staff
+    } finally {
+      setActing(false);
+    }
+  }
+
+  const sudahMasuk  = !!att?.clock_in;
+  const sudahPulang = !!att?.clock_out;
+
+  if (loading) return null;
+
+  return (
+    <div className="mt-5 rounded-2xl border border-accent/30 bg-accent-soft p-4">
+      <p className="text-xs font-bold text-accent mb-3 uppercase tracking-wide">Absensi Saya (Admin)</p>
+
+      <div className="flex items-center gap-4 mb-3">
+        <span className="flex items-center gap-1.5 text-xs text-text-secondary">
+          <LogIn size={12} className={sudahMasuk ? "text-status-done" : "text-text-tertiary"} />
+          <span className={sudahMasuk ? "font-semibold text-text-primary" : "text-text-tertiary"}>
+            {att?.clock_in
+              ? new Date(att.clock_in).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })
+              : "--:--"}
+          </span>
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-text-secondary">
+          <LogOut size={12} className={sudahPulang ? "text-status-cancelled" : "text-text-tertiary"} />
+          <span className={sudahPulang ? "font-semibold text-text-primary" : "text-text-tertiary"}>
+            {att?.clock_out
+              ? new Date(att.clock_out).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })
+              : "--:--"}
+          </span>
+        </span>
+        {sudahMasuk && !sudahPulang && (
+          <span className="rounded-full bg-status-done/15 px-2 py-0.5 text-[10px] font-bold text-status-done">HADIR</span>
+        )}
+        {sudahPulang && (
+          <span className="rounded-full bg-border-soft px-2 py-0.5 text-[10px] font-bold text-text-secondary">SELESAI</span>
+        )}
+        {!sudahMasuk && (
+          <span className="rounded-full bg-status-cancelled/15 px-2 py-0.5 text-[10px] font-bold text-status-cancelled">BELUM MASUK</span>
+        )}
+      </div>
+
+      {flash && (
+        <p className="mb-2 rounded-xl bg-status-done/10 px-3 py-2 text-xs font-semibold text-status-done">{flash}</p>
+      )}
+      {error && (
+        <p className="mb-2 rounded-xl bg-status-cancelled/10 px-3 py-2 text-xs text-status-cancelled">{error}</p>
+      )}
+
+      <div className="flex gap-2">
+        {!sudahMasuk && (
+          <Button
+            size="sm"
+            icon={<LogIn size={13} />}
+            disabled={acting}
+            onClick={() => handleAbsen("clock_in")}
+          >
+            {acting ? "..." : "Absen Masuk"}
+          </Button>
+        )}
+        {sudahMasuk && !sudahPulang && (
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={<LogOut size={13} />}
+            disabled={acting}
+            onClick={() => handleAbsen("clock_out")}
+          >
+            {acting ? "..." : "Absen Pulang"}
+          </Button>
+        )}
+        {sudahPulang && (
+          <p className="text-xs text-text-tertiary py-1">Absensi hari ini selesai.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 interface StaffAttendance {
   id: string;
   name: string;
@@ -115,6 +236,11 @@ export default function AdminAbsensiPage() {
           </Button>
         </Link>
       </div>
+
+      {/* Widget absen diri sendiri — hanya tampil di hari ini */}
+      {selectedDate === todayStr && (
+        <AdminSelfAttendanceWidget onAbsen={load} />
+      )}
 
       {/* Navigasi tanggal */}
       <div className="mt-6 flex items-center gap-3">

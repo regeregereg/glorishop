@@ -7,8 +7,150 @@ import { Button } from "@/components/Button";
 import { ErrorState } from "@/components/ErrorState";
 import { formatTime, formatRupiah, getBookingServiceNames, getBookingPriceLabel, toLocalDateString } from "@/lib/utils";
 import { getBookingTotalCommission } from "@/lib/commission";
-import { Play, Check, Star, Plus, X, Scissors, Wallet, AlertCircle } from "lucide-react";
+import { Play, Check, Star, Plus, X, Scissors, Wallet, AlertCircle, LogIn, LogOut, Clock } from "lucide-react";
 
+// ─── Tipe absensi ────────────────────────────────────────────────────────────
+interface AttendanceRecord {
+  id: string;
+  staff_id: string;
+  date: string;
+  clock_in: string | null;
+  clock_out: string | null;
+  note: string | null;
+}
+
+// ─── Helper: format jam WIB dari ISO string ───────────────────────────────────
+function formatJam(iso: string | null | undefined): string {
+  if (!iso) return "--:--";
+  return new Date(iso).toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Jakarta",
+  });
+}
+
+// ─── Widget Absensi ───────────────────────────────────────────────────────────
+function AttendanceWidget({ staffId }: { staffId: string }) {
+  const [attendance, setAttendance] = useState<AttendanceRecord | null>(null);
+  const [loading, setLoading]       = useState(true);
+  const [acting, setActing]         = useState(false);
+  const [error, setError]           = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/attendance?staffId=${staffId}`);
+      if (!res.ok) throw new Error();
+      const d = await res.json();
+      setAttendance(d.attendance ?? null);
+    } catch {
+      // diam saja kalau gagal — tidak blok UI utama
+    } finally {
+      setLoading(false);
+    }
+  }, [staffId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleAction(action: "clock_in" | "clock_out") {
+    setActing(true);
+    setError("");
+    try {
+      const res = await fetch("/api/attendance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, staffId }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setError(d.error || "Gagal absen."); return; }
+      setAttendance(d.attendance);
+    } catch {
+      setError("Gagal absen. Periksa koneksi internet kamu.");
+    } finally {
+      setActing(false);
+    }
+  }
+
+  if (loading) return null;
+
+  const sudahMasuk  = !!attendance?.clock_in;
+  const sudahPulang = !!attendance?.clock_out;
+
+  return (
+    <div className="mt-4 rounded-2xl border border-border-soft bg-surface overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent shrink-0">
+          <Clock size={16} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-text-secondary">Absensi Hari Ini</p>
+          <div className="mt-0.5 flex items-center gap-3">
+            <span className="flex items-center gap-1 text-xs font-semibold text-text-primary">
+              <LogIn size={11} className={sudahMasuk ? "text-status-done" : "text-text-tertiary"} />
+              {sudahMasuk ? formatJam(attendance?.clock_in) : "Belum masuk"}
+            </span>
+            <span className="text-text-tertiary">·</span>
+            <span className="flex items-center gap-1 text-xs font-semibold text-text-primary">
+              <LogOut size={11} className={sudahPulang ? "text-status-cancelled" : "text-text-tertiary"} />
+              {sudahPulang ? formatJam(attendance?.clock_out) : "Belum pulang"}
+            </span>
+          </div>
+        </div>
+
+        {/* Badge status */}
+        {!sudahMasuk && (
+          <span className="shrink-0 rounded-full bg-yellow-500/15 px-2.5 py-1 text-xs font-semibold text-yellow-600">
+            Belum Absen
+          </span>
+        )}
+        {sudahMasuk && !sudahPulang && (
+          <span className="shrink-0 rounded-full bg-status-done/15 px-2.5 py-1 text-xs font-semibold text-status-done">
+            Sudah Masuk
+          </span>
+        )}
+        {sudahPulang && (
+          <span className="shrink-0 rounded-full bg-border-soft px-2.5 py-1 text-xs font-semibold text-text-secondary">
+            Selesai
+          </span>
+        )}
+      </div>
+
+      {/* Tombol aksi */}
+      {!sudahPulang && (
+        <div className="px-4 pb-4">
+          {error && (
+            <p className="mb-2 rounded-xl bg-status-cancelled/10 px-3 py-2 text-xs text-status-cancelled">
+              {error}
+            </p>
+          )}
+          {!sudahMasuk && (
+            <Button
+              fullWidth
+              icon={<LogIn size={16} />}
+              onClick={() => handleAction("clock_in")}
+              disabled={acting}
+            >
+              {acting ? "Menyimpan..." : "Absen Masuk"}
+            </Button>
+          )}
+          {sudahMasuk && !sudahPulang && (
+            <Button
+              fullWidth
+              variant="secondary"
+              icon={<LogOut size={16} />}
+              onClick={() => handleAction("clock_out")}
+              disabled={acting}
+            >
+              {acting ? "Menyimpan..." : "Absen Pulang"}
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Halaman Utama ────────────────────────────────────────────────────────────
 export default function BarberDashboardPage() {
   const [staffId, setStaffId] = useState<string | null>(null);
   const [staffName, setStaffName] = useState("");
@@ -45,10 +187,6 @@ export default function BarberDashboardPage() {
     loadSession();
   }, []);
 
-  // isInitialLoad: tampilkan layar error penuh hanya untuk pemuatan
-  // pertama antrian. Kalau polling 15 detik berikutnya gagal (koneksi
-  // sempat putus), diamkan saja — antrian yang sudah tampil tetap ada,
-  // dicoba lagi otomatis di siklus berikutnya.
   const loadQueue = useCallback(
     async (isInitialLoad = false) => {
       if (!staffId) return;
@@ -97,15 +235,10 @@ export default function BarberDashboardPage() {
     .filter((b) => ["WAITING_PAYMENT", "CONFIRMED", "IN_PROGRESS", "PENDING"].includes(b.status))
     .sort((a, b) => (a.slot?.start_time ?? "").localeCompare(b.slot?.start_time ?? ""));
 
-  // Total komisi hari ini, dihitung dari booking yang sudah CONFIRMED ke
-  // atas (walk-in langsung CONFIRMED, booking online butuh verifikasi
-  // dulu) — bukan cuma yang DONE, supaya barber bisa lihat estimasi
-  // komisinya berjalan sepanjang hari, tidak baru muncul di akhir.
   const todayCommission = bookings
     .filter((b) => ["CONFIRMED", "IN_PROGRESS", "DONE"].includes(b.status))
     .reduce((sum, b) => sum + getBookingTotalCommission(b), 0);
 
-  // Booking IN_PROGRESS yang sudah lebih dari 45 menit — reminder ke barber
   const bookingTerlupakan = queue.filter((b) => {
     if (b.status !== "IN_PROGRESS" || !b.slot?.date || !b.slot?.start_time) return false;
     const slotStart = new Date(`${b.slot?.date ?? ""}T${b.slot?.start_time ?? ""}`);
@@ -143,6 +276,9 @@ export default function BarberDashboardPage() {
           Cukur Langsung
         </Button>
       </div>
+
+      {/* Widget Absensi — muncul begitu staffId tersedia */}
+      {staffId && <AttendanceWidget staffId={staffId} />}
 
       {!loading && !sessionError && (
         <div className="mt-4 flex items-center gap-2.5 rounded-2xl border border-border-soft bg-surface px-4 py-3.5">
@@ -287,12 +423,7 @@ export default function BarberDashboardPage() {
   );
 }
 
-// Form untuk barber mencatat pelanggan yang datang LANGSUNG ke tempat
-// tanpa booking sebelumnya (bayar di tempat). Tidak perlu pilih
-// tanggal/jam/slot sama sekali — sistem otomatis membuat slot "sekarang"
-// di belakang layar (lihat POST /api/bookings/walkin). Layanan home
-// service tidak ditampilkan di sini sama sekali karena wajib booking di
-// muka, tidak bisa dicatat sebagai walk-in.
+// ─── Form Walk-in (tidak diubah) ──────────────────────────────────────────────
 function WalkinForm({
   barberId,
   onClose,
@@ -315,10 +446,6 @@ function WalkinForm({
     fetch("/api/services")
       .then((r) => r.json())
       .then((d) => {
-        // Layanan home service tidak boleh dipakai untuk walk-in di
-        // tempat — disaring di sini supaya barber tidak salah pilih,
-        // server juga menolaknya lagi sebagai jaga-jaga (lihat
-        // POST /api/bookings/walkin).
         const eligible = (d.services || []).filter(
           (s: Service) => !s.is_home_service_only && s.category !== "home_service"
         );
@@ -336,9 +463,6 @@ function WalkinForm({
   const selectedServiceObjs = serviceIds
     .map((id) => services.find((s) => s.id === id))
     .filter((s): s is Service => !!s);
-  // Layanan dengan range harga (mis. Colour, Bleaching) butuh harga final
-  // diisi manual oleh barber, karena tidak ada harga pasti sampai dicek
-  // kondisi rambut pelanggan langsung di tempat.
   const rangeServices = selectedServiceObjs.filter((s) => s.price_min != null && s.price_max != null);
 
   async function handleSubmit(e: React.FormEvent) {

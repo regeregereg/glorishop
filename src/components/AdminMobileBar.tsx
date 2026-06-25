@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, X, LayoutDashboard, ListOrdered, CalendarRange, CalendarClock, Scissors, Users, Package, Image as ImageIcon, BarChart3, Receipt, Wallet, Settings, LogOut } from "lucide-react";
+import { Menu, X, LayoutDashboard, ListOrdered, CalendarRange, CalendarClock, Scissors, Users, Package, Image as ImageIcon, BarChart3, Receipt, Wallet, Settings, LogOut, ClipboardCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAdminBadgeCounts } from "@/lib/useAdminBadge";
 
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { href: "/admin/bookings", label: "Semua Booking", icon: CalendarRange },
   { href: "/admin/pembayaran", label: "Verifikasi Pembayaran", icon: Wallet },
   { href: "/admin/slot", label: "Kelola Slot", icon: CalendarClock },
+  { href: "/admin/absensi", label: "Absensi Staff", icon: ClipboardCheck },
   { href: "/admin/layanan", label: "Kelola Layanan", icon: Scissors },
   { href: "/admin/barber", label: "Kelola Barber", icon: Users },
   { href: "/admin/produk", label: "Kelola Produk", icon: Package },
@@ -27,17 +28,9 @@ export function AdminMobileBar() {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  // Badge notifikasi — sama seperti AdminSidebar, supaya admin yang akses
-  // dari HP juga lihat ada hal yang butuh perhatian tanpa harus buka
-  // Dashboard dulu.
   const { pendingPaymentCount, unreadNotificationCount } = useAdminBadgeCounts();
   const totalBadge = pendingPaymentCount + unreadNotificationCount;
 
-  // Sebelumnya drawer mobile ini SAMA SEKALI tidak punya cara untuk
-  // logout — hanya ada di sidebar desktop (AdminSidebar). Admin yang
-  // mengakses dari HP jadi tidak punya jalan keluar sah dari sesi admin
-  // selain hapus cookie manual atau tutup browser. Logic sama persis
-  // dengan handleLogout di AdminSidebar, supaya konsisten di kedua tempat.
   async function handleLogout() {
     await fetch("/api/auth/logout", {
       method: "POST",
@@ -73,7 +66,7 @@ export function AdminMobileBar() {
                 <X size={20} />
               </button>
             </div>
-            <nav className="mt-6 flex flex-1 flex-col gap-1">
+            <nav className="mt-6 flex flex-1 flex-col gap-1 overflow-y-auto">
               {NAV_ITEMS.map((item) => {
                 const active = pathname.startsWith(item.href);
                 const Icon = item.icon;

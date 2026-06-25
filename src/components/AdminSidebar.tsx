@@ -16,6 +16,7 @@ import {
   Wallet,
   Settings,
   LogOut,
+  ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAdminBadgeCounts } from "@/lib/useAdminBadge";
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { href: "/admin/bookings", label: "Semua Booking", icon: CalendarRange },
   { href: "/admin/pembayaran", label: "Verifikasi Pembayaran", icon: Wallet },
   { href: "/admin/slot", label: "Kelola Slot", icon: CalendarClock },
+  { href: "/admin/absensi", label: "Absensi Staff", icon: ClipboardCheck },
   { href: "/admin/layanan", label: "Kelola Layanan", icon: Scissors },
   { href: "/admin/barber", label: "Kelola Barber", icon: Users },
   { href: "/admin/produk", label: "Kelola Produk", icon: Package },
@@ -39,9 +41,6 @@ const NAV_ITEMS = [
 export function AdminSidebar({ adminName }: { adminName: string }) {
   const pathname = usePathname();
   const router = useRouter();
-  // Badge notifikasi (pembayaran menunggu verifikasi + notif belum dibaca)
-  // — supaya admin lihat ada yang butuh perhatian dari MANAPUN dia berada
-  // di dashboard, tidak cuma saat membuka halaman Dashboard.
   const { pendingPaymentCount, unreadNotificationCount } = useAdminBadgeCounts();
 
   async function handleLogout() {
@@ -58,8 +57,6 @@ export function AdminSidebar({ adminName }: { adminName: string }) {
       <div className="px-1 lg:px-2">
         <p className="hidden font-display text-lg font-extrabold lg:block">Glori Barbershop</p>
         <p className="hidden mt-0.5 text-xs text-text-secondary lg:block">Admin Dashboard</p>
-        {/* Versi ringkas (md sampai sebelum lg): cuma inisial, supaya tetap
-            ada identitas tanpa makan tempat di lebar sidebar yang sempit. */}
         <p className="text-center font-display text-lg font-extrabold lg:hidden">GB</p>
       </div>
 
@@ -67,11 +64,6 @@ export function AdminSidebar({ adminName }: { adminName: string }) {
         {NAV_ITEMS.map((item) => {
           const active = pathname.startsWith(item.href);
           const Icon = item.icon;
-          // Badge khusus per item: total notif belum dibaca muncul di
-          // Dashboard (karena daftar notifikasi lengkap ada di sana), dan
-          // jumlah pembayaran menunggu verifikasi muncul langsung di menu
-          // Verifikasi Pembayaran (lebih aktionable, langsung tahu mau ke
-          // mana untuk menindaklanjuti).
           const badgeCount =
             item.href === "/admin/dashboard"
               ? unreadNotificationCount
@@ -97,9 +89,6 @@ export function AdminSidebar({ adminName }: { adminName: string }) {
                 <span
                   className={cn(
                     "flex h-5 min-w-5 items-center justify-center rounded-full bg-status-cancelled px-1.5 text-[10px] font-bold text-white",
-                    // Di mode ikon-saja (md), badge ditempel di pojok ikon
-                    // (absolute) supaya tidak mendorong layout berantakan
-                    // karena tidak ada label teks di sebelahnya.
                     "absolute right-1 top-1 lg:static lg:right-auto lg:top-auto"
                   )}
                 >

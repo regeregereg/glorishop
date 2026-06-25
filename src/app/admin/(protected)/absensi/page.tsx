@@ -34,13 +34,32 @@ function AdminSelfAttendanceWidget({ onAbsen }: { onAbsen: () => void }) {
   useEffect(() => { load(); }, [load]);
 
   async function handleAbsen(action: "clock_in" | "clock_out") {
+    // Ambil GPS dulu sebelum kirim ke server
+    let lat: number | undefined;
+    let lng: number | undefined;
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        if (!navigator.geolocation) { reject(new Error("no-geo")); return; }
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true, timeout: 8000, maximumAge: 0,
+        });
+      });
+      lat = pos.coords.latitude;
+      lng = pos.coords.longitude;
+    } catch (geoErr: unknown) {
+      const err = geoErr as { code?: number };
+      if (err?.code === 1) {
+        setError("Izin lokasi ditolak. Aktifkan GPS di pengaturan browser untuk bisa absen.");
+        return;
+      }
+    }
     setActing(true);
     setError("");
     try {
       const res = await fetch("/api/attendance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, lat, lng }),
       });
       const d = await res.json();
       if (!res.ok) { setError(d.error || "Gagal absen."); return; }

@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { ErrorState } from "@/components/ErrorState";
-import Link from "next/link";
 import { Clock, LogIn, LogOut, ChevronLeft, ChevronRight, Users, CheckCircle2, XCircle, QrCode } from "lucide-react";
 import { Button } from "@/components/Button";
 import Link from "next/link";

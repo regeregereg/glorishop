@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { ErrorState } from "@/components/ErrorState";
-import { Clock, LogIn, LogOut, ChevronLeft, ChevronRight, Users, CheckCircle2, XCircle } from "lucide-react";
+import Link from "next/link";
+import { Clock, LogIn, LogOut, ChevronLeft, ChevronRight, Users, CheckCircle2, XCircle, QrCode } from "lucide-react";
 import { Button } from "@/components/Button";
+import Link from "next/link";
 
 interface StaffAttendance {
   id: string;
@@ -103,8 +105,17 @@ export default function AdminAbsensiPage() {
 
   return (
     <div>
-      <h1 className="font-display text-2xl font-extrabold">Absensi Staff</h1>
-      <p className="mt-1 text-sm text-text-secondary">Rekap kehadiran barber dan admin.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-extrabold">Absensi Staff</h1>
+          <p className="mt-1 text-sm text-text-secondary">Rekap kehadiran barber dan admin.</p>
+        </div>
+        <Link href="/admin/absensi/qr">
+          <Button size="sm" icon={<QrCode size={15} />} className="shrink-0">
+            Tampilkan QR
+          </Button>
+        </Link>
+      </div>
 
       {/* Navigasi tanggal */}
       <div className="mt-6 flex items-center gap-3">

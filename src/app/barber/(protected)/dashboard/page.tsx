@@ -7,7 +7,7 @@ import { Button } from "@/components/Button";
 import { ErrorState } from "@/components/ErrorState";
 import { formatTime, formatRupiah, getBookingServiceNames, getBookingPriceLabel, toLocalDateString } from "@/lib/utils";
 import { getBookingTotalCommission } from "@/lib/commission";
-import { Play, Check, Star, Plus, X, Scissors, Wallet, AlertCircle, LogIn, LogOut, Clock } from "lucide-react";
+import { Play, Check, Star, Plus, X, Scissors, Wallet, AlertCircle, LogIn, LogOut, Clock, ScanLine, QrCode, CheckCircle2 } from "lucide-react";
 
 // ─── Tipe absensi ────────────────────────────────────────────────────────────
 interface AttendanceRecord {
@@ -29,12 +29,115 @@ function formatJam(iso: string | null | undefined): string {
   });
 }
 
-// ─── Widget Absensi ───────────────────────────────────────────────────────────
+// ─── Modal Scan QR ───────────────────────────────────────────────────────────
+function QrScanModal({
+  action,
+  onClose,
+  onSuccess,
+}: {
+  action: "clock_in" | "clock_out";
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [token, setToken]     = useState("");
+  const [submitting, setSub]  = useState(false);
+  const [error, setError]     = useState("");
+  const [success, setSuccess] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!token.trim()) { setError("Masukkan kode QR atau ketik kode manual."); return; }
+    setSub(true);
+    setError("");
+    try {
+      const res = await fetch("/api/attendance-qr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: token.replace(/-/g, "").trim(),
+          action,
+        }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setError(d.error || "Gagal absen."); return; }
+      setSuccess(d.message || "Berhasil!");
+      setTimeout(() => { onSuccess(); onClose(); }, 1500);
+    } catch {
+      setError("Gagal terhubung. Periksa koneksi internet.");
+    } finally {
+      setSub(false);
+    }
+  }
+
+  const label = action === "clock_in" ? "Absen Masuk" : "Absen Pulang";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4">
+      <div className="w-full max-w-sm rounded-t-3xl sm:rounded-3xl border border-border-soft bg-surface p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <QrCode size={18} className="text-accent" />
+            <h2 className="font-display text-lg font-bold">{label}</h2>
+          </div>
+          <button onClick={onClose} className="text-text-secondary">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Ilustrasi instruksi */}
+        <div className="mb-5 rounded-2xl border border-border-soft bg-surface-2 px-4 py-5 text-center">
+          <div className="flex justify-center mb-3">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft">
+              <ScanLine size={28} className="text-accent" />
+            </div>
+          </div>
+          <p className="text-sm font-semibold text-text-primary">Minta admin buka halaman QR</p>
+          <p className="mt-1 text-xs text-text-secondary">
+            Scan QR yang tampil di layar kasir, atau ketik kode manual di bawah.
+          </p>
+        </div>
+
+        {success ? (
+          <div className="flex flex-col items-center gap-2 py-4">
+            <CheckCircle2 size={36} className="text-status-done" />
+            <p className="font-display text-base font-bold text-status-done">{success}</p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-text-secondary">
+                Kode dari QR / kode manual
+              </label>
+              <input
+                autoFocus
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder="Contoh: 4242-5395-019B-8B66"
+                className="w-full rounded-xl border border-border-soft bg-surface-2 px-3.5 py-3 text-sm font-mono outline-none focus:border-accent tracking-wider"
+              />
+            </div>
+
+            {error && (
+              <p className="rounded-xl bg-status-cancelled/10 px-3 py-2 text-xs text-status-cancelled">
+                {error}
+              </p>
+            )}
+
+            <Button type="submit" fullWidth disabled={submitting} className="mt-1">
+              {submitting ? "Memverifikasi..." : `Konfirmasi ${label}`}
+            </Button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Widget Absensi (dengan QR flow) ─────────────────────────────────────────
 function AttendanceWidget({ staffId }: { staffId: string }) {
   const [attendance, setAttendance] = useState<AttendanceRecord | null>(null);
   const [loading, setLoading]       = useState(true);
-  const [acting, setActing]         = useState(false);
-  const [error, setError]           = useState("");
+  const [scanAction, setScanAction] = useState<"clock_in" | "clock_out" | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -43,7 +146,7 @@ function AttendanceWidget({ staffId }: { staffId: string }) {
       const d = await res.json();
       setAttendance(d.attendance ?? null);
     } catch {
-      // diam saja kalau gagal — tidak blok UI utama
+      // diam saja
     } finally {
       setLoading(false);
     }
@@ -51,102 +154,86 @@ function AttendanceWidget({ staffId }: { staffId: string }) {
 
   useEffect(() => { load(); }, [load]);
 
-  async function handleAction(action: "clock_in" | "clock_out") {
-    setActing(true);
-    setError("");
-    try {
-      const res = await fetch("/api/attendance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, staffId }),
-      });
-      const d = await res.json();
-      if (!res.ok) { setError(d.error || "Gagal absen."); return; }
-      setAttendance(d.attendance);
-    } catch {
-      setError("Gagal absen. Periksa koneksi internet kamu.");
-    } finally {
-      setActing(false);
-    }
-  }
-
   if (loading) return null;
 
   const sudahMasuk  = !!attendance?.clock_in;
   const sudahPulang = !!attendance?.clock_out;
 
   return (
-    <div className="mt-4 rounded-2xl border border-border-soft bg-surface overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent shrink-0">
-          <Clock size={16} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs text-text-secondary">Absensi Hari Ini</p>
-          <div className="mt-0.5 flex items-center gap-3">
-            <span className="flex items-center gap-1 text-xs font-semibold text-text-primary">
-              <LogIn size={11} className={sudahMasuk ? "text-status-done" : "text-text-tertiary"} />
-              {sudahMasuk ? formatJam(attendance?.clock_in) : "Belum masuk"}
-            </span>
-            <span className="text-text-tertiary">·</span>
-            <span className="flex items-center gap-1 text-xs font-semibold text-text-primary">
-              <LogOut size={11} className={sudahPulang ? "text-status-cancelled" : "text-text-tertiary"} />
-              {sudahPulang ? formatJam(attendance?.clock_out) : "Belum pulang"}
-            </span>
+    <>
+      <div className="mt-4 rounded-2xl border border-border-soft bg-surface overflow-hidden">
+        {/* Header info */}
+        <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent shrink-0">
+            <Clock size={16} />
           </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-text-secondary">Absensi Hari Ini</p>
+            <div className="mt-0.5 flex items-center gap-3">
+              <span className="flex items-center gap-1 text-xs font-semibold text-text-primary">
+                <LogIn size={11} className={sudahMasuk ? "text-status-done" : "text-text-tertiary"} />
+                {sudahMasuk ? formatJam(attendance?.clock_in) : "Belum masuk"}
+              </span>
+              <span className="text-text-tertiary">·</span>
+              <span className="flex items-center gap-1 text-xs font-semibold text-text-primary">
+                <LogOut size={11} className={sudahPulang ? "text-status-cancelled" : "text-text-tertiary"} />
+                {sudahPulang ? formatJam(attendance?.clock_out) : "Belum pulang"}
+              </span>
+            </div>
+          </div>
+
+          {!sudahMasuk && (
+            <span className="shrink-0 rounded-full bg-yellow-500/15 px-2.5 py-1 text-xs font-semibold text-yellow-600">
+              Belum Absen
+            </span>
+          )}
+          {sudahMasuk && !sudahPulang && (
+            <span className="shrink-0 rounded-full bg-status-done/15 px-2.5 py-1 text-xs font-semibold text-status-done">
+              Sudah Masuk
+            </span>
+          )}
+          {sudahPulang && (
+            <span className="shrink-0 rounded-full bg-border-soft px-2.5 py-1 text-xs font-semibold text-text-secondary">
+              Selesai
+            </span>
+          )}
         </div>
 
-        {/* Badge status */}
-        {!sudahMasuk && (
-          <span className="shrink-0 rounded-full bg-yellow-500/15 px-2.5 py-1 text-xs font-semibold text-yellow-600">
-            Belum Absen
-          </span>
-        )}
-        {sudahMasuk && !sudahPulang && (
-          <span className="shrink-0 rounded-full bg-status-done/15 px-2.5 py-1 text-xs font-semibold text-status-done">
-            Sudah Masuk
-          </span>
-        )}
-        {sudahPulang && (
-          <span className="shrink-0 rounded-full bg-border-soft px-2.5 py-1 text-xs font-semibold text-text-secondary">
-            Selesai
-          </span>
+        {/* Tombol scan QR */}
+        {!sudahPulang && (
+          <div className="px-4 pb-4">
+            {!sudahMasuk && (
+              <Button
+                fullWidth
+                icon={<ScanLine size={16} />}
+                onClick={() => setScanAction("clock_in")}
+              >
+                Scan QR — Absen Masuk
+              </Button>
+            )}
+            {sudahMasuk && !sudahPulang && (
+              <Button
+                fullWidth
+                variant="secondary"
+                icon={<ScanLine size={16} />}
+                onClick={() => setScanAction("clock_out")}
+              >
+                Scan QR — Absen Pulang
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
-      {/* Tombol aksi */}
-      {!sudahPulang && (
-        <div className="px-4 pb-4">
-          {error && (
-            <p className="mb-2 rounded-xl bg-status-cancelled/10 px-3 py-2 text-xs text-status-cancelled">
-              {error}
-            </p>
-          )}
-          {!sudahMasuk && (
-            <Button
-              fullWidth
-              icon={<LogIn size={16} />}
-              onClick={() => handleAction("clock_in")}
-              disabled={acting}
-            >
-              {acting ? "Menyimpan..." : "Absen Masuk"}
-            </Button>
-          )}
-          {sudahMasuk && !sudahPulang && (
-            <Button
-              fullWidth
-              variant="secondary"
-              icon={<LogOut size={16} />}
-              onClick={() => handleAction("clock_out")}
-              disabled={acting}
-            >
-              {acting ? "Menyimpan..." : "Absen Pulang"}
-            </Button>
-          )}
-        </div>
+      {/* Modal scan */}
+      {scanAction && (
+        <QrScanModal
+          action={scanAction}
+          onClose={() => setScanAction(null)}
+          onSuccess={load}
+        />
       )}
-    </div>
+    </>
   );
 }
 

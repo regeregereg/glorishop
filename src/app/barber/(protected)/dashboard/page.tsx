@@ -435,6 +435,7 @@ export default function BarberDashboardPage() {
   const [actingId, setActingId] = useState<string | null>(null);
   const [confirmDoneId, setConfirmDoneId] = useState<string | null>(null);
   const [showWalkinForm, setShowWalkinForm] = useState(false);
+  const [showBulkForm, setShowBulkForm] = useState(false);
 
   const today = toLocalDateString(new Date());
 
@@ -541,14 +542,23 @@ export default function BarberDashboardPage() {
             Antrian klien kamu hari ini.
           </p>
         </div>
-        <Button
-          size="sm"
-          icon={<Plus size={15} />}
-          onClick={() => setShowWalkinForm(true)}
-          className="shrink-0"
-        >
-          Cukur Langsung
-        </Button>
+        <div className="flex gap-2 shrink-0">
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={<Plus size={15} />}
+            onClick={() => setShowBulkForm(true)}
+          >
+            Catat Cepat
+          </Button>
+          <Button
+            size="sm"
+            icon={<Plus size={15} />}
+            onClick={() => setShowWalkinForm(true)}
+          >
+            Cukur Langsung
+          </Button>
+        </div>
       </div>
 
       {/* Widget Absensi — muncul begitu staffId tersedia */}
@@ -690,6 +700,14 @@ export default function BarberDashboardPage() {
         <WalkinForm
           barberId={staffId}
           onClose={() => setShowWalkinForm(false)}
+          onCreated={() => loadQueue(true)}
+        />
+      )}
+
+      {showBulkForm && staffId && (
+        <BulkWalkinForm
+          barberId={staffId}
+          onClose={() => setShowBulkForm(false)}
           onCreated={() => loadQueue(true)}
         />
       )}
@@ -877,6 +895,284 @@ function WalkinForm({
             {submitting ? "Menyimpan..." : "Catat & Selesai"}
           </Button>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Form Catat Cepat ────────────────────────────────────────────────────────
+// Barber memilih layanan + jumlah orang, lalu semua tercatat sekaligus
+// sebagai transaksi SELESAI. Tiap orang = 1 transaksi (walkin → DONE).
+function BulkWalkinForm({
+  barberId,
+  onClose,
+  onCreated,
+}: {
+  barberId: string;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [services, setServices]       = useState<Service[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
+  const [qty, setQty]                 = useState<Record<string, number>>({});
+  // harga final untuk layanan range‑harga (price_min/price_max)
+  const [finalPrices, setFinalPrices] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting]   = useState(false);
+  const [progress, setProgress]       = useState<{ done: number; total: number } | null>(null);
+  const [error, setError]             = useState("");
+  const [done, setDone]               = useState(false);
+
+  useEffect(() => {
+    fetch("/api/services")
+      .then((r) => r.json())
+      .then((d) => {
+        const eligible = (d.services || []).filter(
+          (s: Service) => !s.is_home_service_only && s.category !== "home_service"
+        );
+        setServices(eligible);
+      })
+      .finally(() => setServicesLoading(false));
+  }, []);
+
+  function changeQty(id: string, delta: number) {
+    setQty((prev) => {
+      const next = Math.max(0, (prev[id] ?? 0) + delta);
+      if (next === 0) { const { [id]: _, ...rest } = prev; return rest; }
+      return { ...prev, [id]: next };
+    });
+  }
+
+  const selectedEntries = Object.entries(qty).filter(([, v]) => v > 0);
+  const totalTx = selectedEntries.reduce((a, [, v]) => a + v, 0);
+
+  // Layanan range‑harga yang sedang dipilih (qty > 0)
+  const rangeSelected = selectedEntries
+    .map(([id]) => services.find((s) => s.id === id))
+    .filter((s): s is Service => !!s && s.price_min != null && s.price_max != null);
+
+  async function handleSubmit() {
+    setError("");
+    if (totalTx === 0) { setError("Tambahkan minimal 1 layanan."); return; }
+    for (const s of rangeSelected) {
+      if (!finalPrices[s.id]) {
+        setError(`Isi harga untuk "${s.name}".`);
+        return;
+      }
+    }
+
+    setSubmitting(true);
+
+    // Buat antrian: tiap orang = 1 job { serviceId }
+    const jobs: string[] = [];
+    for (const [serviceId, count] of selectedEntries) {
+      for (let i = 0; i < count; i++) jobs.push(serviceId);
+    }
+
+    setProgress({ done: 0, total: jobs.length });
+    let successCount = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < jobs.length; i++) {
+      const svcId = jobs[i];
+      try {
+        // 1. Catat walk-in (status CONFIRMED)
+        const createRes = await fetch("/api/bookings/walkin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            barber_id: barberId,
+            service_ids: [svcId],
+            final_prices: finalPrices[svcId]
+              ? { [svcId]: Number(finalPrices[svcId]) }
+              : undefined,
+          }),
+        });
+        const createData = await createRes.json();
+        if (!createRes.ok) { errors.push(createData.error || "Gagal catat"); setProgress({ done: i + 1, total: jobs.length }); continue; }
+
+        // 2. Langsung tandai SELESAI
+        const bookingId: string = createData.booking?.id;
+        if (bookingId) {
+          const doneRes = await fetch(`/api/bookings/${bookingId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "DONE" }),
+          });
+          if (!doneRes.ok) {
+            // Transaksi sudah tercatat, hanya status-nya belum DONE —
+            // tetap hitung sukses, tidak perlu blokir.
+          }
+        }
+        successCount++;
+      } catch {
+        errors.push("Koneksi gagal");
+      }
+      setProgress({ done: i + 1, total: jobs.length });
+    }
+
+    setSubmitting(false);
+    if (errors.length > 0 && successCount === 0) {
+      setError(`Semua gagal: ${errors[0]}`);
+    } else if (errors.length > 0) {
+      setError(`${successCount} berhasil, ${errors.length} gagal: ${errors[0]}`);
+      setDone(true);
+      onCreated();
+    } else {
+      setDone(true);
+      onCreated();
+      setTimeout(onClose, 1400);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-[var(--radius-card)] border border-border-soft bg-surface p-6">
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <Scissors size={18} className="text-accent" />
+            <h2 className="font-display text-lg font-bold">Catat Cepat</h2>
+          </div>
+          <button onClick={onClose} disabled={submitting} className="text-text-secondary">
+            <X size={20} />
+          </button>
+        </div>
+        <p className="text-xs text-text-secondary mb-4">
+          Pilih layanan dan jumlah pelanggan. Semua langsung tercatat sebagai transaksi selesai.
+        </p>
+
+        {/* Daftar layanan + stepper */}
+        <div className="flex flex-col gap-2">
+          {servicesLoading && (
+            <p className="py-4 text-center text-xs text-text-tertiary">Memuat layanan...</p>
+          )}
+          {!servicesLoading && services.length === 0 && (
+            <p className="py-4 text-center text-xs text-text-tertiary">Belum ada layanan tersedia.</p>
+          )}
+          {!servicesLoading && services.map((s) => {
+            const count = qty[s.id] ?? 0;
+            const isRange = s.price_min != null && s.price_max != null;
+            return (
+              <div
+                key={s.id}
+                className={`rounded-xl border px-3 py-2.5 transition-colors ${
+                  count > 0 ? "border-accent bg-accent/8" : "border-border-soft bg-surface-2"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{s.name}</p>
+                    <p className="text-xs text-text-tertiary">
+                      {s.price != null
+                        ? formatRupiah(s.price)
+                        : isRange
+                        ? `${formatRupiah(s.price_min!)} – ${formatRupiah(s.price_max!)}`
+                        : ""}
+                    </p>
+                  </div>
+                  {/* Stepper */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      disabled={submitting || count === 0}
+                      onClick={() => changeQty(s.id, -1)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-soft bg-surface text-text-secondary disabled:opacity-30 active:scale-95 transition-transform text-lg font-bold"
+                    >−</button>
+                    <span className={`w-7 text-center text-sm font-bold tabular-nums ${count > 0 ? "text-accent" : "text-text-tertiary"}`}>
+                      {count}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={submitting}
+                      onClick={() => changeQty(s.id, 1)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-black active:scale-95 transition-transform text-lg font-bold"
+                    >+</button>
+                  </div>
+                </div>
+                {/* Input harga untuk layanan range jika dipilih */}
+                {isRange && count > 0 && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-xs text-text-secondary flex-1">Harga per orang (Rp)</span>
+                    <input
+                      type="number"
+                      placeholder={`${s.price_min}–${s.price_max}`}
+                      value={finalPrices[s.id] ?? ""}
+                      onChange={(e) => setFinalPrices((p) => ({ ...p, [s.id]: e.target.value }))}
+                      disabled={submitting}
+                      className="w-36 rounded-lg border border-border-soft bg-surface px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Ringkasan */}
+        {selectedEntries.length > 0 && (
+          <div className="mt-4 rounded-xl border border-border-soft bg-surface-2 px-3 py-2.5">
+            <p className="text-xs font-semibold text-text-secondary mb-1.5">Ringkasan</p>
+            {selectedEntries.map(([id, count]) => {
+              const s = services.find((x) => x.id === id);
+              const fp = finalPrices[id] ? Number(finalPrices[id]) : s?.price ?? null;
+              return (
+                <div key={id} className="flex justify-between text-xs text-text-secondary py-0.5">
+                  <span>{s?.name ?? id} × {count}</span>
+                  <span className="font-semibold text-text-primary">
+                    {fp != null ? formatRupiah(fp * count) : `${count} orang`}
+                  </span>
+                </div>
+              );
+            })}
+            <div className="mt-1.5 border-t border-border-soft pt-1.5 flex justify-between text-xs font-bold">
+              <span>Total transaksi</span>
+              <span className="text-accent">{totalTx} orang</span>
+            </div>
+          </div>
+        )}
+
+        {/* Progress */}
+        {submitting && progress && (
+          <div className="mt-4">
+            <div className="flex justify-between text-xs text-text-secondary mb-1">
+              <span>Menyimpan transaksi...</span>
+              <span>{progress.done}/{progress.total}</span>
+            </div>
+            <div className="h-2 rounded-full bg-surface-2 overflow-hidden">
+              <div
+                className="h-full bg-accent rounded-full transition-all duration-300"
+                style={{ width: `${(progress.done / progress.total) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {done && (
+          <div className="mt-4 flex items-center gap-2 rounded-xl bg-status-done/10 px-3 py-2.5 text-sm text-status-done font-semibold">
+            <CheckCircle2 size={16} />
+            {totalTx} transaksi berhasil dicatat!
+          </div>
+        )}
+
+        {error && (
+          <p className="mt-3 rounded-xl bg-status-cancelled/10 px-3 py-2 text-xs text-status-cancelled">
+            {error}
+          </p>
+        )}
+
+        <Button
+          fullWidth
+          disabled={submitting || done || totalTx === 0}
+          onClick={handleSubmit}
+          className="mt-4"
+        >
+          {submitting
+            ? `Menyimpan ${progress?.done ?? 0}/${progress?.total ?? 0}...`
+            : totalTx > 0
+            ? `Simpan ${totalTx} Transaksi`
+            : "Simpan Transaksi"}
+        </Button>
       </div>
     </div>
   );

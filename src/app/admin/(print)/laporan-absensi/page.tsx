@@ -54,6 +54,7 @@ function LaporanAbsensiContent() {
         paperSize="a4"
         onPaperSizeChange={() => {}}
         showPaperSizePicker={false}
+        backHref="/admin/laporan"
       />
 
       <div className="no-print flex flex-wrap justify-center gap-3 px-4 pt-4">

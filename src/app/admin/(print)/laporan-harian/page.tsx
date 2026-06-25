@@ -63,6 +63,7 @@ function LaporanHarianContent() {
         paperSize="a4"
         onPaperSizeChange={() => {}}
         showPaperSizePicker={false}
+        backHref="/admin/struk"
       />
 
       <div className="no-print flex justify-center px-4 pt-4">

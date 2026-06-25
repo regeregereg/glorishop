@@ -75,6 +75,7 @@ export default function StrukDetailPage() {
         fileName={`Struk-${receiptData.receiptNumber}`}
         paperSize={paperSize}
         onPaperSizeChange={setPaperSize}
+        backHref="/admin/struk"
         cashInput={
           cashDue != null
             ? { amountDue: cashDue, value: cashInputValue, onChange: setCashInputValue }

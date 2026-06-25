@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Printer, Download, ArrowLeft, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { ReceiptPaperSize, PAPER_SIZE_LABELS } from "@/lib/receipt";
 import { formatRupiah } from "@/lib/utils";
 
@@ -19,6 +20,7 @@ export function PrintActions({
   onPaperSizeChange,
   showPaperSizePicker = true,
   cashInput,
+  backHref,
 }: {
   targetId: string;
   fileName: string;
@@ -32,6 +34,13 @@ export function PrintActions({
     value: string;
     onChange: (value: string) => void;
   };
+  // Tujuan tombol "Kembali" yang PASTI (misal "/admin/struk"). Kalau diisi,
+  // tombol jadi link biasa ke tujuan ini — selalu jalan, terlepas dari ada
+  // tidaknya riwayat browser. Kalau tidak diisi, fallback ke router.back(),
+  // TAPI itu diam saja kalau halaman ini adalah entry pertama di tab
+  // (misal dibuka lewat target="_blank", atau pernah di-refresh sehingga
+  // riwayat sebelumnya hilang). Jadi sebisa mungkin selalu isi backHref.
+  backHref?: string;
 }) {
   const router = useRouter();
   const [downloading, setDownloading] = useState(false);
@@ -52,19 +61,42 @@ export function PrintActions({
     }
   }
 
+  function handleBackFallback() {
+    // window.history.length > 1 bukan jaminan sempurna (beberapa browser
+    // selalu mengisi minimal 1), tapi dikombinasikan dengan backHref di
+    // semua pemanggilan PrintActions, jalur ini jadi jarang terpakai.
+    // Kalau ternyata tidak ada riwayat sama sekali untuk tab ini, lempar
+    // ke halaman admin utama daripada diam tidak melakukan apa-apa.
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/admin/dashboard");
+    }
+  }
+
   const tenderedNum = cashInput ? Number(cashInput.value.replace(/\D/g, "")) || 0 : 0;
   const change = cashInput ? tenderedNum - cashInput.amountDue : 0;
 
   return (
     <div className="no-print sticky top-0 z-20 flex flex-col gap-3 border-b border-border-soft bg-surface px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-1.5 rounded-xl border border-border-soft bg-surface-2 px-3 py-2 text-xs font-semibold text-text-primary transition-colors hover:bg-surface"
-        >
-          <ArrowLeft size={14} />
-          Kembali
-        </button>
+        {backHref ? (
+          <Link
+            href={backHref}
+            className="flex items-center gap-1.5 rounded-xl border border-border-soft bg-surface-2 px-3 py-2 text-xs font-semibold text-text-primary transition-colors hover:bg-surface"
+          >
+            <ArrowLeft size={14} />
+            Kembali
+          </Link>
+        ) : (
+          <button
+            onClick={handleBackFallback}
+            className="flex items-center gap-1.5 rounded-xl border border-border-soft bg-surface-2 px-3 py-2 text-xs font-semibold text-text-primary transition-colors hover:bg-surface"
+          >
+            <ArrowLeft size={14} />
+            Kembali
+          </button>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
           {showPaperSizePicker && (

@@ -1,83 +1,67 @@
-# File yang Diubah — Rekap Absensi Harian untuk Evaluasi Owner
+# File yang Diubah — Fix Bug: Tombol "Kembali" Tidak Berfungsi di Halaman Print
 
 Struktur folder di bawah SAMA seperti struktur project asli.
 Tinggal copy-timpa langsung ke project kamu.
 
-## Yang ditambahkan
-Owner sekarang bisa melihat rekap kehadiran staff (hadir, terlambat, tidak
-masuk, total jam kerja) untuk rentang tanggal apa pun, langsung di halaman
-Laporan yang sudah ada — plus bisa dicetak/download PDF.
+## Bug yang diperbaiki
+Tombol "Kembali" di halaman cetak (Struk, Laporan Harian, Rekap Absensi)
+kadang diam saja saat diklik.
 
-## File BARU
-- `src/app/api/admin-reports/attendance/route.ts`
-  → API baru: `GET /api/admin-reports/attendance?from=YYYY-MM-DD&to=YYYY-MM-DD`.
-    Menghitung per staff aktif: jumlah hari hadir, jumlah hari terlambat
-    (dibandingkan jam masuk standar dari Pengaturan), jumlah hari tidak
-    masuk (hanya menghitung hari yang sudah lewat/hari ini, tidak menghitung
-    tanggal di masa depan), dan total jam kerja (dari clock_in–clock_out).
-    Hanya bisa diakses admin (pakai `getStaffSession()` sama seperti API
-    absensi lain).
+**Sebab:** tombol itu sebelumnya pakai `router.back()`, yang bergantung
+pada riwayat (history) browser di tab itu. Kalau halaman print dibuka
+sebagai entry PERTAMA di tab (misalnya lewat link yang `target="_blank"`,
+atau setelah refresh), tidak ada "halaman sebelumnya" untuk dikembalikan —
+jadi tombolnya tidak melakukan apa-apa.
 
-- `src/components/AttendanceReportDocument.tsx`
-  → Komponen dokumen cetak A4, gaya dan strukturnya niru
-    `DailyReportDocument` yang sudah ada (header bisnis, kotak ringkasan,
-    tabel per staff, footer "dicetak otomatis").
-
-- `src/app/admin/(print)/laporan-absensi/page.tsx`
-  → Halaman cetak baru di `/admin/laporan-absensi?from=...&to=...`.
-    Pakai komponen `PrintActions` yang sudah ada (tombol Print & Download
-    PDF), sama seperti halaman `/admin/laporan-harian`. Tidak pakai
-    sidebar admin (route group `(print)`), sama seperti halaman cetak lain.
+**Perbaikan:** tombol "Kembali" sekarang menuju ke alamat tetap yang sudah
+ditentukan per halaman (`/admin/struk`, `/admin/laporan`), bukan
+bergantung pada riwayat. Selalu jalan, terlepas dari cara halaman itu
+dibuka.
 
 ## File DIUBAH
-- `src/app/api/settings/route.ts`
-  → Tambah `work_start_time` ke `PUBLIC_KEYS`, supaya bisa disimpan/diambil
-    lewat API settings yang sudah ada (key-value `app_settings`, tidak
-    perlu migration SQL baru sama sekali).
+- `src/components/PrintActions.tsx`
+  → Tambah prop opsional `backHref`. Kalau diisi, tombol "Kembali" jadi
+    link biasa ke alamat itu (selalu jalan). Kalau TIDAK diisi, tetap
+    fallback ke `router.back()` tapi dengan pengaman tambahan: kalau tidak
+    ada riwayat sama sekali di tab itu, lempar ke `/admin/dashboard`
+    (lebih baik daripada diam saja, walau bukan tujuan paling presisi —
+    karena itu sebaiknya `backHref` selalu diisi di setiap pemanggilan,
+    lihat 3 file di bawah).
 
-- `src/app/admin/(protected)/pengaturan/page.tsx`
-  → Tambah section baru "Jam Kerja & Absensi" dengan input jam (`<input
-    type="time">`), default `09:00` kalau belum pernah diisi. Ini jadi
-    acuan untuk hitung "Terlambat" di rekap absensi. Ada tombol simpan
-    sendiri di section ini (tidak perlu scroll ke atas).
+- `src/app/admin/(print)/struk/[id]/page.tsx`
+  → Tambah `backHref="/admin/struk"` (halaman daftar struk transaksi).
 
-- `src/app/admin/(protected)/laporan/page.tsx`
-  → Tambah section "Rekap Absensi Staff" di bagian bawah halaman Laporan,
-    pakai rentang tanggal (`from`/`to`) yang SAMA dengan filter laporan
-    omset yang sudah ada di atasnya — jadi owner cukup atur tanggal sekali.
-    Tabel menampilkan: nama + peran, hadir, terlambat (ikon warning kuning
-    kalau > 0), tidak masuk (ikon merah kalau > 0), total jam kerja.
-    Ada tombol "Cetak Rekap" yang membuka halaman print di tab baru.
+- `src/app/admin/(print)/laporan-harian/page.tsx`
+  → Tambah `backHref="/admin/struk"` (halaman ini biasa dibuka dari
+    Struk Transaksi → tombol "Laporan Harian").
+
+- `src/app/admin/(print)/laporan-absensi/page.tsx`
+  → Tambah `backHref="/admin/laporan"`. **File ini sudah versi LENGKAP**
+    (gabungan fitur rekap absensi sebelumnya + fix ini) — kalau kamu
+    belum sempat timpa zip fitur rekap absensi sebelumnya, file ini sudah
+    cukup dipakai sendiri, tidak perlu gabung manual.
 
 ## Cara timpa
-Copy semua file di atas ke path yang sama persis di project kamu (replace
-file lama untuk yang DIUBAH, tambahkan baru untuk yang BARU).
-
-## TIDAK perlu migration SQL
-Fitur ini full pakai tabel yang sudah ada (`attendance`, `staff`,
-`app_settings`) — tidak ada kolom atau tabel baru. Tinggal copy-timpa file,
-tidak ada langkah Supabase SQL Editor yang perlu dijalankan.
+Copy 4 file di atas ke path yang sama persis di project kamu (replace
+file lama). Tidak ada file baru, tidak ada migration SQL.
 
 ## Yang perlu dicek setelah ditimpa
 1. Jalankan `npx tsc --noEmit` dan `npm run build` — sudah saya tes sendiri
-   di sisi saya dan keduanya **lolos tanpa error**, tapi tetap baik untuk
-   cross-check di environment kamu.
-2. Buka **Admin → Pengaturan**, scroll ke "Jam Kerja & Absensi", pastikan
-   jam masuk standarnya sudah benar (default 09:00), lalu klik Simpan
-   sekali — supaya key `work_start_time` benar-benar tersimpan di database
-   (sebelum disimpan pertama kali, API akan otomatis fallback ke "09:00").
-3. Buka **Admin → Laporan**, scroll ke bawah, cek apakah tabel "Rekap
-   Absensi Staff" muncul dan datanya masuk akal dibandingkan data di
-   halaman Absensi Staff harian yang sudah ada.
-4. Klik tombol "Cetak Rekap", cek tampilan halaman cetaknya, coba tombol
-   Print dan Download PDF.
-5. Catatan tentang "Tidak Masuk": dihitung dari jumlah hari kalender dalam
-   rentang yang dipilih (sampai hari ini, tidak termasuk hari di masa
-   depan), dikurangi jumlah hari staff itu absen masuk. Ini BELUM
-   memperhitungkan hari libur toko atau jadwal kerja per-barber (field
-   `work_schedules` ada di database tapi belum dipakai di fitur manapun
-   di project ini) — jadi kalau ada staff yang memang terjadwal libur di
-   hari tertentu, hari itu masih akan tercatat sebagai "tidak masuk".
-   Kalau ini perlu diperbaiki (misal: skip hari libur toko/staff dari
-   hitungan), kasih tahu saya — itu di luar scope yang sudah dikerjakan
-   sekarang.
+   di sisi saya, keduanya lolos tanpa error.
+2. Buka halaman cetak struk dari Bookings (klik ikon struk pada booking
+   status DONE) — klik "Kembali", harus langsung balik ke halaman Struk
+   Transaksi.
+3. Buka Laporan Harian dari halaman Struk Transaksi — klik "Kembali",
+   harus balik ke halaman Struk Transaksi.
+4. Buka Rekap Absensi dari halaman Laporan — klik "Kembali", harus balik
+   ke halaman Laporan.
+5. Coba juga skenario lain: buka salah satu halaman print itu langsung
+   lewat URL (paste di address bar baru, atau refresh halaman print itu
+   sendiri) — klik "Kembali" tetap harus jalan, karena sekarang tidak
+   bergantung riwayat sama sekali.
+
+## Catatan
+Bug `router.back()` ini sebenarnya sudah ada di kode sebelum sesi ini
+(bukan cuma di halaman Rekap Absensi yang baru saya buat) — jadi
+perbaikan ini juga sekaligus membenahi halaman Struk dan Laporan Harian
+yang sudah lama ada di project kamu.

@@ -57,6 +57,30 @@ export async function PATCH(
     }
   }
 
+  // Sinkronisasi harga khusus per barber (override), pola sama seperti
+  // barber_ids di atas: hapus semua baris lama untuk layanan ini, insert
+  // ulang yang baru. Hanya jalan kalau body.barber_prices dikirim sebagai
+  // array (boleh kosong = hapus semua override, kembali ke harga dasar
+  // untuk semua barber). Baris dengan harga kosong/tidak lengkap dilewati.
+  if (Array.isArray(body.barber_prices)) {
+    await supabase.from("service_barber_prices").delete().eq("service_id", id);
+    const rows = body.barber_prices
+      .filter(
+        (p: { barber_id?: string; price?: number | null; price_min?: number | null; price_max?: number | null }) =>
+          p.barber_id && (p.price != null || (p.price_min != null && p.price_max != null))
+      )
+      .map((p: { barber_id: string; price?: number | null; price_min?: number | null; price_max?: number | null }) => ({
+        service_id: id,
+        barber_id: p.barber_id,
+        price: p.price ?? null,
+        price_min: p.price_min ?? null,
+        price_max: p.price_max ?? null,
+      }));
+    if (rows.length > 0) {
+      await supabase.from("service_barber_prices").insert(rows);
+    }
+  }
+
   // Paksa halaman home/daftar layanan/detail layanan ini segar lagi
   // sekarang, supaya perubahan admin (nama/harga/foto) langsung kelihatan
   // tanpa harus menunggu cache 60 detik habis sendiri.

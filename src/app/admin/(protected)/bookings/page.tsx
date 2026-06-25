@@ -5,7 +5,8 @@ import Link from "next/link";
 import { Booking, BookingStatus, STATUS_LABELS, Service, Staff, Slot } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/Button";
-import { formatTime, getBookingServiceNames, getBookingPriceLabel, formatDateShort, toLocalDateString } from "@/lib/utils";
+import { formatTime, getBookingServiceNames, getBookingPriceLabel, formatDateShort, toLocalDateString, formatRupiah } from "@/lib/utils";
+import { getEffectivePrice } from "@/lib/pricing";
 import { Plus, X, Check, MessageCircle, Receipt } from "lucide-react";
 
 // Ambil nomor WA pelanggan — wa_number diprioritaskan, fallback ke phone,
@@ -344,6 +345,13 @@ function WalkinForm({ onClose, onCreated }: { onClose: () => void; onCreated: ()
             <div className="flex max-h-48 flex-col gap-1.5 overflow-y-auto rounded-xl border border-border-soft bg-surface-2 p-2">
               {services.map((s) => {
                 const checked = serviceIds.includes(s.id);
+                const eff = getEffectivePrice(s, barberId || null);
+                const priceLabel =
+                  eff.price_min != null && eff.price_max != null
+                    ? `${formatRupiah(eff.price_min)}–${formatRupiah(eff.price_max)}`
+                    : eff.price != null
+                    ? formatRupiah(eff.price)
+                    : "";
                 return (
                   <button
                     type="button"
@@ -360,7 +368,10 @@ function WalkinForm({ onClose, onCreated }: { onClose: () => void; onCreated: ()
                     >
                       {checked && <Check size={10} strokeWidth={3} />}
                     </div>
-                    {s.name}
+                    <span className="flex-1">{s.name}</span>
+                    {priceLabel && (
+                      <span className="shrink-0 text-xs font-semibold text-text-tertiary">{priceLabel}</span>
+                    )}
                   </button>
                 );
               })}

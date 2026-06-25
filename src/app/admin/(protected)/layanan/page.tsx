@@ -7,7 +7,7 @@ import { Button } from "@/components/Button";
 import { ImageUpload } from "@/components/ImageUpload";
 import { ErrorState } from "@/components/ErrorState";
 import { formatServicePrice } from "@/lib/utils";
-import { Plus, X, Pencil, Trash2, Check, Percent, Home } from "lucide-react";
+import { Plus, X, Pencil, Trash2, Check, Percent, Home, Users } from "lucide-react";
 
 const CATEGORIES: { value: ServiceCategory; label: string }[] = [
   { value: "haircut", label: "Haircut" },
@@ -122,6 +122,11 @@ export default function AdminLayananPage() {
                       <Home size={9} /> Booking only
                     </span>
                   )}
+                  {s.barber_prices != null && s.barber_prices.length > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+                      <Users size={9} /> {s.barber_prices.length} harga custom
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -188,6 +193,29 @@ function ServiceForm({
   );
   const [isHomeServiceOnly, setIsHomeServiceOnly] = useState(service?.is_home_service_only ?? false);
   const [barberIds, setBarberIds] = useState<string[]>(service?.barber_ids ?? []);
+
+  // Harga khusus per barber (override) — defaultnya semua barber pakai
+  // harga dasar layanan ini (lihat src/lib/pricing.ts). Disimpan sebagai
+  // map barber_id -> nilai input (string, supaya field bisa kosong tanpa
+  // jadi 0), satu set untuk price (mode tetap) dan satu set untuk
+  // price_min/price_max (mode range), supaya kalau admin ganti priceMode
+  // input yang sudah diisi sebelumnya tidak hilang sia-sia.
+  const initialOverrides = service?.barber_prices ?? [];
+  const [barberPriceOverride, setBarberPriceOverride] = useState<Record<string, string>>(
+    Object.fromEntries(
+      initialOverrides.filter((p) => p.price != null).map((p) => [p.barber_id, String(p.price)])
+    )
+  );
+  const [barberPriceMinOverride, setBarberPriceMinOverride] = useState<Record<string, string>>(
+    Object.fromEntries(
+      initialOverrides.filter((p) => p.price_min != null).map((p) => [p.barber_id, String(p.price_min)])
+    )
+  );
+  const [barberPriceMaxOverride, setBarberPriceMaxOverride] = useState<Record<string, string>>(
+    Object.fromEntries(
+      initialOverrides.filter((p) => p.price_max != null).map((p) => [p.barber_id, String(p.price_max)])
+    )
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -206,6 +234,35 @@ function ServiceForm({
       setError("Pilih minimal satu barber yang menerima layanan home service ini.");
       return;
     }
+
+    // Bangun payload barber_prices sesuai priceMode aktif. Untuk mode range,
+    // kedua kolom (min & max) harus diisi sekaligus per barber — kalau
+    // cuma salah satu yang diisi, tolak di sini supaya admin tidak kaget
+    // override-nya diam-diam diabaikan server (lihat src/lib/pricing.ts:
+    // override range yang tidak lengkap dianggap tidak valid).
+    const barberPrices: { barber_id: string; price: number | null; price_min: number | null; price_max: number | null }[] = [];
+    if (priceMode === "fixed") {
+      for (const [barberId, val] of Object.entries(barberPriceOverride)) {
+        if (val === "") continue;
+        barberPrices.push({ barber_id: barberId, price: Number(val), price_min: null, price_max: null });
+      }
+    } else {
+      const barberIdsTouched = new Set([
+        ...Object.keys(barberPriceMinOverride).filter((id) => barberPriceMinOverride[id] !== ""),
+        ...Object.keys(barberPriceMaxOverride).filter((id) => barberPriceMaxOverride[id] !== ""),
+      ]);
+      for (const barberId of barberIdsTouched) {
+        const minVal = barberPriceMinOverride[barberId];
+        const maxVal = barberPriceMaxOverride[barberId];
+        if (!minVal || !maxVal) {
+          const barberName = barbers.find((b) => b.id === barberId)?.name ?? "barber ini";
+          setError(`Isi harga min DAN max untuk ${barberName}, atau kosongkan keduanya untuk pakai harga dasar.`);
+          return;
+        }
+        barberPrices.push({ barber_id: barberId, price: null, price_min: Number(minVal), price_max: Number(maxVal) });
+      }
+    }
+
     setSubmitting(true);
 
     const payload = {
@@ -220,6 +277,7 @@ function ServiceForm({
       commission_percentage: commissionPercentage ? Number(commissionPercentage) : null,
       is_home_service_only: isHomeServiceOnly,
       barber_ids: isHomeServiceOnly ? barberIds : [],
+      barber_prices: barberPrices,
     };
 
     try {
@@ -349,6 +407,62 @@ function ServiceForm({
               />
             </div>
           )}
+
+          {/* Harga khusus per barber (override) — defaultnya semua barber
+              pakai harga dasar di atas. Admin isi satu-satu di sini hanya
+              untuk barber yang memang perlu beda tarif; kosongkan untuk
+              kembali ke harga dasar. Bentuk input ikut priceMode yang
+              sedang aktif (tetap atau range), sama seperti harga dasarnya. */}
+          <div>
+            <p className="mb-1.5 text-xs font-semibold text-text-secondary">
+              Harga khusus per barber (opsional)
+            </p>
+            <p className="mb-2 text-[11px] text-text-tertiary">
+              Kosongkan untuk barber yang pakai harga dasar di atas. Isi hanya untuk barber yang tarifnya beda.
+            </p>
+            <div className="flex max-h-56 flex-col gap-2 overflow-y-auto rounded-xl border border-border-soft bg-surface-2 p-2.5">
+              {barbers.map((b) => (
+                <div key={b.id} className="flex items-center gap-2">
+                  <span className="w-20 shrink-0 truncate text-xs text-text-secondary">{b.name}</span>
+                  {priceMode === "fixed" ? (
+                    <input
+                      type="number"
+                      placeholder={price ? `Default: ${price}` : "Harga (Rp)"}
+                      value={barberPriceOverride[b.id] ?? ""}
+                      onChange={(e) =>
+                        setBarberPriceOverride((prev) => ({ ...prev, [b.id]: e.target.value }))
+                      }
+                      className="flex-1 rounded-lg border border-border-soft bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+                    />
+                  ) : (
+                    <div className="flex flex-1 gap-1.5">
+                      <input
+                        type="number"
+                        placeholder={priceMin ? `Min: ${priceMin}` : "Min"}
+                        value={barberPriceMinOverride[b.id] ?? ""}
+                        onChange={(e) =>
+                          setBarberPriceMinOverride((prev) => ({ ...prev, [b.id]: e.target.value }))
+                        }
+                        className="w-1/2 rounded-lg border border-border-soft bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+                      />
+                      <input
+                        type="number"
+                        placeholder={priceMax ? `Max: ${priceMax}` : "Max"}
+                        value={barberPriceMaxOverride[b.id] ?? ""}
+                        onChange={(e) =>
+                          setBarberPriceMaxOverride((prev) => ({ ...prev, [b.id]: e.target.value }))
+                        }
+                        className="w-1/2 rounded-lg border border-border-soft bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+              {barbers.length === 0 && (
+                <p className="px-1 py-1 text-xs text-text-tertiary">Belum ada barber.</p>
+              )}
+            </div>
+          </div>
 
           {/* Komisi/bagi hasil untuk barber dari layanan ini, contoh 40 = 40%.
               Berlaku sama untuk semua barber yang mengerjakan layanan ini. */}

@@ -96,6 +96,23 @@ export interface Service {
   // daftar id barber yang boleh menerima layanan ini, HANYA relevan saat
   // is_home_service_only = true (relasi, joined opsional)
   barber_ids?: string[];
+  // override harga khusus per barber untuk layanan ini (relasi, joined
+  // opsional). Baris yang tidak ada di sini untuk barber tertentu = barber
+  // itu pakai harga dasar (price/price_min/price_max) di atas. Lihat
+  // supabase/migration_barber_service_prices.sql dan src/lib/pricing.ts.
+  barber_prices?: ServiceBarberPrice[];
+}
+
+// Satu baris override harga untuk kombinasi layanan + barber tertentu.
+// null pada price/price_min/price_max berarti kolom itu tidak di-override
+// (ikut harga dasar layanan untuk kolom tersebut).
+export interface ServiceBarberPrice {
+  id: string;
+  service_id: string;
+  barber_id: string;
+  price: number | null;
+  price_min: number | null;
+  price_max: number | null;
 }
 
 export interface Product {

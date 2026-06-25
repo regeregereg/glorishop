@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserSession, getStaffSession } from "@/lib/session";
-import { getServicesBasePrice, calculatePaymentAmount, getPaymentExpiryDate } from "@/lib/payment";
+import { calculatePaymentAmount, getPaymentExpiryDate } from "@/lib/payment";
+import { getEffectiveServicesBasePrice, getEffectivePrice } from "@/lib/pricing";
 import { calculateCommissionAmount, getRowPriceForCommission } from "@/lib/commission";
 import { sendPushToAllAdmins } from "@/lib/push";
 import { PaymentType, Service } from "@/types";
@@ -198,10 +199,12 @@ export async function POST(req: NextRequest) {
   const supabase = createAdminClient();
 
   // Ambil data semua layanan yang dipilih sekaligus, untuk hitung total
-  // durasi (jumlah semua duration_minutes) dan total harga.
+  // durasi (jumlah semua duration_minutes) dan total harga. barber_prices
+  // (override harga per barber, lihat src/lib/pricing.ts) diikutkan sekalian
+  // supaya tidak perlu query terpisah lagi nanti.
   const { data: selectedServices, error: serviceError } = await supabase
     .from("services")
-    .select("*")
+    .select("*, barber_prices:service_barber_prices(*)")
     .in("id", serviceIds);
 
   if (serviceError || !selectedServices || selectedServices.length !== serviceIds.length) {
@@ -214,7 +217,6 @@ export async function POST(req: NextRequest) {
     .filter((s): s is Service => !!s);
 
   const totalDurationMin = orderedServices.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
-  const basePrice = isAdminBooking ? 0 : getServicesBasePrice(orderedServices);
 
   // Layanan home service (ke rumah) tidak boleh masuk lewat endpoint ini
   // sama sekali kalau diinput admin sebagai walk-in TANPA slot — endpoint
@@ -241,6 +243,15 @@ export async function POST(req: NextRequest) {
       { status: 409 }
     );
   }
+
+  // Harga total baru bisa dihitung di sini, SETELAH barber_id final
+  // diketahui (body.barber_id eksplisit, atau barber pemilik slot kalau
+  // pelanggan pilih "Tanpa Preferensi" — baseSlot tetap milik satu barber
+  // tertentu meski pelanggan tidak filter barber). Pakai harga EFEKTIF
+  // (sudah memperhitungkan override per barber, lihat src/lib/pricing.ts)
+  // alih-alih harga dasar polos seperti sebelumnya.
+  const effectiveBarberId: string | null = barber_id || baseSlot.barber_id || null;
+  const basePrice = isAdminBooking ? 0 : getEffectiveServicesBasePrice(orderedServices, effectiveBarberId);
 
   // Validasi HOME SERVICE: layanan ke rumah WAJIB pilih barber spesifik
   // (tidak boleh "Tanpa Preferensi") dan barber tersebut WAJIB sudah
@@ -350,6 +361,12 @@ export async function POST(req: NextRequest) {
   }
 
   // Step 5: insert baris booking_services untuk SETIAP layanan yang dipilih.
+  // service_price/price_min/price_max yang disnapshot di sini adalah harga
+  // EFEKTIF untuk barber yang mengerjakan booking ini (sudah memperhitungkan
+  // override per barber kalau ada, lihat src/lib/pricing.ts) — BUKAN harga
+  // dasar polos dari tabel services. Begitu disimpan, nilai ini permanen
+  // jadi histori (tidak berubah lagi meski admin ubah harga dasar ATAU
+  // harga override-nya di kemudian hari).
   // commission_percentage di-snapshot dari services.commission_percentage
   // saat ini (lihat src/lib/commission.ts) — tidak berubah lagi meski admin
   // mengubah persentase layanan tersebut setelah booking ini dibuat.
@@ -357,17 +374,18 @@ export async function POST(req: NextRequest) {
   // final_price untuk layanan range baru diisi barber setelah selesai;
   // PATCH /api/bookings/[id] akan menghitung ulang saat final_price diisi).
   const bookingServiceRows = orderedServices.map((s, idx) => {
+    const effective = getEffectivePrice(s, effectiveBarberId);
     const priceForCommission = getRowPriceForCommission({
-      service_price: s.price,
-      service_price_min: s.price_min,
+      service_price: effective.price,
+      service_price_min: effective.price_min,
     });
     return {
       booking_id: booking.id,
       service_id: s.id,
       service_name: s.name,
-      service_price: s.price,
-      service_price_min: s.price_min,
-      service_price_max: s.price_max,
+      service_price: effective.price,
+      service_price_min: effective.price_min,
+      service_price_max: effective.price_max,
       duration_minutes: s.duration_minutes,
       sort_order: idx,
       commission_percentage: s.commission_percentage ?? null,

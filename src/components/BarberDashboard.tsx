@@ -7,6 +7,7 @@ import { Button } from "@/components/Button";
 import { ErrorState } from "@/components/ErrorState";
 import { formatTime, formatRupiah, getBookingServiceNames, getBookingPriceLabel, toLocalDateString } from "@/lib/utils";
 import { getBookingTotalCommission } from "@/lib/commission";
+import { getEffectivePrice } from "@/lib/pricing";
 import { Play, Check, Star, Plus, X, Scissors, Wallet, AlertCircle } from "lucide-react";
 
 export default function BarberDashboardPage() {
@@ -423,6 +424,13 @@ function WalkinForm({
               )}
               {!servicesLoading && services.map((s) => {
                 const checked = serviceIds.includes(s.id);
+                const eff = getEffectivePrice(s, barberId);
+                const priceLabel =
+                  eff.price_min != null && eff.price_max != null
+                    ? `${formatRupiah(eff.price_min)}–${formatRupiah(eff.price_max)}`
+                    : eff.price != null
+                    ? formatRupiah(eff.price)
+                    : "";
                 return (
                   <button
                     type="button"
@@ -439,7 +447,10 @@ function WalkinForm({
                     >
                       {checked && <Check size={10} strokeWidth={3} />}
                     </div>
-                    {s.name}
+                    <span className="flex-1">{s.name}</span>
+                    {priceLabel && (
+                      <span className="shrink-0 text-xs font-semibold text-text-tertiary">{priceLabel}</span>
+                    )}
                   </button>
                 );
               })}
@@ -454,18 +465,21 @@ function WalkinForm({
               <p className="text-xs font-semibold text-text-secondary">
                 Harga final (layanan dengan range harga)
               </p>
-              {rangeServices.map((s) => (
-                <div key={s.id} className="flex items-center gap-2">
-                  <span className="flex-1 text-xs text-text-secondary">{s.name}</span>
-                  <input
-                    type="number"
-                    placeholder={`${s.price_min}-${s.price_max}`}
-                    value={finalPrices[s.id] ?? ""}
-                    onChange={(e) => setFinalPrices((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                    className="w-32 rounded-xl border border-border-soft bg-surface-2 px-3 py-2 text-sm outline-none focus:border-accent"
-                  />
-                </div>
-              ))}
+              {rangeServices.map((s) => {
+                const eff = getEffectivePrice(s, barberId);
+                return (
+                  <div key={s.id} className="flex items-center gap-2">
+                    <span className="flex-1 text-xs text-text-secondary">{s.name}</span>
+                    <input
+                      type="number"
+                      placeholder={`${eff.price_min}-${eff.price_max}`}
+                      value={finalPrices[s.id] ?? ""}
+                      onChange={(e) => setFinalPrices((prev) => ({ ...prev, [s.id]: e.target.value }))}
+                      className="w-32 rounded-xl border border-border-soft bg-surface-2 px-3 py-2 text-sm outline-none focus:border-accent"
+                    />
+                  </div>
+                );
+              })}
             </div>
           )}
 

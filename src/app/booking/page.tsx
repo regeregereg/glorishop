@@ -6,7 +6,6 @@ import Image from "next/image";
 import { ChevronLeft, ChevronRight, Star, Check } from "lucide-react";
 import { Service, Staff, Slot, ServiceCategory } from "@/types";
 import {
-  formatServiceListPrice,
   formatRupiah,
   formatTime,
   formatDateShort,
@@ -14,6 +13,7 @@ import {
   totalServiceDuration,
   cn,
 } from "@/lib/utils";
+import { getEffectivePrice, getEffectiveServicesBasePrice } from "@/lib/pricing";
 import { Button } from "@/components/Button";
 import { ErrorState } from "@/components/ErrorState";
 import { PageSpinner } from "@/components/PageSpinner";
@@ -364,6 +364,42 @@ function BookingFlow() {
         .filter((s): s is Service => !!s),
     [selectedServiceOrder, services]
   );
+
+  // Barber yang BENAR-BENAR akan mengerjakan booking ini, dipakai untuk
+  // resolusi harga real-time (override per barber, lihat src/lib/pricing.ts).
+  // - Kalau pelanggan sudah pilih slot, barber pemilik slot itu yang
+  //   menentukan harga — berlaku juga saat "Tanpa Preferensi" (slot tetap
+  //   milik satu barber tertentu, hanya pelanggan tidak filter pilihannya).
+  // - Kalau belum pilih slot tapi sudah filter ke satu barber spesifik
+  //   (showBarberPicker terbuka, selectedBarber bukan "any"), pakai itu
+  //   supaya harga di kartu layanan & ringkasan sudah benar SEBELUM pilih jam.
+  // - Selain itu (belum pilih slot & belum filter barber), null -> harga dasar.
+  const effectiveBarberId = useMemo<string | null>(() => {
+    if (selectedSlot) return selectedSlot.barber_id;
+    if (selectedBarber && selectedBarber !== "any") return selectedBarber.id;
+    return null;
+  }, [selectedSlot, selectedBarber]);
+
+  // Versi formatServiceListPrice/formatServicePrice yang sudah memperhitungkan
+  // override harga barber yang sedang efektif. Dipakai di semua tempat yang
+  // menampilkan harga ke pelanggan supaya tidak ada dua sumber kebenaran.
+  const formatEffectivePrice = (service: Service): string => {
+    const eff = getEffectivePrice(service, effectiveBarberId);
+    if (eff.price_min != null && eff.price_max != null) {
+      return `mulai dari ${formatRupiah(eff.price_min)}`;
+    }
+    if (eff.price != null) return formatRupiah(eff.price);
+    return "Harga belum diatur";
+  };
+  const formatEffectiveListPrice = (servicesList: Service[]): string => {
+    if (servicesList.length === 0) return "Harga belum diatur";
+    const hasRange = servicesList.some((s) => {
+      const eff = getEffectivePrice(s, effectiveBarberId);
+      return eff.price_min != null && eff.price_max != null;
+    });
+    const total = getEffectiveServicesBasePrice(servicesList, effectiveBarberId);
+    return hasRange ? `mulai dari ${formatRupiah(total)}` : formatRupiah(total);
+  };
 
   // HOME SERVICE: layanan ke rumah yang wajib booking di muka dan hanya
   // bisa dikerjakan barber tertentu (diatur admin lewat service_barbers,
@@ -959,7 +995,7 @@ function BookingFlow() {
                         {s.duration_minutes} menit
                       </p>
                       <p className="mt-1 font-display text-xs font-bold text-accent">
-                        {formatServiceListPrice([s])}
+                        {formatEffectivePrice(s)}
                       </p>
                     </button>
                   );
@@ -1097,7 +1133,7 @@ function BookingFlow() {
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-text-secondary">Estimasi Total</p>
                   <p className="font-display text-sm font-bold text-accent">
-                    {selectedServices.length > 0 ? formatServiceListPrice(selectedServices) : "—"}
+                    {selectedServices.length > 0 ? formatEffectiveListPrice(selectedServices) : "—"}
                   </p>
                 </div>
                 {selectedSlot && (
@@ -1135,7 +1171,7 @@ function BookingFlow() {
                       <div key={s.id} className="flex items-center justify-between gap-3">
                         <p className="font-display text-sm font-semibold">{s.name}</p>
                         <p className="shrink-0 text-xs font-semibold text-text-secondary">
-                          {formatServiceListPrice([s])}
+                          {formatEffectivePrice(s)}
                         </p>
                       </div>
                     ))}
@@ -1164,7 +1200,7 @@ function BookingFlow() {
 
                   <p className="text-xs text-text-secondary">Estimasi Total Harga</p>
                   <p className="font-display mt-1 text-base font-bold text-accent">
-                    {formatServiceListPrice(selectedServices)}
+                    {formatEffectiveListPrice(selectedServices)}
                   </p>
                 </div>
 
@@ -1180,11 +1216,7 @@ function BookingFlow() {
 
                 {(() => {
                   const dpPercent = Number(paymentSettings?.dp_percentage ?? 50) || 50;
-                  const basePrice = selectedServices.reduce((sum, s) => {
-                    if (s.price != null) return sum + s.price;
-                    if (s.price_min != null) return sum + s.price_min;
-                    return sum;
-                  }, 0);
+                  const basePrice = getEffectiveServicesBasePrice(selectedServices, effectiveBarberId);
                   const dpAmount = Math.ceil((basePrice * dpPercent) / 100);
                   return (
                     <div className="flex flex-col gap-3">

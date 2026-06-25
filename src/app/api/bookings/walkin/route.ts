@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getStaffSession } from "@/lib/session";
 import { sendPushToAllAdmins } from "@/lib/push";
 import { calculateCommissionAmount, getRowPriceForCommission } from "@/lib/commission";
+import { getEffectivePrice } from "@/lib/pricing";
 import { toLocalDateString } from "@/lib/utils";
 import { Service } from "@/types";
 
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
 
   const { data: selectedServices, error: serviceError } = await supabase
     .from("services")
-    .select("*")
+    .select("*, barber_prices:service_barber_prices(*)")
     .in("id", serviceIds);
 
   if (serviceError || !selectedServices || selectedServices.length !== serviceIds.length) {
@@ -142,29 +143,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: bookingError.message }, { status: 500 });
   }
 
-  // Snapshot komisi per layanan, sama seperti booking biasa. Untuk layanan
-  // dengan range harga (mis. Colour), barber bisa langsung memasukkan harga
-  // final saat mencatat walk-in lewat body.final_prices (keyed by service_id,
-  // BUKAN booking_service id — karena baris booking_services belum ada saat
+  // Snapshot komisi per layanan, sama seperti booking biasa. service_price/
+  // price_min/price_max yang disnapshot adalah harga EFEKTIF untuk barber
+  // yang mencatat walk-in ini (sudah memperhitungkan override per barber
+  // kalau ada, lihat src/lib/pricing.ts). Untuk layanan dengan range harga
+  // (mis. Colour), barber bisa langsung memasukkan harga final saat
+  // mencatat walk-in lewat body.final_prices (keyed by service_id, BUKAN
+  // booking_service id — karena baris booking_services belum ada saat
   // body ini dikirim). Kalau tidak diisi, final_price tetap kosong dan bisa
   // diisi belakangan lewat PATCH /api/bookings/[id].
   const finalPricesByServiceId: Record<string, number> =
     body.final_prices && typeof body.final_prices === "object" ? body.final_prices : {};
 
   const bookingServiceRows = orderedServices.map((s, idx) => {
+    const effective = getEffectivePrice(s, barberId);
     const finalPrice = finalPricesByServiceId[s.id] != null ? Number(finalPricesByServiceId[s.id]) : null;
     const priceForCommission = getRowPriceForCommission({
       final_price: finalPrice,
-      service_price: s.price,
-      service_price_min: s.price_min,
+      service_price: effective.price,
+      service_price_min: effective.price_min,
     });
     return {
       booking_id: booking.id,
       service_id: s.id,
       service_name: s.name,
-      service_price: s.price,
-      service_price_min: s.price_min,
-      service_price_max: s.price_max,
+      service_price: effective.price,
+      service_price_min: effective.price_min,
+      service_price_max: effective.price_max,
       duration_minutes: s.duration_minutes,
       sort_order: idx,
       final_price: finalPrice,

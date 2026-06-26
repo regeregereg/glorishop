@@ -134,7 +134,14 @@ export default function AdminAntrianPage() {
                           {getBookingServiceNames(b)} • {b.slot ? formatTime(b.slot.start_time) : ""}
                         </p>
                       </div>
-                      <StatusBadge status={b.status} size="sm" />
+                      <div className="flex flex-col items-end gap-1.5">
+                        <StatusBadge status={b.status} size="sm" />
+                        {b.booking_code && (
+                          <span className="font-mono text-[10px] font-bold tracking-widest text-text-tertiary">
+                            {b.booking_code}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <p className="mt-2 text-sm font-bold text-accent">
                       {getBookingPriceLabel(b)}

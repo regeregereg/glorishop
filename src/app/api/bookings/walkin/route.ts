@@ -4,7 +4,7 @@ import { getStaffSession } from "@/lib/session";
 import { sendPushToAllAdmins } from "@/lib/push";
 import { calculateCommissionAmount, getRowPriceForCommission } from "@/lib/commission";
 import { getEffectivePrice } from "@/lib/pricing";
-import { toLocalDateString } from "@/lib/utils";
+import { toLocalDateString, generateBookingCode } from "@/lib/utils";
 import { Service } from "@/types";
 
 // POST /api/bookings/walkin
@@ -129,11 +129,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Gagal membuat slot waktu sekarang." }, { status: 500 });
   }
 
+  // Generate kode booking unik (retry sampai 5x kalau collision)
+  let bookingCode: string | null = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const candidate = generateBookingCode();
+    const { data: existing } = await supabase
+      .from("bookings")
+      .select("id")
+      .eq("booking_code", candidate)
+      .maybeSingle();
+    if (!existing) { bookingCode = candidate; break; }
+  }
+  if (!bookingCode) {
+    await supabase.from("slots").update({ is_available: true }).eq("id", slotRow.id);
+    return NextResponse.json({ error: "Gagal generate kode booking. Coba lagi." }, { status: 500 });
+  }
+
   // Insert booking langsung CONFIRMED — anggap pelanggan sudah di depan
   // barber, bayar di tempat, tidak ada alur menunggu verifikasi pembayaran.
   const { data: booking, error: bookingError } = await supabase
     .from("bookings")
     .insert({
+      booking_code: bookingCode,
       user_id: null,
       barber_id: barberId,
       service_id: orderedServices[0]?.id ?? null,

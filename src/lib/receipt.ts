@@ -17,6 +17,7 @@ export interface ReceiptLineItem {
 
 export interface ReceiptData {
   receiptNumber: string;
+  bookingCode: string | null; // kode booking pendek untuk verifikasi (GLR-XXXXXX)
   booking: Booking;
   customerName: string;
   barberName: string;
@@ -107,6 +108,7 @@ export function buildReceiptData(booking: Booking): ReceiptData {
 
   return {
     receiptNumber: buildReceiptNumber(booking),
+    bookingCode: booking.booking_code ?? null,
     booking,
     customerName: booking.user?.name ?? booking.walkin_name ?? "Pelanggan",
     barberName: booking.barber?.name ?? "—",

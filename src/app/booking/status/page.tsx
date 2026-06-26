@@ -148,6 +148,15 @@ export default function BookingStatusPage() {
                 </p>
               )}
 
+              {b.booking_code && (
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-accent-soft px-2.5 py-1">
+                  <span className="text-xs text-text-secondary">Kode:</span>
+                  <span className="font-mono text-sm font-bold tracking-widest text-accent">
+                    {b.booking_code}
+                  </span>
+                </div>
+              )}
+
               {b.payment && (
                 <div className="mt-3 rounded-xl bg-surface-2 px-3.5 py-2.5">
                   <div className="flex items-center justify-between text-xs">

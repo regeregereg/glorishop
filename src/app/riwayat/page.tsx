@@ -133,6 +133,14 @@ export default function RiwayatPage() {
               {b.slot && (
                 <p className="mt-3 text-xs text-text-tertiary">{formatDateIndo(b.slot.date)}</p>
               )}
+              {b.booking_code && (
+                <p className="mt-1 text-xs text-text-tertiary">
+                  Kode Booking:{" "}
+                  <span className="font-mono font-bold tracking-widest text-text-primary">
+                    {b.booking_code}
+                  </span>
+                </p>
+              )}
               <div className="my-4 h-px bg-border-soft" />
               <div className="flex items-center justify-between">
                 <p className="font-display text-sm font-bold text-accent">

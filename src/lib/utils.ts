@@ -1,5 +1,19 @@
 import { Service } from "@/types";
 
+// ── Kode Booking ──────────────────────────────────────────────────────────────
+// Generate kode booking pendek yang mudah dibaca: "GLR-" + 6 karakter
+// alfanumerik (A-Z, 0-9 tanpa huruf/angka yang mirip: I, O, 0, 1).
+// Dipanggil di API route POST /api/bookings; kalau collision di DB,
+// route akan retry sampai 5x sebelum mengembalikan error.
+const BOOKING_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+export function generateBookingCode(): string {
+  let code = "GLR-";
+  for (let i = 0; i < 6; i++) {
+    code += BOOKING_CODE_CHARS[Math.floor(Math.random() * BOOKING_CODE_CHARS.length)];
+  }
+  return code;
+}
+
 export function formatRupiah(value: number): string {
   return "Rp " + Math.round(value).toLocaleString("id-ID");
 }

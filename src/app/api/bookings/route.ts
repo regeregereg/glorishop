@@ -5,6 +5,7 @@ import { calculatePaymentAmount, getPaymentExpiryDate } from "@/lib/payment";
 import { getEffectiveServicesBasePrice, getEffectivePrice } from "@/lib/pricing";
 import { calculateCommissionAmount, getRowPriceForCommission } from "@/lib/commission";
 import { sendPushToAllAdmins } from "@/lib/push";
+import { generateBookingCode } from "@/lib/utils";
 import { PaymentType, Service } from "@/types";
 
 // Cari slot-slot BERURUTAN milik barber yang sama, di tanggal yang sama,
@@ -333,13 +334,33 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Step 4: insert booking. service_id (kolom lama) langsung diisi layanan
+  // Step 4: generate kode booking unik (retry sampai 5x kalau collision)
+  let bookingCode: string | null = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const candidate = generateBookingCode();
+    const { data: existing } = await supabase
+      .from("bookings")
+      .select("id")
+      .eq("booking_code", candidate)
+      .maybeSingle();
+    if (!existing) {
+      bookingCode = candidate;
+      break;
+    }
+  }
+  if (!bookingCode) {
+    await supabase.from("slots").update({ is_available: true }).in("id", neededSlotIds);
+    return NextResponse.json({ error: "Gagal generate kode booking unik. Coba lagi." }, { status: 500 });
+  }
+
+  // Step 5: insert booking. service_id (kolom lama) langsung diisi layanan
   // pertama supaya kode lama yang masih baca booking.service_id tetap jalan;
   // kalau dijalankan di DB yang sudah pakai migration_multi_service.sql,
   // trigger di DB juga akan menjaga kolom ini tetap sinkron otomatis.
   const { data: booking, error: bookingError } = await supabase
     .from("bookings")
     .insert({
+      booking_code: bookingCode,
       user_id: userSession?.id ?? null,
       barber_id: barber_id ?? baseSlot.barber_id,
       service_id: orderedServices[0]?.id ?? null,

@@ -62,6 +62,7 @@ function WaChatButton({
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [statusFilter, setStatusFilter] = useState<BookingStatus | "ALL">("ALL");
+  const [searchCode, setSearchCode] = useState("");
   const [loading, setLoading] = useState(true);
   const [showWalkinForm, setShowWalkinForm] = useState(false);
   const [inlinePhoneId, setInlinePhoneId] = useState<string | null>(null);
@@ -78,19 +79,35 @@ export default function AdminBookingsPage() {
     load();
   }, [load]);
 
-  const filtered =
-    statusFilter === "ALL" ? bookings : bookings.filter((b) => b.status === statusFilter);
+  const filtered = bookings
+    .filter((b) => statusFilter === "ALL" || b.status === statusFilter)
+    .filter((b) =>
+      searchCode.trim() === "" ||
+      (b.booking_code ?? "").toLowerCase().includes(searchCode.trim().toLowerCase()) ||
+      (b.user?.name ?? b.walkin_name ?? "").toLowerCase().includes(searchCode.trim().toLowerCase())
+    );
 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-extrabold">Semua Booking</h1>
-          <p className="mt-1 text-sm text-text-secondary">Filter berdasarkan status.</p>
+          <p className="mt-1 text-sm text-text-secondary">Filter berdasarkan status atau cari kode booking.</p>
         </div>
         <Button icon={<Plus size={16} />} onClick={() => setShowWalkinForm(true)}>
           Booking Walk-in
         </Button>
+      </div>
+
+      {/* Search by kode booking / nama */}
+      <div className="mt-4">
+        <input
+          type="text"
+          value={searchCode}
+          onChange={(e) => setSearchCode(e.target.value)}
+          placeholder="Cari kode booking (GLR-...) atau nama pelanggan"
+          className="w-full rounded-xl border border-border-soft bg-surface px-4 py-2.5 text-sm outline-none focus:border-accent font-mono placeholder:font-sans"
+        />
       </div>
 
       <div className="mt-5 flex gap-2 overflow-x-auto pb-2">
@@ -113,6 +130,7 @@ export default function AdminBookingsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border-soft bg-surface text-left text-xs text-text-secondary">
+              <th className="px-4 py-3">Kode</th>
               <th className="px-4 py-3">Pelanggan</th>
               <th className="px-4 py-3">Layanan</th>
               <th className="px-4 py-3">Barber</th>
@@ -126,6 +144,11 @@ export default function AdminBookingsPage() {
           <tbody>
             {filtered.map((b) => (
               <tr key={b.id} className="border-b border-border-soft last:border-0">
+                <td className="px-4 py-3">
+                  <span className="font-mono text-xs font-bold tracking-wider text-accent">
+                    {b.booking_code ?? "—"}
+                  </span>
+                </td>
                 <td className="px-4 py-3 font-semibold">
                   {b.user?.name ?? b.walkin_name ?? "—"}
                   {b.walkin_by_barber && (
@@ -207,7 +230,7 @@ export default function AdminBookingsPage() {
             ))}
             {filtered.length === 0 && !loading && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-text-secondary">
+                <td colSpan={9} className="px-4 py-8 text-center text-text-secondary">
                   Tidak ada booking.
                 </td>
               </tr>

@@ -62,6 +62,9 @@ export function ReceiptDocument({
 
       {/* ── Info transaksi ── */}
       <Row label="No. Struk" value={data.receiptNumber} />
+      {data.bookingCode && (
+        <Row label="Kode Booking" value={data.bookingCode} bold />
+      )}
       <Row label="Tanggal" value={`${data.dateLabel}, ${data.timeLabel}`} />
       <Row label="Pelanggan" value={data.customerName} />
       <Row label="Barber" value={data.barberName} />

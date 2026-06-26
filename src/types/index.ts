@@ -182,6 +182,9 @@ export interface BookingService {
 
 export interface Booking {
   id: string;
+  // Kode booking pendek untuk verifikasi (contoh: "GLR-4X9K2M").
+  // Dibuat otomatis saat booking dibuat, unik, mudah dibaca/diucapkan.
+  booking_code: string;
   user_id: string | null;
   walkin_name: string | null;
   walkin_phone: string | null;

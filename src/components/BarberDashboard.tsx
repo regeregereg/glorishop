@@ -102,8 +102,15 @@ export default function BarberDashboardPage() {
   // atas (walk-in langsung CONFIRMED, booking online butuh verifikasi
   // dulu) — bukan cuma yang DONE, supaya barber bisa lihat estimasi
   // komisinya berjalan sepanjang hari, tidak baru muncul di akhir.
+  //
+  // PENTING: booking yang dicatat oleh owner/admin (created_by_admin = true)
+  // TIDAK dihitung di sini — komisi dari booking admin adalah bagian owner,
+  // bukan hak barber. Barber hanya mendapat komisi dari:
+  //   1. Booking online pelanggan sendiri
+  //   2. Walk-in yang dicatat barber sendiri (walkin_by_barber = true)
   const todayCommission = bookings
     .filter((b) => ["CONFIRMED", "IN_PROGRESS", "DONE"].includes(b.status))
+    .filter((b) => !b.created_by_admin)
     .reduce((sum, b) => sum + getBookingTotalCommission(b), 0);
 
   // Booking IN_PROGRESS yang sudah lebih dari 45 menit — reminder ke barber

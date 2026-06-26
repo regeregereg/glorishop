@@ -91,9 +91,20 @@ export async function POST(req: NextRequest) {
   // membuat ini aman dari race condition kalau barber tap dua kali cepat.
   const now = new Date();
   const todayStr = toLocalDateString(now);
-  const startTime = now.toTimeString().slice(0, 8); // HH:MM:SS
+  // Gunakan locale WIB (Asia/Jakarta) bukan toTimeString() yang mengikuti
+  // timezone server (UTC di Vercel) — supaya jam yang tersimpan di slot
+  // adalah jam LOKAL Indonesia, bukan jam UTC yang selisih 7 jam.
+  const toWIBTime = (d: Date) =>
+    d.toLocaleTimeString("id-ID", {
+      timeZone: "Asia/Jakarta",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }).replace(/\./g, ":"); // id-ID pakai titik sebagai separator, ubah ke ":"
+  const startTime = toWIBTime(now);
   const endDate = new Date(now.getTime() + Math.max(totalDurationMin, 1) * 60 * 1000);
-  const endTime = endDate.toTimeString().slice(0, 8);
+  const endTime = toWIBTime(endDate);
 
   const { error: slotUpsertError } = await supabase
     .from("slots")

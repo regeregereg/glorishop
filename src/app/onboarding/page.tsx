@@ -44,8 +44,11 @@ const SLIDES = [
 ];
 
 function finishOnboarding() {
-  const todayKey = new Date().toISOString().slice(0, 10);
-  document.cookie = `${ONBOARDING_COOKIE}=${todayKey}; path=/; max-age=${60 * 60 * 48}`;
+  // YYYY-MM-DD WIB (UTC+7) — harus konsisten dengan todayKey() di middleware.ts.
+  // Pakai offset +7 jam supaya cookie tidak dianggap basi saat tengah malam UTC
+  // (yang di Indonesia masih jam 07:00 pagi WIB).
+  const todayWIB = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  document.cookie = `${ONBOARDING_COOKIE}=${todayWIB}; path=/; max-age=${60 * 60 * 48}`;
 }
 
 export default function OnboardingPage() {

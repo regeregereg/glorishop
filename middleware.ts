@@ -4,11 +4,10 @@ const ONBOARDING_COOKIE = "glori_onboarded";
 const COOKIE_STAFF      = "glori_staff_session";
 
 function todayKey(): string {
-  // YYYY-MM-DD WIB (UTC+7) — supaya tidak reset tengah malam UTC
-  // yang di Indonesia masih jam 07:00 pagi.
-  return new Date(Date.now() + 7 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  // YYYY-MM-DD WIB (UTC+7) — harus konsisten dengan finishOnboarding()
+  // di onboarding/page.tsx. Keduanya pakai +7 jam supaya cookie tidak
+  // dianggap basi saat tengah malam UTC (di Indonesia masih jam 07.00 WIB).
+  return new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 /**

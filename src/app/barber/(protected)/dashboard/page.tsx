@@ -617,6 +617,14 @@ export default function BarberDashboardPage() {
                   {getBookingServiceNames(b)} • {b.slot ? formatTime(b.slot.start_time) : ""}
                   {b.walkin_by_barber && " • Walk-in"}
                 </p>
+                {b.booking_code && (
+                  <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg bg-accent-soft px-2 py-0.5">
+                    <span className="text-[10px] text-text-secondary">Kode</span>
+                    <span className="font-mono text-xs font-bold tracking-widest text-accent">
+                      {b.booking_code}
+                    </span>
+                  </div>
+                )}
               </div>
               <StatusBadge status={b.status} size="sm" />
             </div>

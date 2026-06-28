@@ -69,7 +69,7 @@ export default function AdminBookingsPage() {
   const [inlinePhone, setInlinePhone] = useState("");
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/bookings");
+    const res = await fetch("/api/bookings?checkExpiry=1");
     const data = await res.json();
     setBookings(data.bookings || []);
     setLoading(false);

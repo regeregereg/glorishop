@@ -21,7 +21,8 @@ export default function AdminAntrianPage() {
   const load = useCallback(
     async (isInitialLoad = false) => {
       try {
-        const res = await fetch(`/api/bookings?date=${today}`);
+        const expiry = isInitialLoad ? "&checkExpiry=1" : "";
+        const res = await fetch(`/api/bookings?date=${today}${expiry}`);
         if (!res.ok) throw new Error("Gagal memuat antrian.");
         const data = await res.json();
         setBookings(data.bookings || []);

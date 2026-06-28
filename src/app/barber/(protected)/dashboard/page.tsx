@@ -466,7 +466,10 @@ export default function BarberDashboardPage() {
     async (isInitialLoad = false) => {
       if (!staffId) return;
       try {
-        const res = await fetch(`/api/bookings?barberId=${staffId}&date=${today}`);
+        // checkExpiry=1 hanya dikirim saat initial load (bukan polling 15 detik)
+        // supaya expiry check tidak jalan terus-terusan dan memberatkan server.
+        const expiry = isInitialLoad ? "&checkExpiry=1" : "";
+        const res = await fetch(`/api/bookings?barberId=${staffId}&date=${today}${expiry}`);
         if (!res.ok) throw new Error("Gagal memuat antrian.");
         const data = await res.json();
         setBookings(data.bookings || []);

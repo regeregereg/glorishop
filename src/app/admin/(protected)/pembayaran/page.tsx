@@ -25,7 +25,8 @@ export default function AdminPaymentsPage() {
   // tampil tetap ada, dicoba lagi otomatis di siklus berikutnya.
   const load = useCallback(async (isInitialLoad = false) => {
     try {
-      const res = await fetch("/api/bookings");
+      const expiry = isInitialLoad ? "?checkExpiry=1" : "";
+      const res = await fetch(`/api/bookings${expiry}`);
       if (!res.ok) throw new Error("Gagal memuat data pembayaran.");
       const data = await res.json();
       setBookings(data.bookings || []);

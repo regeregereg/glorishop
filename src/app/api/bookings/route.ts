@@ -83,10 +83,12 @@ export async function GET(req: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // Lazy expiry check: booking yang masih WAITING_PAYMENT dan sudah lewat
-  // waktu pembayarannya (payments.expires_at) otomatis dibatalkan di sini,
-  // setiap kali ada yang membuka daftar booking. Tidak butuh cron job.
-  await expireOverduePayments(supabase);
+  // Lazy expiry check: hanya dijalankan sekali saat initial load halaman,
+  // ditandai lewat ?checkExpiry=1 — tidak perlu jalan tiap 15 detik polling.
+  const checkExpiry = searchParams.get("checkExpiry") === "1";
+  if (checkExpiry) {
+    await expireOverduePayments(supabase);
+  }
 
   let query = supabase
     .from("bookings")
@@ -98,7 +100,23 @@ export async function GET(req: NextRequest) {
   if (userId) query = query.eq("user_id", userId);
   if (barberId) query = query.eq("barber_id", barberId);
   if (status) query = query.eq("status", status);
-  if (date) query = query.eq("slot.date", date);
+
+  // FIX: filter tanggal langsung di DB via slot_id.
+  // query.eq("slot.date", date) pada relasi nested Supabase tidak bekerja
+  // sebagai WHERE di DB — tetap menarik semua data lalu filter di memori JS.
+  // Solusi: resolve slot_id dulu berdasarkan date, lalu .in("slot_id", ...).
+  if (date) {
+    // Kalau barberId juga ada, filter slot by barberId sekaligus untuk
+    // memperkecil jumlah slot yang dicari (lebih efisien).
+    let slotQuery = supabase.from("slots").select("id").eq("date", date);
+    if (barberId) slotQuery = slotQuery.eq("barber_id", barberId);
+    const { data: slots } = await slotQuery;
+    const slotIds = (slots ?? []).map((s: { id: string }) => s.id);
+    if (slotIds.length === 0) {
+      return NextResponse.json({ bookings: [] });
+    }
+    query = query.in("slot_id", slotIds);
+  }
 
   const { data, error } = await query;
   if (error) {
@@ -116,10 +134,8 @@ export async function GET(req: NextRequest) {
       : [],
   }));
 
-  // Filter manual untuk date karena filter pada relasi nested tidak selalu didukung
-  const filtered = date ? normalized.filter((b) => b.slot?.date === date) : normalized;
-
-  return NextResponse.json({ bookings: filtered });
+  // Filter tanggal sudah dilakukan di DB level (via slot_id), tidak perlu filter ulang di JS.
+  return NextResponse.json({ bookings: normalized });
 }
 
 // Cari semua booking WAITING_PAYMENT yang payment-nya sudah expired,

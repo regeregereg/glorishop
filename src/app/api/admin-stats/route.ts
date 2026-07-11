@@ -29,6 +29,30 @@ export async function GET() {
     .filter((b) => ["CONFIRMED", "IN_PROGRESS", "DONE"].includes(b.status))
     .reduce((sum, b) => sum + getBookingTotalCommission(b), 0);
 
+  // RINCIAN CASH vs TF/QR HARI INI — supaya owner tidak bingung pas hitung
+  // uang cash di laci vs yang masuk rekening/QRIS. Aturan per booking DONE:
+  // - Ada payment CONFIRMED (dibayar via QRIS saat booking online, DP atau
+  //   Lunas) -> nominal payment.amount itu masuk kategori TF/QR.
+  // - Sisa dari total booking (kalau DP) ATAU seluruh total (kalau tidak ada
+  //   payment sama sekali / walk-in bayar cash di tempat) -> masuk cash.
+  // Basis "total booking" dipakai bareng-bareng dengan omsetHariIni di atas
+  // (getBookingTotalPrice) supaya cashHariIni + tfHariIni SELALU pas sama
+  // dengan omsetHariIni, tidak ada selisih pembulatan.
+  let cashHariIni = 0;
+  let tfHariIni = 0;
+  filteredToday
+    .filter((b) => b.status === "DONE")
+    .forEach((b) => {
+      const total = getBookingTotalPrice(b);
+      if (b.payment && b.payment.status === "CONFIRMED") {
+        const paid = b.payment.amount ?? 0;
+        tfHariIni += paid;
+        cashHariIni += Math.max(total - paid, 0);
+      } else {
+        cashHariIni += total;
+      }
+    });
+
   const pendingCount = filteredToday.filter((b) => b.status === "PENDING").length;
   const activeCount = filteredToday.filter((b) =>
     ["CONFIRMED", "IN_PROGRESS"].includes(b.status)
@@ -131,6 +155,8 @@ export async function GET() {
     todayBookings: filteredToday,
     omsetHariIni,
     komisiHariIni,
+    cashHariIni,
+    tfHariIni,
     pendingCount,
     activeCount,
     doneCount,

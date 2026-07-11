@@ -250,3 +250,52 @@ export async function PATCH(
 
   return NextResponse.json({ booking: updated });
 }
+
+// GET /api/bookings/[id] -> satu booking saja (dipakai halaman cetak struk
+// per-transaksi). Sebelumnya halaman itu fetch SEMUA booking lalu cari di
+// sisi klien yang cocok — makin lama makin boros seiring histori booking
+// bertambah, padahal cuma butuh 1 baris. Otorisasi: sama seperti PATCH di
+// atas (staff login, ATAU pemilik booking untuk pelanggan) supaya data
+// pribadi (no. telepon, dsb) tidak bisa diakses sembarang orang lewat ID.
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  const userSession = await getUserSession();
+  const staffSession = await getStaffSession();
+
+  if (!userSession && !staffSession) {
+    return NextResponse.json({ error: "Silakan login terlebih dahulu." }, { status: 401 });
+  }
+
+  const supabase = createAdminClient();
+
+  const { data, error } = await supabase
+    .from("bookings")
+    .select(
+      "*, service:services(*), services:booking_services(*, service:services(*)), barber:staff(id, name, photo_url), slot:slots(*), user:users(id, name, phone, wa_number), payment:payments(*)"
+    )
+    .eq("id", id)
+    .single();
+
+  if (error || !data) {
+    return NextResponse.json({ error: "Booking tidak ditemukan." }, { status: 404 });
+  }
+
+  // Pelanggan cuma boleh lihat booking miliknya sendiri; staff (admin/barber) bebas.
+  if (!staffSession && (!userSession || data.user_id !== userSession.id)) {
+    return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
+  }
+
+  const normalized = {
+    ...data,
+    payment: Array.isArray(data.payment) ? data.payment[0] ?? null : data.payment,
+    services: Array.isArray(data.services)
+      ? [...data.services].sort((a, c) => a.sort_order - c.sort_order)
+      : [],
+  };
+
+  return NextResponse.json({ booking: normalized });
+}

@@ -42,9 +42,14 @@ function formatJamKerja(menit: number): string {
 }
 
 export default function AdminLaporanPage() {
-  const [from, setFrom] = useState(
-    new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
-  );
+  // Default: awal bulan berjalan s/d hari ini — supaya admin buka Laporan
+  // langsung lihat rekap "bulan ini" tanpa perlu pilih tanggal manual dulu.
+  // Filter tanggal custom (Dari/Sampai) di bawah tetap bisa diubah bebas,
+  // ini cuma mengubah nilai awal saat halaman pertama kali dibuka.
+  const [from, setFrom] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+  });
   const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
   const [data, setData] = useState<{
     totalOmset: number;

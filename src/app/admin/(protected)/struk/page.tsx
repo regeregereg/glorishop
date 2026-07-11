@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Booking } from "@/types";
 import { ErrorState } from "@/components/ErrorState";
 import { LinkButton } from "@/components/Button";
-import { getBookingServiceNames, formatDateShort, formatTime, formatRupiah } from "@/lib/utils";
+import { getBookingServiceNames, formatDateShort, formatTime, formatRupiah, toLocalDateString } from "@/lib/utils";
 import { buildReceiptData } from "@/lib/receipt";
 import { Receipt, FileText } from "lucide-react";
 
@@ -12,8 +12,8 @@ export default function AdminStrukPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [from, setFrom] = useState(new Date().toISOString().slice(0, 10));
-  const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
+  const [from, setFrom] = useState(() => toLocalDateString(new Date()));
+  const [to, setTo] = useState(() => toLocalDateString(new Date()));
 
   const load = useCallback(async () => {
     setLoadError(false);

@@ -12,8 +12,14 @@ export async function GET() {
 
   const supabase = createAdminClient();
 
-  // 1. Booking IN_PROGRESS yang slotnya sudah lewat lebih dari 1 jam
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  // 1. Booking CONFIRMED ("lupa dimulai") ATAU IN_PROGRESS ("lupa diselesaikan")
+  // yang slotnya sudah lewat lebih dari 3 jam. Sebelumnya di sini cuma
+  // status IN_PROGRESS yang diambil, jadi booking CONFIRMED yang barber-nya
+  // lupa klik "Mulai" sama sekali tidak pernah muncul di halaman resolve —
+  // padahal itu justru yang paling sering nyangkut (lihat alert dashboard).
+  // Threshold disamakan dengan definisi "terlambat" di /api/admin-stats (3 jam)
+  // supaya konsisten dengan yang ditampilkan di alert dashboard.
+  const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
   const { data: stuckBookings } = await supabase
     .from("bookings")
     .select(`
@@ -23,7 +29,7 @@ export async function GET() {
       slot:slots(id, date, start_time, end_time),
       services:booking_services(service_name, final_price, service_price)
     `)
-    .eq("status", "IN_PROGRESS")
+    .in("status", ["CONFIRMED", "IN_PROGRESS"])
     .order("created_at", { ascending: true });
 
   // Filter di sisi aplikasi karena slot adalah join (tidak bisa filter langsung)
@@ -31,7 +37,7 @@ export async function GET() {
     const slot = Array.isArray(b.slot) ? b.slot[0] : b.slot;
     if (!slot?.date || !slot?.start_time) return true; // include jika slot tidak jelas
     const slotStart = new Date(`${slot.date}T${slot.start_time}`);
-    return slotStart.toISOString() < oneHourAgo;
+    return slotStart.toISOString() < threeHoursAgo;
   });
 
   // 2. Pembayaran PENDING_REVIEW yang sudah lebih dari 24 jam

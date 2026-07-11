@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { formatRupiah, formatDateShort } from "@/lib/utils";
+import { formatRupiah, formatDateShort, toLocalDateString } from "@/lib/utils";
 import { ErrorState } from "@/components/ErrorState";
 import { Button } from "@/components/Button";
 import { Wallet, ShoppingBag, HandCoins, Store, ClipboardCheck, Printer, Clock3, AlertTriangle, UserX } from "lucide-react";
@@ -47,30 +47,26 @@ function formatJamKerja(menit: number): string {
 // diubah sama sekali, ini cuma cara cepat buat ngisinya.
 type DatePreset = "7d" | "30d" | "thisMonth" | "lastMonth";
 
-function toISODate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
 function getPresetRange(preset: DatePreset): { from: string; to: string } {
   const now = new Date();
   if (preset === "7d") {
     const from = new Date(now);
     from.setDate(from.getDate() - 6);
-    return { from: toISODate(from), to: toISODate(now) };
+    return { from: toLocalDateString(from), to: toLocalDateString(now) };
   }
   if (preset === "30d") {
     const from = new Date(now);
     from.setDate(from.getDate() - 29);
-    return { from: toISODate(from), to: toISODate(now) };
+    return { from: toLocalDateString(from), to: toLocalDateString(now) };
   }
   if (preset === "thisMonth") {
     const from = new Date(now.getFullYear(), now.getMonth(), 1);
-    return { from: toISODate(from), to: toISODate(now) };
+    return { from: toLocalDateString(from), to: toLocalDateString(now) };
   }
   // lastMonth
   const from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const to = new Date(now.getFullYear(), now.getMonth(), 0);
-  return { from: toISODate(from), to: toISODate(to) };
+  return { from: toLocalDateString(from), to: toLocalDateString(to) };
 }
 
 export default function AdminLaporanPage() {
@@ -80,9 +76,9 @@ export default function AdminLaporanPage() {
   // ini cuma mengubah nilai awal saat halaman pertama kali dibuka.
   const [from, setFrom] = useState(() => {
     const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+    return toLocalDateString(new Date(d.getFullYear(), d.getMonth(), 1));
   });
-  const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
+  const [to, setTo] = useState(() => toLocalDateString(new Date()));
   const [data, setData] = useState<{
     totalOmset: number;
     totalKomisi: number;

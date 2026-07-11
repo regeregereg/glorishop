@@ -10,7 +10,8 @@ import { Eye, X, CheckCircle2, XCircle } from "lucide-react";
 type Tab = "PENDING_REVIEW" | "RIWAYAT";
 
 export default function AdminPaymentsPage() {
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [pendingReview, setPendingReview] = useState<Booking[]>([]);
+  const [history, setHistory] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [tab, setTab] = useState<Tab>("PENDING_REVIEW");
@@ -20,16 +21,20 @@ export default function AdminPaymentsPage() {
   const [rejectTarget, setRejectTarget] = useState<Booking | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
-  // isInitialLoad: layar error penuh hanya untuk pemuatan pertama. Kalau
-  // polling 15 detik berikutnya gagal, diamkan saja — daftar yang sudah
-  // tampil tetap ada, dicoba lagi otomatis di siklus berikutnya.
-  const load = useCallback(async (isInitialLoad = false) => {
+  // "Menunggu Verifikasi" perlu selalu up-to-date (admin harus cepat tanggap
+  // kalau ada bukti transfer baru masuk) — makanya di-poll tiap 15 detik.
+  // Tapi sekarang query-nya dipersempit ke status=PENDING saja (bukan tarik
+  // SEMUA booking dari sejak toko buka tiap 15 detik seperti sebelumnya).
+  // List ini secara alami tetap kecil karena begitu diverifikasi, statusnya
+  // berubah dan otomatis hilang dari sini.
+  const loadPending = useCallback(async (isInitialLoad = false) => {
     try {
-      const expiry = isInitialLoad ? "?checkExpiry=1" : "";
-      const res = await fetch(`/api/bookings${expiry}`);
+      const expiry = isInitialLoad ? "&checkExpiry=1" : "";
+      const res = await fetch(`/api/bookings?status=PENDING${expiry}`);
       if (!res.ok) throw new Error("Gagal memuat data pembayaran.");
       const data = await res.json();
-      setBookings(data.bookings || []);
+      const bookings: Booking[] = data.bookings || [];
+      setPendingReview(bookings.filter((b) => b.payment?.status === "PENDING_REVIEW"));
       setLoadError(false);
     } catch {
       if (isInitialLoad) setLoadError(true);
@@ -38,20 +43,34 @@ export default function AdminPaymentsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    load(true);
-    const interval = setInterval(() => load(), 15000);
-    return () => clearInterval(interval);
-  }, [load]);
+  // "Riwayat" (payment yang sudah diputuskan) TIDAK punya filter status booking
+  // yang pas di API (bisa CONFIRMED/DONE/dll), jadi tetap fetch semua booking —
+  // tapi sekarang cuma sekali saat halaman dibuka + setelah admin
+  // konfirmasi/tolak pembayaran, BUKAN diulang tiap 15 detik selama-lamanya
+  // seperti sebelumnya. Ini yang paling besar dampaknya ke beban server,
+  // karena polling 15 detik tanpa henti itu jauh lebih boros daripada
+  // fetch sesekali saja.
+  const loadHistory = useCallback(async () => {
+    try {
+      const res = await fetch("/api/bookings");
+      if (!res.ok) return;
+      const data = await res.json();
+      const bookings: Booking[] = data.bookings || [];
+      setHistory(
+        bookings.filter((b) => b.payment && (b.payment.status === "CONFIRMED" || b.payment.status === "REJECTED"))
+      );
+    } catch {
+      // Diamkan — riwayat bukan data yang butuh real-time, tinggal coba lagi
+      // lain kali tab dibuka atau setelah aksi berikutnya.
+    }
+  }, []);
 
-  // Booking yang bukti transfernya menunggu dicek admin
-  const pendingReview = bookings.filter(
-    (b) => b.status === "PENDING" && b.payment?.status === "PENDING_REVIEW"
-  );
-  // Riwayat: yang sudah pernah ada payment dan sudah diputuskan (confirmed/rejected)
-  const history = bookings.filter(
-    (b) => b.payment && (b.payment.status === "CONFIRMED" || b.payment.status === "REJECTED")
-  );
+  useEffect(() => {
+    loadPending(true);
+    loadHistory();
+    const interval = setInterval(() => loadPending(), 15000);
+    return () => clearInterval(interval);
+  }, [loadPending, loadHistory]);
 
   const list = tab === "PENDING_REVIEW" ? pendingReview : history;
 
@@ -87,7 +106,8 @@ export default function AdminPaymentsPage() {
         alert(data.error || "Gagal mengonfirmasi pembayaran.");
         return;
       }
-      load(true);
+      loadPending(true);
+      loadHistory();
     } catch {
       alert("Gagal mengonfirmasi pembayaran. Periksa koneksi internet kamu.");
     } finally {
@@ -114,7 +134,8 @@ export default function AdminPaymentsPage() {
       }
       setRejectTarget(null);
       setRejectReason("");
-      load(true);
+      loadPending(true);
+      loadHistory();
     } catch {
       alert("Gagal menolak pembayaran. Periksa koneksi internet kamu.");
     } finally {
@@ -159,7 +180,7 @@ export default function AdminPaymentsPage() {
           className="mt-5"
           title="Gagal memuat data pembayaran"
           message="Periksa koneksi internet kamu, lalu coba lagi."
-          onRetry={() => load(true)}
+          onRetry={() => loadPending(true)}
         />
       )}
 

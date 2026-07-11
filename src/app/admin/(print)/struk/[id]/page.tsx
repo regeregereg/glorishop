@@ -27,16 +27,11 @@ export default function StrukDetailPage() {
     setLoadError(false);
     setLoading(true);
     try {
-      // Tidak ada endpoint GET /api/bookings/[id] untuk satu booking saja,
-      // jadi ambil semua booking lalu cari yang cocok di sisi klien — daftar
-      // ini sudah di-fetch admin di halaman lain juga, ukurannya wajar untuk
-      // skala satu barbershop (bukan ribuan baris).
-      const res = await fetch("/api/bookings");
+      const res = await fetch(`/api/bookings/${bookingId}`);
       if (!res.ok) throw new Error("Gagal memuat data booking.");
       const data = await res.json();
-      const found = (data.bookings || []).find((b: Booking) => b.id === bookingId);
-      if (!found) throw new Error("Booking tidak ditemukan.");
-      setBooking(found);
+      if (!data.booking) throw new Error("Booking tidak ditemukan.");
+      setBooking(data.booking);
     } catch {
       setLoadError(true);
     } finally {

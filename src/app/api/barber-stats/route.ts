@@ -26,7 +26,15 @@ export async function GET(req: NextRequest) {
 
   const supabase = createAdminClient();
 
-  const [{ data: bookings }, { data: reviews }] = await Promise.all([
+  // Filter tanggal opsional (?from=YYYY-MM-DD&to=YYYY-MM-DD) untuk halaman
+  // Riwayat Kerja barber — dipakai preset "7 Hari"/"30 Hari"/"Bulan Ini".
+  // Kalau tidak dikirim (from & to kosong), berarti "Semua" — behaviour lama
+  // tetap sama persis, tidak ada breaking change buat siapa pun yang belum
+  // pakai filter ini.
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
+
+  const [{ data: bookingsRaw }, { data: reviews }] = await Promise.all([
     supabase
       .from("bookings")
       .select(
@@ -47,6 +55,18 @@ export async function GET(req: NextRequest) {
       .eq("barber_id", barberId)
       .order("created_at", { ascending: false }),
   ]);
+
+  // Filter di sisi aplikasi karena slot adalah join (tidak bisa filter
+  // langsung lewat query builder Supabase untuk kolom di tabel relasi).
+  const bookings = (bookingsRaw ?? []).filter((b) => {
+    if (!from && !to) return true;
+    const slot = Array.isArray(b.slot) ? b.slot[0] : b.slot;
+    const date = slot?.date;
+    if (!date) return true; // jangan sembunyikan data yang slotnya tidak jelas
+    if (from && date < from) return false;
+    if (to && date > to) return false;
+    return true;
+  });
 
   const avgRating =
     reviews && reviews.length > 0

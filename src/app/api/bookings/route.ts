@@ -46,6 +46,8 @@ function timeToMinutes(t: string): number {
 
 // GET /api/bookings?userId=xxx  -> riwayat booking user
 // GET /api/bookings?date=YYYY-MM-DD  -> semua booking di tanggal itu (admin/barber)
+// GET /api/bookings?from=YYYY-MM-DD&to=YYYY-MM-DD -> rentang tanggal (admin,
+//   dipakai halaman Semua Booking supaya tidak selalu tarik seluruh histori)
 // GET /api/bookings?barberId=xxx&date=YYYY-MM-DD -> antrian barber tertentu
 //
 // OTORISASI (penting — endpoint ini mengembalikan data pribadi pelanggan:
@@ -62,6 +64,8 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get("userId");
   const date = searchParams.get("date");
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
   const barberId = searchParams.get("barberId");
   const status = searchParams.get("status");
 
@@ -109,6 +113,21 @@ export async function GET(req: NextRequest) {
     // Kalau barberId juga ada, filter slot by barberId sekaligus untuk
     // memperkecil jumlah slot yang dicari (lebih efisien).
     let slotQuery = supabase.from("slots").select("id").eq("date", date);
+    if (barberId) slotQuery = slotQuery.eq("barber_id", barberId);
+    const { data: slots } = await slotQuery;
+    const slotIds = (slots ?? []).map((s: { id: string }) => s.id);
+    if (slotIds.length === 0) {
+      return NextResponse.json({ bookings: [] });
+    }
+    query = query.in("slot_id", slotIds);
+  } else if (from || to) {
+    // Rentang tanggal (bukan tanggal tunggal) — dipakai halaman "Semua
+    // Booking" admin supaya defaultnya tidak menarik SELURUH histori booking
+    // dari sejak toko buka. Pola sama seperti filter `date` di atas: resolve
+    // slot_id dulu berdasarkan rentang tanggalnya, baru filter booking-nya.
+    let slotQuery = supabase.from("slots").select("id");
+    if (from) slotQuery = slotQuery.gte("date", from);
+    if (to) slotQuery = slotQuery.lte("date", to);
     if (barberId) slotQuery = slotQuery.eq("barber_id", barberId);
     const { data: slots } = await slotQuery;
     const slotIds = (slots ?? []).map((s: { id: string }) => s.id);

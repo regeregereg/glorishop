@@ -41,6 +41,38 @@ function formatJamKerja(menit: number): string {
   return sisa === 0 ? `${jam}j` : `${jam}j ${sisa}m`;
 }
 
+// Preset rentang tanggal cepat (7 Hari / 30 Hari / Bulan Ini / Bulan Lalu) —
+// supaya owner tidak harus klik-klik input tanggal manual tiap kali mau
+// lihat rekap standar. Input "Dari"/"Sampai" manual tetap ada dan tidak
+// diubah sama sekali, ini cuma cara cepat buat ngisinya.
+type DatePreset = "7d" | "30d" | "thisMonth" | "lastMonth";
+
+function toISODate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function getPresetRange(preset: DatePreset): { from: string; to: string } {
+  const now = new Date();
+  if (preset === "7d") {
+    const from = new Date(now);
+    from.setDate(from.getDate() - 6);
+    return { from: toISODate(from), to: toISODate(now) };
+  }
+  if (preset === "30d") {
+    const from = new Date(now);
+    from.setDate(from.getDate() - 29);
+    return { from: toISODate(from), to: toISODate(now) };
+  }
+  if (preset === "thisMonth") {
+    const from = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { from: toISODate(from), to: toISODate(now) };
+  }
+  // lastMonth
+  const from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const to = new Date(now.getFullYear(), now.getMonth(), 0);
+  return { from: toISODate(from), to: toISODate(to) };
+}
+
 export default function AdminLaporanPage() {
   // Default: awal bulan berjalan s/d hari ini — supaya admin buka Laporan
   // langsung lihat rekap "bulan ini" tanpa perlu pilih tanggal manual dulu.
@@ -105,7 +137,38 @@ export default function AdminLaporanPage() {
         Rekap omset, layanan terpopuler, dan performa barber.
       </p>
 
-      <div className="mt-5 flex flex-wrap gap-3">
+      <div className="mt-5 flex flex-wrap gap-2">
+        {(
+          [
+            { key: "7d", label: "7 Hari" },
+            { key: "30d", label: "30 Hari" },
+            { key: "thisMonth", label: "Bulan Ini" },
+            { key: "lastMonth", label: "Bulan Lalu" },
+          ] as { key: DatePreset; label: string }[]
+        ).map((p) => {
+          const range = getPresetRange(p.key);
+          const isActive = range.from === from && range.to === to;
+          return (
+            <button
+              key={p.key}
+              type="button"
+              onClick={() => {
+                setFrom(range.from);
+                setTo(range.to);
+              }}
+              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                isActive
+                  ? "bg-accent text-white"
+                  : "border border-border-soft bg-surface text-text-secondary hover:bg-surface-2"
+              }`}
+            >
+              {p.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-3">
         <div>
           <label className="mb-1 block text-xs text-text-secondary">Dari</label>
           <input

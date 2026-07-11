@@ -152,8 +152,9 @@ export default function AdminDashboardPage() {
 
       {/* ALERT: booking CONFIRMED/IN_PROGRESS yang barber lupa diproses
           (lupa klik "Mulai" ATAU lupa klik "Selesai") padahal slotnya
-          sudah lama lewat. Klik baris -> ke halaman Antrian, di sana ada
-          tombol "Tandai Selesai" untuk membersihkannya langsung. */}
+          sudah lama lewat. Klik baris -> ke halaman Resolve, karena
+          booking-nya bisa saja dari hari-hari sebelumnya (tidak akan
+          muncul lagi di halaman Antrian yang cuma menampilkan hari ini). */}
       {data.bookingTerlambat.length > 0 && (
         <div className="mt-5 rounded-[var(--radius-card)] border border-status-progress/40 bg-status-progress/10 p-4">
           <div className="flex items-center gap-2">
@@ -169,7 +170,7 @@ export default function AdminDashboardPage() {
             {data.bookingTerlambat.map((b) => (
               <Link
                 key={b.bookingId}
-                href={`/admin/antrian`}
+                href={`/admin/resolve`}
                 className="flex items-center justify-between rounded-xl bg-surface px-3.5 py-2.5 transition-colors hover:bg-surface-2"
               >
                 <div>

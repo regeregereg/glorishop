@@ -106,21 +106,55 @@ function WaChatButton({
   );
 }
 
+// Preset rentang tanggal untuk halaman "Semua Booking" — defaultnya "30
+// Hari" (bukan "Semua") supaya begitu data booking sudah banyak, halaman
+// ini tidak selalu menarik SELURUH histori dari sejak toko buka pertama
+// kali. "Semua" tetap tersedia buat yang benar-benar butuh lihat semuanya.
+type DatePreset = "30d" | "7d" | "thisMonth" | "all";
+
+function getPresetRange(preset: DatePreset): { from: string; to: string } | null {
+  const now = new Date();
+  if (preset === "all") return null;
+  if (preset === "7d") {
+    const from = new Date(now);
+    from.setDate(from.getDate() - 6);
+    return { from: toLocalDateString(from), to: toLocalDateString(now) };
+  }
+  if (preset === "30d") {
+    const from = new Date(now);
+    from.setDate(from.getDate() - 29);
+    return { from: toLocalDateString(from), to: toLocalDateString(now) };
+  }
+  // thisMonth
+  const from = new Date(now.getFullYear(), now.getMonth(), 1);
+  return { from: toLocalDateString(from), to: toLocalDateString(now) };
+}
+
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [statusFilter, setStatusFilter] = useState<BookingStatus | "ALL">("ALL");
+  const [datePreset, setDatePreset] = useState<DatePreset>("30d");
   const [searchCode, setSearchCode] = useState("");
   const [loading, setLoading] = useState(true);
   const [showWalkinForm, setShowWalkinForm] = useState(false);
   const [inlinePhoneId, setInlinePhoneId] = useState<string | null>(null);
   const [inlinePhone, setInlinePhone] = useState("");
 
+  // Begitu admin mengetik di kotak pencarian, otomatis abaikan batas
+  // tanggal (anggap "Semua") — supaya cari kode booking/nama yang lebih
+  // lama dari preset yang lagi aktif tetap ketemu, tidak diam-diam
+  // "hilang" cuma karena kepotong filter tanggal.
+  const effectivePreset: DatePreset = searchCode.trim() !== "" ? "all" : datePreset;
+
   const load = useCallback(async () => {
-    const res = await fetch("/api/bookings?checkExpiry=1");
+    setLoading(true);
+    const range = getPresetRange(effectivePreset);
+    const qs = range ? `&from=${range.from}&to=${range.to}` : "";
+    const res = await fetch(`/api/bookings?checkExpiry=1${qs}`);
     const data = await res.json();
     setBookings(data.bookings || []);
     setLoading(false);
-  }, []);
+  }, [effectivePreset]);
 
   useEffect(() => {
     load();
@@ -155,6 +189,40 @@ export default function AdminBookingsPage() {
           placeholder="Cari kode booking (GLR-...) atau nama pelanggan"
           className="w-full rounded-xl border border-border-soft bg-surface px-4 py-2.5 text-sm outline-none focus:border-accent font-mono placeholder:font-sans"
         />
+      </div>
+
+      {/* Preset rentang tanggal — defaultnya "30 Hari" biar halaman ini tidak
+          selalu menarik seluruh histori booking. Disembunyikan/nonaktif
+          otomatis (lihat effectivePreset) begitu admin sedang mencari,
+          jadi tidak perlu bingung ganti preset dulu buat cari booking lama. */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {(
+          [
+            { key: "7d", label: "7 Hari" },
+            { key: "30d", label: "30 Hari" },
+            { key: "thisMonth", label: "Bulan Ini" },
+            { key: "all", label: "Semua" },
+          ] as { key: DatePreset; label: string }[]
+        ).map((p) => (
+          <button
+            key={p.key}
+            type="button"
+            onClick={() => setDatePreset(p.key)}
+            disabled={searchCode.trim() !== ""}
+            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+              datePreset === p.key
+                ? "bg-accent text-black"
+                : "border border-border-soft bg-surface text-text-secondary hover:bg-surface-2"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+        {searchCode.trim() !== "" && (
+          <span className="text-xs text-text-tertiary">
+            Menampilkan semua tanggal selama pencarian aktif
+          </span>
+        )}
       </div>
 
       <div className="mt-5 flex gap-2 overflow-x-auto pb-2">

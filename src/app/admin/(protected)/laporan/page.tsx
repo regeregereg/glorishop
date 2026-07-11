@@ -158,7 +158,7 @@ export default function AdminLaporanPage() {
               }}
               className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
                 isActive
-                  ? "bg-accent text-white"
+                  ? "bg-accent text-black"
                   : "border border-border-soft bg-surface text-text-secondary hover:bg-surface-2"
               }`}
             >

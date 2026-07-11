@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Booking, Review } from "@/types";
 import { ErrorState } from "@/components/ErrorState";
-import { formatDateIndo, formatRupiah, getBookingServiceNames, getBookingPriceLabel } from "@/lib/utils";
+import { formatDateIndo, formatRupiah, getBookingServiceNames, getBookingPriceLabel, toLocalDateString } from "@/lib/utils";
 import { getBookingTotalCommission } from "@/lib/commission";
 import { Star, TrendingUp, Wallet } from "lucide-react";
 
@@ -12,26 +12,22 @@ import { Star, TrendingUp, Wallet } from "lucide-react";
 // jadi barber yang belum pernah pakai filter tidak akan lihat ada yang berubah.
 type DatePreset = "all" | "7d" | "30d" | "thisMonth";
 
-function toISODate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
 function getPresetRange(preset: DatePreset): { from: string; to: string } | null {
   const now = new Date();
   if (preset === "all") return null;
   if (preset === "7d") {
     const from = new Date(now);
     from.setDate(from.getDate() - 6);
-    return { from: toISODate(from), to: toISODate(now) };
+    return { from: toLocalDateString(from), to: toLocalDateString(now) };
   }
   if (preset === "30d") {
     const from = new Date(now);
     from.setDate(from.getDate() - 29);
-    return { from: toISODate(from), to: toISODate(now) };
+    return { from: toLocalDateString(from), to: toLocalDateString(now) };
   }
   // thisMonth
   const from = new Date(now.getFullYear(), now.getMonth(), 1);
-  return { from: toISODate(from), to: toISODate(now) };
+  return { from: toLocalDateString(from), to: toLocalDateString(now) };
 }
 
 export default function BarberRiwayatPage() {

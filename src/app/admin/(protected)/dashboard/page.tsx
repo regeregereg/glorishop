@@ -23,6 +23,8 @@ import {
   HandCoins,
   CalendarClock,
   ArrowRight,
+  Banknote,
+  QrCode,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -65,6 +67,8 @@ export default function AdminDashboardPage() {
     todayBookings: Booking[];
     omsetHariIni: number;
     komisiHariIni: number;
+    cashHariIni: number;
+    tfHariIni: number;
     pendingCount: number;
     activeCount: number;
     doneCount: number;
@@ -238,6 +242,16 @@ export default function AdminDashboardPage() {
           icon={<HandCoins size={18} />}
           label="Komisi Barber Hari Ini"
           value={formatRupiah(data.komisiHariIni)}
+        />
+        <StatCard
+          icon={<Banknote size={18} />}
+          label="Cash Hari Ini"
+          value={formatRupiah(data.cashHariIni)}
+        />
+        <StatCard
+          icon={<QrCode size={18} />}
+          label="TF/QR Hari Ini"
+          value={formatRupiah(data.tfHariIni)}
         />
         <StatCard icon={<Clock size={18} />} label="Menunggu Konfirmasi" value={String(data.pendingCount)} />
         <StatCard icon={<Users size={18} />} label="Antrian Aktif" value={String(data.activeCount)} />

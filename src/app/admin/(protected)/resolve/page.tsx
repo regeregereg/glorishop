@@ -133,7 +133,7 @@ export default function AdminResolvePage() {
               <div className="mb-3 flex items-center gap-2">
                 <Clock size={16} className="text-status-progress" />
                 <h2 className="font-display text-sm font-bold text-status-progress">
-                  Booking belum ditandai selesai ({stuckBookings.length})
+                  Booking lupa dimulai/diselesaikan ({stuckBookings.length})
                 </h2>
               </div>
               <div className="overflow-hidden rounded-[var(--radius-card)] border border-status-progress/30 bg-surface">

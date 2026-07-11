@@ -7,12 +7,13 @@ import { buildReceiptData } from "@/lib/receipt";
 import { DailyReportDocument, DailyReportRow } from "@/components/DailyReportDocument";
 import { PrintActions } from "@/components/PrintActions";
 import { ErrorState } from "@/components/ErrorState";
+import { toLocalDateString } from "@/lib/utils";
 
 const REPORT_ELEMENT_ID = "daily-report-print-area";
 
 function LaporanHarianContent() {
   const searchParams = useSearchParams();
-  const dateParam = searchParams.get("date") || new Date().toISOString().slice(0, 10);
+  const dateParam = searchParams.get("date") || toLocalDateString(new Date());
 
   const [date, setDate] = useState(dateParam);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -38,6 +39,11 @@ function LaporanHarianContent() {
     load();
   }, [load]);
 
+  // Filter tetap di sisi klien (bukan lewat parameter `date` API) dengan
+  // sengaja — supaya booking DONE lama yang tidak punya data slot (lihat
+  // fallback ke created_at di bawah) tetap ikut ke-hitung di laporan omset,
+  // bukannya diam-diam hilang karena filter tanggal di server cuma
+  // mengenali lewat relasi slot.
   const rows: DailyReportRow[] = bookings
     .filter((b) => {
       const dateKey = b.slot?.date ?? b.created_at.slice(0, 10);

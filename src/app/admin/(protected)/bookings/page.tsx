@@ -18,12 +18,60 @@ function getWaNumber(b: Booking): string | null {
   return num ?? null;
 }
 
-function buildWaLink(phone: string, bookingCtx: string): string {
+function buildWaLink(phone: string, message: string): string {
   let p = phone.replace(/[\s-]/g, "");
   if (p.startsWith("0")) p = "62" + p.slice(1);
   if (p.startsWith("+")) p = p.slice(1);
-  const msg = encodeURIComponent(`Halo kak, ini Admin Glori Barbershop 👋\n${bookingCtx}\n\nAda yang bisa kami bantu?`);
-  return `https://wa.me/${p}?text=${msg}`;
+  return `https://wa.me/${p}?text=${encodeURIComponent(message)}`;
+}
+
+// Susun pesan WA konfirmasi booking dengan format baku (kode antrian,
+// layanan, DP, sisa bayar, & reminder datang 10 menit lebih awal) — supaya
+// admin tidak perlu ketik manual satu-satu tiap kali chat pelanggan.
+// DP/Kurang cuma ditampilkan kalau memang ada pembayaran DP yang sudah
+// terkonfirmasi; untuk booking lunas atau walk-in tanpa data payment,
+// baris itu otomatis disembunyikan supaya tidak muncul "DP = Rp0" yang
+// membingungkan pelanggan.
+function buildBookingWaMessage(booking: Booking): string {
+  const name = booking.user?.name ?? booking.walkin_name ?? "Pelanggan";
+  const date = booking.slot?.date ?? "";
+  const time = booking.slot?.start_time ? formatTime(booking.slot.start_time) : "";
+  const layanan = getBookingServiceNames(booking, 5);
+
+  const lines = [
+    `Halo kak, ini Admin Glori Barbershop 👋`,
+    `Booking ${name} pada ${date} jam ${time}`,
+  ];
+
+  if (booking.booking_code) {
+    lines.push(`Kode Antrian = ${booking.booking_code}`);
+  }
+
+  lines.push(`Layanan = ${layanan}`);
+
+  if (booking.payment && booking.payment.status === "CONFIRMED") {
+    const subtotal =
+      booking.final_price ??
+      (booking.services && booking.services.length > 0
+        ? booking.services.reduce(
+            (sum, s) => sum + (s.final_price ?? s.service_price ?? s.service_price_min ?? 0),
+            0
+          )
+        : 0);
+    if (booking.payment.payment_type === "DP") {
+      const kurang = Math.max(subtotal - booking.payment.amount, 0);
+      lines.push(`DP = ${formatRupiah(booking.payment.amount)}`);
+      lines.push(`Kurang = ${formatRupiah(kurang)}`);
+    } else {
+      lines.push(`Status = Lunas`);
+    }
+  }
+
+  lines.push(`Mohon datang 10 menit sebelum jam yang ditentukan ya kak 🙏`);
+  lines.push(``);
+  lines.push(`Ada yang bisa kami bantu?`);
+
+  return lines.join("\n");
 }
 
 function WaChatButton({
@@ -34,11 +82,10 @@ function WaChatButton({
   onRequestPhone: () => void;
 }) {
   const waNum = getWaNumber(booking);
-  const ctx = `Booking ${booking.user?.name ?? booking.walkin_name ?? "Pelanggan"} pada ${booking.slot?.date ?? ""} jam ${booking.slot?.start_time?.slice(0, 5) ?? ""}.`;
   if (waNum) {
     return (
       <a
-        href={buildWaLink(waNum, ctx)}
+        href={buildWaLink(waNum, buildBookingWaMessage(booking))}
         target="_blank"
         rel="noopener noreferrer"
         title={`Chat WA: ${waNum.startsWith("62") ? "0" + waNum.slice(2) : waNum}`}
@@ -185,7 +232,7 @@ export default function AdminBookingsPage() {
                         className="w-28 rounded-lg border border-border-soft bg-surface px-2.5 py-1.5 text-xs outline-none focus:border-accent"
                       />
                       <a
-                        href={inlinePhone.trim() ? buildWaLink(inlinePhone.trim(), `Booking: ${b.user?.name ?? b.walkin_name ?? "Pelanggan"}`) : "#"}
+                        href={inlinePhone.trim() ? buildWaLink(inlinePhone.trim(), buildBookingWaMessage(b)) : "#"}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => { if (!inlinePhone.trim()) return; setInlinePhoneId(null); setInlinePhone(""); }}

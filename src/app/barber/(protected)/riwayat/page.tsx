@@ -1,13 +1,41 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Booking, Review } from "@/types";
 import { ErrorState } from "@/components/ErrorState";
 import { formatDateIndo, formatRupiah, getBookingServiceNames, getBookingPriceLabel } from "@/lib/utils";
 import { getBookingTotalCommission } from "@/lib/commission";
 import { Star, TrendingUp, Wallet } from "lucide-react";
 
+// Preset rentang tanggal cepat, pola sama seperti di halaman Laporan admin.
+// "all" (Semua) adalah default — ini behaviour lama sebelum filter ini ada,
+// jadi barber yang belum pernah pakai filter tidak akan lihat ada yang berubah.
+type DatePreset = "all" | "7d" | "30d" | "thisMonth";
+
+function toISODate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function getPresetRange(preset: DatePreset): { from: string; to: string } | null {
+  const now = new Date();
+  if (preset === "all") return null;
+  if (preset === "7d") {
+    const from = new Date(now);
+    from.setDate(from.getDate() - 6);
+    return { from: toISODate(from), to: toISODate(now) };
+  }
+  if (preset === "30d") {
+    const from = new Date(now);
+    from.setDate(from.getDate() - 29);
+    return { from: toISODate(from), to: toISODate(now) };
+  }
+  // thisMonth
+  const from = new Date(now.getFullYear(), now.getMonth(), 1);
+  return { from: toISODate(from), to: toISODate(now) };
+}
+
 export default function BarberRiwayatPage() {
+  const [preset, setPreset] = useState<DatePreset>("all");
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [avgRating, setAvgRating] = useState<number | null>(null);
@@ -15,10 +43,12 @@ export default function BarberRiwayatPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
-  function load() {
+  const load = useCallback(() => {
     setLoading(true);
     setLoadError(false);
-    fetch("/api/barber-stats")
+    const range = getPresetRange(preset);
+    const qs = range ? `?from=${range.from}&to=${range.to}` : "";
+    fetch(`/api/barber-stats${qs}`)
       .then((r) => {
         if (!r.ok) throw new Error("Gagal memuat riwayat kerja.");
         return r.json();
@@ -34,11 +64,11 @@ export default function BarberRiwayatPage() {
         setLoading(false);
         setLoadError(true);
       });
-  }
+  }, [preset]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   if (loadError) {
     return (
@@ -71,6 +101,30 @@ export default function BarberRiwayatPage() {
     <div className="px-5 pt-6">
       <h1 className="font-display text-2xl font-extrabold">Riwayat Kerja</h1>
 
+      <div className="mt-4 flex flex-wrap gap-2">
+        {(
+          [
+            { key: "all", label: "Semua" },
+            { key: "7d", label: "7 Hari" },
+            { key: "30d", label: "30 Hari" },
+            { key: "thisMonth", label: "Bulan Ini" },
+          ] as { key: DatePreset; label: string }[]
+        ).map((p) => (
+          <button
+            key={p.key}
+            type="button"
+            onClick={() => setPreset(p.key)}
+            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+              preset === p.key
+                ? "bg-accent text-black"
+                : "border border-border-soft bg-surface text-text-secondary hover:bg-surface-2"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
       <div className="mt-5 grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-border-soft bg-surface p-4">
           <p className="flex items-center gap-1 text-xs text-text-secondary">
@@ -93,7 +147,9 @@ export default function BarberRiwayatPage() {
           <Wallet size={16} />
         </div>
         <div>
-          <p className="text-xs text-text-secondary">Total komisi (semua riwayat)</p>
+          <p className="text-xs text-text-secondary">
+            Total komisi {preset === "all" ? "(semua riwayat)" : "(periode ini)"}
+          </p>
           <p className="font-display text-base font-bold text-accent">{formatRupiah(totalCommission)}</p>
         </div>
       </div>

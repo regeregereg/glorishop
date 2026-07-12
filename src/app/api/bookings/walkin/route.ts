@@ -5,6 +5,7 @@ import { sendPushToAllAdmins } from "@/lib/push";
 import { calculateCommissionAmount, getRowPriceForCommission } from "@/lib/commission";
 import { getEffectivePrice } from "@/lib/pricing";
 import { toLocalDateString, generateBookingCode } from "@/lib/utils";
+import { getPaymentExpiryDate } from "@/lib/payment";
 import { Service } from "@/types";
 
 // POST /api/bookings/walkin
@@ -47,6 +48,15 @@ export async function POST(req: NextRequest) {
   const serviceIds: string[] = Array.isArray(rawServiceIds)
     ? Array.from(new Set(rawServiceIds.filter((id): id is string => typeof id === "string" && id.length > 0)))
     : [];
+
+  // Metode bayar walk-in — dipilih barber/admin saat mencatat ("Catat
+  // Cepat" atau form Walk-in). Defaultnya "cash" (perilaku lama, tidak ada
+  // baris payment sama sekali). Kalau "qris", dibuatkan satu baris payment
+  // berstatus CONFIRMED langsung (bukan alur upload-bukti seperti booking
+  // online — di sini pelanggan sudah bayar di tempat lewat QRIS, admin/
+  // barber cuma mencatatnya) supaya otomatis terhitung sebagai "TF/QR" di
+  // rincian pembayaran dashboard, bukan ikut kehitung "Cash".
+  const paymentMethod: "cash" | "qris" = body.payment_method === "qris" ? "qris" : "cash";
 
   if (serviceIds.length === 0) {
     return NextResponse.json({ error: "Pilih minimal satu layanan." }, { status: 400 });
@@ -215,6 +225,29 @@ export async function POST(req: NextRequest) {
     await supabase.from("bookings").delete().eq("id", booking.id);
     await supabase.from("slots").update({ is_available: true }).eq("id", slotRow.id);
     return NextResponse.json({ error: bsError.message }, { status: 500 });
+  }
+
+  // Kalau dibayar via QRIS di tempat (bukan cash), catat satu baris payment
+  // berstatus CONFIRMED langsung — bukan alur "menunggu verifikasi" seperti
+  // booking online, karena barber/admin yang mencatat ini sudah melihat
+  // sendiri pembayarannya masuk. Ini murni supaya transaksi ini otomatis
+  // terhitung sebagai "TF/QR" (bukan "Cash") di rincian pembayaran
+  // dashboard — kalau baris ini gagal dibuat, biarkan saja (jangan
+  // membatalkan booking yang sudah tercatat cuma gara-gara ini; barang/jasa
+  // sudah diberikan, cukup kehitung sebagai cash sebagai fallback aman).
+  if (paymentMethod === "qris") {
+    const totalAmount = bookingServiceRows.reduce(
+      (sum, row) => sum + (row.final_price ?? row.service_price ?? row.service_price_min ?? 0),
+      0
+    );
+    await supabase.from("payments").insert({
+      booking_id: booking.id,
+      payment_type: "FULL",
+      amount: totalAmount,
+      service_price: totalAmount,
+      status: "CONFIRMED",
+      expires_at: getPaymentExpiryDate().toISOString(),
+    });
   }
 
   // Notifikasi ke admin — supaya transaksi walk-in ini langsung terlihat

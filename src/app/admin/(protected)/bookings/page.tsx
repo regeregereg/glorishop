@@ -39,15 +39,17 @@ function buildBookingWaMessage(booking: Booking): string {
   const layanan = getBookingServiceNames(booking, 5);
 
   const lines = [
-    `Halo kak, ini Admin Glori Barbershop 👋`,
-    `Booking ${name} pada ${date} jam ${time}`,
+    `Halo kak, ini Admin GLORI BARBERSHOP 👋`,
+    `Mau mengingatkan untuk`,
+    `*Booking ${name} pada ${date} jam ${time}*`,
   ];
 
-  if (booking.booking_code) {
-    lines.push(`Kode Antrian = ${booking.booking_code}`);
-  }
+  lines.push(`Kode Antrian : ${booking.booking_code ?? "-"}`);
+  lines.push(`Layanan : ${layanan}`);
 
-  lines.push(`Layanan = ${layanan}`);
+  if (booking.barber?.name) {
+    lines.push(`Barber : ${booking.barber.name}`);
+  }
 
   if (booking.payment && booking.payment.status === "CONFIRMED") {
     const subtotal =
@@ -60,15 +62,14 @@ function buildBookingWaMessage(booking: Booking): string {
         : 0);
     if (booking.payment.payment_type === "DP") {
       const kurang = Math.max(subtotal - booking.payment.amount, 0);
-      lines.push(`DP = ${formatRupiah(booking.payment.amount)}`);
-      lines.push(`Kurang = ${formatRupiah(kurang)}`);
+      lines.push(`DP : ${formatRupiah(booking.payment.amount)}`);
+      lines.push(`Kurang : ${formatRupiah(kurang)}`);
     } else {
-      lines.push(`Status = Lunas`);
+      lines.push(`Status : Lunas`);
     }
   }
 
   lines.push(`Mohon datang 10 menit sebelum jam yang ditentukan ya kak 🙏`);
-  lines.push(``);
   lines.push(`Ada yang bisa kami bantu?`);
 
   return lines.join("\n");

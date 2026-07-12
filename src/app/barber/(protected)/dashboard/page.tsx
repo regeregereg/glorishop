@@ -8,7 +8,7 @@ import { Button } from "@/components/Button";
 import { ErrorState } from "@/components/ErrorState";
 import { formatTime, formatRupiah, getBookingServiceNames, getBookingPriceLabel, toLocalDateString } from "@/lib/utils";
 import { getBookingTotalCommission } from "@/lib/commission";
-import { Play, Check, Star, Plus, X, Scissors, Wallet, AlertCircle, LogIn, LogOut, Clock, ScanLine, QrCode, CheckCircle2 } from "lucide-react";
+import { Play, Check, Star, Plus, X, Scissors, Wallet, AlertCircle, LogIn, LogOut, Clock, ScanLine, QrCode, CheckCircle2, Banknote } from "lucide-react";
 
 // ─── Tipe absensi ────────────────────────────────────────────────────────────
 interface AttendanceRecord {
@@ -928,6 +928,10 @@ function BulkWalkinForm({
   const [qty, setQty]                 = useState<Record<string, number>>({});
   // harga final untuk layanan range‑harga (price_min/price_max)
   const [finalPrices, setFinalPrices] = useState<Record<string, string>>({});
+  // Metode bayar (satu pilihan berlaku untuk seluruh transaksi yang dicatat
+  // dalam satu sesi Catat Cepat ini) — defaultnya Cash, sama seperti
+  // perilaku lama sebelum ada pilihan ini.
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "qris">("cash");
   const [submitting, setSubmitting]   = useState(false);
   const [progress, setProgress]       = useState<{ done: number; total: number } | null>(null);
   const [error, setError]             = useState("");
@@ -993,6 +997,7 @@ function BulkWalkinForm({
           body: JSON.stringify({
             barber_id: barberId,
             service_ids: [svcId],
+            payment_method: paymentMethod,
             final_prices: finalPrices[svcId]
               ? { [svcId]: Number(finalPrices[svcId]) }
               : undefined,
@@ -1052,6 +1057,39 @@ function BulkWalkinForm({
         <p className="text-xs text-text-secondary mb-4">
           Pilih layanan dan jumlah pelanggan. Semua langsung tercatat sebagai transaksi selesai.
         </p>
+
+        {/* Metode bayar — berlaku untuk seluruh transaksi di sesi Catat
+            Cepat ini. Menentukan transaksi ini kehitung sebagai Cash atau
+            TF/QR di rincian pembayaran dashboard admin. */}
+        <div className="mb-4">
+          <p className="mb-1.5 text-xs font-semibold text-text-secondary">Dibayar dengan</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPaymentMethod("cash")}
+              disabled={submitting}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${
+                paymentMethod === "cash"
+                  ? "bg-accent text-black"
+                  : "border border-border-soft bg-surface text-text-secondary hover:bg-surface-2"
+              }`}
+            >
+              <Banknote size={15} /> Cash
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaymentMethod("qris")}
+              disabled={submitting}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${
+                paymentMethod === "qris"
+                  ? "bg-accent text-black"
+                  : "border border-border-soft bg-surface text-text-secondary hover:bg-surface-2"
+              }`}
+            >
+              <QrCode size={15} /> TF/QR
+            </button>
+          </div>
+        </div>
 
         {/* Daftar layanan + stepper */}
         <div className="flex flex-col gap-2">

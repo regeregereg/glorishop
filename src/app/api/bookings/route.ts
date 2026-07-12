@@ -94,47 +94,42 @@ export async function GET(req: NextRequest) {
     await expireOverduePayments(supabase);
   }
 
+  // FIX (v2): filter tanggal langsung di DB lewat proper INNER JOIN (hint
+  // "!inner" di Supabase/PostgREST), bukan lagi resolve slot_id satu-satu
+  // dulu lalu .in("slot_id", [...ribuan ID...]).
+  //
+  // Kenapa diganti: pendekatan lama resolve SEMUA slot_id dalam rentang
+  // tanggal dulu (query terpisah ke tabel slots), lalu masukkan seluruh ID
+  // itu ke .in("slot_id", ids). Untuk rentang pendek (mis. 7 hari) itu
+  // masih sedikit ID dan aman. Tapi untuk rentang lebih panjang (mis. 30
+  // hari), jumlah slot bisa mencapai ribuan (slot dibuat per 30 menit per
+  // barber per hari) — daftar ID sepanjang itu bikin query string jadi
+  // sangat panjang dan gagal (biasanya gagal DIAM-DIAM, hasilnya keliatan
+  // "kosong" padahal datanya ada). Itu penyebab bug: filter "30 Hari"
+  // hasilnya kosong sedangkan "7 Hari" normal-normal saja.
+  //
+  // Solusinya: pakai INNER JOIN supaya WHERE-nya beneran jalan di level
+  // database, tanpa resolve ID manual sama sekali — tidak ada lagi batas
+  // jumlah data yang bisa difilter.
+  const needsDateJoin = Boolean(date || from || to);
+  const selectString = needsDateJoin
+    ? "*, service:services(*), services:booking_services(*, service:services(*)), barber:staff(id, name, photo_url), slot:slots!inner(*), user:users(id, name, phone, wa_number), payment:payments(*)"
+    : "*, service:services(*), services:booking_services(*, service:services(*)), barber:staff(id, name, photo_url), slot:slots(*), user:users(id, name, phone, wa_number), payment:payments(*)";
+
   let query = supabase
     .from("bookings")
-    .select(
-      "*, service:services(*), services:booking_services(*, service:services(*)), barber:staff(id, name, photo_url), slot:slots(*), user:users(id, name, phone, wa_number), payment:payments(*)"
-    )
+    .select(selectString)
     .order("created_at", { ascending: false });
 
   if (userId) query = query.eq("user_id", userId);
   if (barberId) query = query.eq("barber_id", barberId);
   if (status) query = query.eq("status", status);
 
-  // FIX: filter tanggal langsung di DB via slot_id.
-  // query.eq("slot.date", date) pada relasi nested Supabase tidak bekerja
-  // sebagai WHERE di DB — tetap menarik semua data lalu filter di memori JS.
-  // Solusi: resolve slot_id dulu berdasarkan date, lalu .in("slot_id", ...).
   if (date) {
-    // Kalau barberId juga ada, filter slot by barberId sekaligus untuk
-    // memperkecil jumlah slot yang dicari (lebih efisien).
-    let slotQuery = supabase.from("slots").select("id").eq("date", date);
-    if (barberId) slotQuery = slotQuery.eq("barber_id", barberId);
-    const { data: slots } = await slotQuery;
-    const slotIds = (slots ?? []).map((s: { id: string }) => s.id);
-    if (slotIds.length === 0) {
-      return NextResponse.json({ bookings: [] });
-    }
-    query = query.in("slot_id", slotIds);
+    query = query.eq("slot.date", date);
   } else if (from || to) {
-    // Rentang tanggal (bukan tanggal tunggal) — dipakai halaman "Semua
-    // Booking" admin supaya defaultnya tidak menarik SELURUH histori booking
-    // dari sejak toko buka. Pola sama seperti filter `date` di atas: resolve
-    // slot_id dulu berdasarkan rentang tanggalnya, baru filter booking-nya.
-    let slotQuery = supabase.from("slots").select("id");
-    if (from) slotQuery = slotQuery.gte("date", from);
-    if (to) slotQuery = slotQuery.lte("date", to);
-    if (barberId) slotQuery = slotQuery.eq("barber_id", barberId);
-    const { data: slots } = await slotQuery;
-    const slotIds = (slots ?? []).map((s: { id: string }) => s.id);
-    if (slotIds.length === 0) {
-      return NextResponse.json({ bookings: [] });
-    }
-    query = query.in("slot_id", slotIds);
+    if (from) query = query.gte("slot.date", from);
+    if (to) query = query.lte("slot.date", to);
   }
 
   const { data, error } = await query;

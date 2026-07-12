@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Booking, BookingStatus, STATUS_LABELS, Service, Staff, Slot } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/Button";
+import { ErrorState } from "@/components/ErrorState";
 import { formatTime, getBookingServiceNames, getBookingPriceLabel, formatDateShort, toLocalDateString, formatRupiah } from "@/lib/utils";
 import { getEffectivePrice } from "@/lib/pricing";
 import { Plus, X, Check, MessageCircle, Receipt } from "lucide-react";
@@ -137,6 +138,7 @@ export default function AdminBookingsPage() {
   const [datePreset, setDatePreset] = useState<DatePreset>("30d");
   const [searchCode, setSearchCode] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [showWalkinForm, setShowWalkinForm] = useState(false);
   const [inlinePhoneId, setInlinePhoneId] = useState<string | null>(null);
   const [inlinePhone, setInlinePhone] = useState("");
@@ -149,12 +151,19 @@ export default function AdminBookingsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const range = getPresetRange(effectivePreset);
-    const qs = range ? `&from=${range.from}&to=${range.to}` : "";
-    const res = await fetch(`/api/bookings?checkExpiry=1${qs}`);
-    const data = await res.json();
-    setBookings(data.bookings || []);
-    setLoading(false);
+    setLoadError(false);
+    try {
+      const range = getPresetRange(effectivePreset);
+      const qs = range ? `&from=${range.from}&to=${range.to}` : "";
+      const res = await fetch(`/api/bookings?checkExpiry=1${qs}`);
+      if (!res.ok) throw new Error("Gagal memuat data booking.");
+      const data = await res.json();
+      setBookings(data.bookings || []);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [effectivePreset]);
 
   useEffect(() => {
@@ -242,6 +251,16 @@ export default function AdminBookingsPage() {
         ))}
       </div>
 
+      {loadError && (
+        <ErrorState
+          className="mt-5"
+          title="Gagal memuat data booking"
+          message="Periksa koneksi internet kamu, lalu coba lagi."
+          onRetry={load}
+        />
+      )}
+
+      {!loadError && (
       <div className="mt-5 overflow-x-auto rounded-2xl border border-border-soft">
         <table className="w-full text-sm">
           <thead>
@@ -354,6 +373,7 @@ export default function AdminBookingsPage() {
           </tbody>
         </table>
       </div>
+      )}
 
       {showWalkinForm && (
         <WalkinForm onClose={() => setShowWalkinForm(false)} onCreated={load} />

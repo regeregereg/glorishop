@@ -36,11 +36,26 @@ import { cn } from "@/lib/utils";
 //    generik lewat menu titik-tiga bawaan browser.
 //
 // Catatan lain: banner ini TIDAK muncul kalau app sudah ke-install
-// (display-mode: standalone), dan tidak muncul lagi selama 14 hari kalau
-// pernah ditutup manual (biar tidak berasa "iklan" yang mengganggu).
-
+// (display-mode: standalone), dan tidak muncul lagi selama beberapa hari
+// kalau pernah ditutup manual (biar tidak berasa "iklan" yang mengganggu).
+//
+// PENTING — dua key terpisah, JANGAN digabung jadi satu:
+// - DISMISS_KEY: dipakai kalau customer sendiri yang menutup banner (tap X)
+//   atau menolak prompt native. Ini sinyal kuat "belum mau", jadi ditahan
+//   agak lama (14 hari).
+// - INSTALLED_KEY: dipakai HANYA saat event `appinstalled` benar-benar
+//   terjadi. Ini sengaja masa berlakunya jauh lebih pendek (3 hari), karena
+//   localStorage TIDAK ikut kehapus saat customer uninstall app dari HP-nya.
+//   Kalau kita pakai masa berlaku 14 hari yang sama untuk "berhasil instal",
+//   lalu customer uninstall besoknya, banner akan tetap tersembunyi sampai
+//   14 hari walau app-nya sudah tidak ada lagi di HP mereka — persis kejadian
+//   yang dilaporkan. Display-mode standalone check di atas sudah cukup
+//   untuk menyembunyikan banner selama app BENERAN masih terpasang; key ini
+//   cuma jaga-jaga transisi sesaat sebelum display-mode-nya kebaca standalone.
 const DISMISS_KEY = "glori_install_dismissed_at";
 const DISMISS_DAYS = 14;
+const INSTALLED_KEY = "glori_install_installed_at";
+const INSTALLED_DAYS = 3;
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -74,22 +89,40 @@ function isInAppBrowser(): boolean {
   );
 }
 
-function wasDismissedRecently(): boolean {
+function isWithinDays(key: string, days: number): boolean {
   if (typeof window === "undefined") return false;
-  const raw = window.localStorage.getItem(DISMISS_KEY);
+  const raw = window.localStorage.getItem(key);
   if (!raw) return false;
-  const dismissedAt = Number(raw);
-  if (Number.isNaN(dismissedAt)) return false;
-  const daysSince = (Date.now() - dismissedAt) / (1000 * 60 * 60 * 24);
-  return daysSince < DISMISS_DAYS;
+  const at = Number(raw);
+  if (Number.isNaN(at)) return false;
+  const daysSince = (Date.now() - at) / (1000 * 60 * 60 * 24);
+  return daysSince < days;
 }
 
-function markDismissed() {
+function setNow(key: string) {
   try {
-    window.localStorage.setItem(DISMISS_KEY, String(Date.now()));
+    window.localStorage.setItem(key, String(Date.now()));
   } catch {
     // localStorage bisa gagal di private mode — abaikan saja, tidak fatal.
   }
+}
+
+function wasDismissedRecently(): boolean {
+  return isWithinDays(DISMISS_KEY, DISMISS_DAYS);
+}
+
+function markDismissed() {
+  setNow(DISMISS_KEY);
+}
+
+// Lihat catatan di atas INSTALLED_KEY — sengaja terpisah dari markDismissed
+// dan masa berlakunya jauh lebih pendek.
+function wasRecentlyInstalled(): boolean {
+  return isWithinDays(INSTALLED_KEY, INSTALLED_DAYS);
+}
+
+function markInstalled() {
+  setNow(INSTALLED_KEY);
 }
 
 // Link "intent://" adalah cara resmi Android untuk memaksa buka URL
@@ -132,7 +165,7 @@ export function InstallPrompt() {
   }, []);
 
   useEffect(() => {
-    if (isStandalone() || wasDismissedRecently()) return;
+    if (isStandalone() || wasDismissedRecently() || wasRecentlyInstalled()) return;
 
     // ── Kasus 3: dibuka dari dalam app lain (WA/IG/FB/TikTok, dst) ──
     // Ini dicek PALING AWAL karena beforeinstallprompt memang tidak akan
@@ -168,7 +201,7 @@ export function InstallPrompt() {
     function handleAppInstalled() {
       setVisible(false);
       setDeferredPrompt(null);
-      markDismissed();
+      markInstalled();
     }
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);

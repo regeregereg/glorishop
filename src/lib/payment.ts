@@ -54,7 +54,15 @@ export function isPaymentExpired(expiresAt: string): boolean {
 export function getBookingTotalPrice(booking: {
   final_price?: number | null;
   services?: { final_price?: number | null; service_price?: number | null; service_price_min?: number | null }[];
-  service?: { price?: number | null; price_min?: number | null } | null;
+  // Supabase (tanpa generated DB types) kadang men-tipe-kan relasi to-one
+  // "service:services(...)" sebagai ARRAY, bukan objek tunggal, meskipun
+  // isinya cuma 1 baris — makanya di sini diterima keduanya (objek ATAU
+  // array) dan diratakan di bawah, sama seperti relasi lain (payment, dll)
+  // yang sudah lebih dulu ditangani dengan pola ini di tempat lain.
+  service?:
+    | { price?: number | null; price_min?: number | null }
+    | { price?: number | null; price_min?: number | null }[]
+    | null;
 }): number {
   if (booking.final_price != null) return booking.final_price;
 
@@ -71,9 +79,10 @@ export function getBookingTotalPrice(booking: {
     }, 0);
   }
 
-  if (booking.service) {
-    if (booking.service.price != null) return booking.service.price;
-    if (booking.service.price_min != null) return booking.service.price_min;
+  const singleService = Array.isArray(booking.service) ? booking.service[0] : booking.service;
+  if (singleService) {
+    if (singleService.price != null) return singleService.price;
+    if (singleService.price_min != null) return singleService.price_min;
   }
 
   return 0;

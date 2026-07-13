@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { SITE_URL, BUSINESS_NAME, BUSINESS_DESCRIPTION } from "@/lib/contact";
+import { InstallPrompt } from "@/components/InstallPrompt";
 
 // Font display resmi Glori Barbershop. File .woff2 disimpan langsung di
 // repo (src/app/fonts/) dan dimuat lewat next/font/local supaya:
@@ -142,6 +143,7 @@ export default function RootLayout({
     <html lang="id" className={`h-full antialiased ${plusJakartaSans.variable}`}>
       <body className="min-h-full flex flex-col bg-bg text-text-primary">
         {children}
+        <InstallPrompt />
       </body>
     </html>
   );

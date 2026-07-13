@@ -287,19 +287,19 @@ export default function BarberRiwayatPage() {
                 </p>
                 <span
                   className={`mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                    b.paymentMethod === "cash"
-                      ? "bg-border-soft text-text-secondary"
-                      : b.paymentMethod === "qris"
+                    b.paymentMethod === "qris"
                       ? "bg-accent-soft text-accent"
-                      : "bg-amber-500/15 text-amber-500"
+                      : b.paymentMethod === "mixed"
+                      ? "bg-amber-500/15 text-amber-500"
+                      : "bg-border-soft text-text-secondary"
                   }`}
                 >
-                  {b.paymentMethod === "cash" ? (
-                    <Banknote size={10} />
-                  ) : (
-                    <QrCode size={10} />
-                  )}
-                  {b.paymentMethod === "cash" ? "Cash" : b.paymentMethod === "qris" ? "TF/QR" : "DP TF + Sisa Cash"}
+                  {b.paymentMethod === "qris" ? <QrCode size={10} /> : <Banknote size={10} />}
+                  {b.paymentMethod === "qris"
+                    ? "TF/QR"
+                    : b.paymentMethod === "mixed"
+                    ? "DP TF + Sisa Cash"
+                    : "Cash"}
                 </span>
               </div>
               <div className="text-right">

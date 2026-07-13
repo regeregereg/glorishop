@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStaffSession } from "@/lib/session";
+import { getBookingTotalPrice } from "@/lib/payment";
 
 export async function GET(req: NextRequest) {
   const staff = await getStaffSession();
@@ -38,13 +39,11 @@ export async function GET(req: NextRequest) {
     supabase
       .from("bookings")
       .select(
-        // Hanya kolom yang benar-benar dipakai di halaman riwayat barber
-        // (langsung atau lewat getBookingServiceNames/getBookingPriceLabel/
-        // getBookingTotalCommission di src/lib/utils.ts & src/lib/commission.ts)
-        // — sebelumnya "*" mengambil semua kolom termasuk yang tidak
-        // ditampilkan (notes, created_by_admin, dll), menambah ukuran
-        // response tanpa manfaat.
-        "id, status, updated_at, walkin_name, walkin_by_barber, service:services(name, price, price_min, price_max), services:booking_services(service_name, service_price, service_price_min, service_price_max, final_price, commission_percentage, commission_amount), user:users(id, name), slot:slots(date)"
+        // final_price & payment ditambahkan supaya barber bisa lihat rincian
+        // Cash vs TF/QR per transaksi (buat cocokin manual sama uang fisik
+        // di tangan) — logikanya sama persis dengan rincian Cash/TF-QR di
+        // dashboard admin, supaya angkanya konsisten di kedua sisi.
+        "id, status, updated_at, final_price, walkin_name, walkin_by_barber, service:services(name, price, price_min, price_max), services:booking_services(service_name, service_price, service_price_min, service_price_max, final_price, commission_percentage, commission_amount), user:users(id, name), slot:slots(date), payment:payments(id, status, payment_type, amount)"
       )
       .eq("barber_id", barberId)
       .eq("status", "DONE")
@@ -58,7 +57,7 @@ export async function GET(req: NextRequest) {
 
   // Filter di sisi aplikasi karena slot adalah join (tidak bisa filter
   // langsung lewat query builder Supabase untuk kolom di tabel relasi).
-  const bookings = (bookingsRaw ?? []).filter((b) => {
+  const bookingsFiltered = (bookingsRaw ?? []).filter((b) => {
     if (!from && !to) return true;
     const slot = Array.isArray(b.slot) ? b.slot[0] : b.slot;
     const date = slot?.date;
@@ -68,15 +67,47 @@ export async function GET(req: NextRequest) {
     return true;
   });
 
+  // Supabase mengembalikan relasi payment (1:1) sebagai array — ratakan
+  // jadi objek tunggal, sama seperti di /api/bookings.
+  const bookings = bookingsFiltered.map((b) => ({
+    ...b,
+    payment: Array.isArray(b.payment) ? b.payment[0] ?? null : b.payment,
+  }));
+
+  // Rincian Cash vs TF/QR untuk periode yang lagi dipilih — aturan SAMA
+  // PERSIS dengan /api/admin-stats supaya angka yang barber lihat di HP-nya
+  // cocok dengan yang admin lihat di dashboard. Juga disematkan per-baris
+  // (paymentMethod) supaya barber bisa cocokkan satu-satu transaksi mana
+  // yang cash vs mana yang TF/QR terhadap uang fisik yang dipegangnya.
+  let cashTotal = 0;
+  let tfTotal = 0;
+  const bookingsWithPaymentMethod = bookings.map((b) => {
+    const total = getBookingTotalPrice(b);
+    const isConfirmedPayment = b.payment && b.payment.status === "CONFIRMED";
+    const paidViaTransfer = isConfirmedPayment ? b.payment!.amount ?? 0 : 0;
+    const cashPortion = isConfirmedPayment ? Math.max(total - paidViaTransfer, 0) : total;
+    cashTotal += cashPortion;
+    tfTotal += paidViaTransfer;
+    // Kalau ada payment terkonfirmasi yang menutup penuh total booking, ini
+    // transaksi TF/QR murni; kalau ada tapi cuma sebagian (DP), sisanya
+    // dianggap cash yang diterima di tempat; kalau tidak ada payment sama
+    // sekali, ini cash penuh.
+    const paymentMethod: "cash" | "qris" | "mixed" =
+      !isConfirmedPayment ? "cash" : cashPortion === 0 ? "qris" : "mixed";
+    return { ...b, paymentMethod, cashPortion, tfPortion: paidViaTransfer };
+  });
+
   const avgRating =
     reviews && reviews.length > 0
       ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
       : null;
 
   return NextResponse.json({
-    bookings: bookings ?? [],
+    bookings: bookingsWithPaymentMethod,
     reviews: reviews ?? [],
     avgRating,
     totalCompleted: bookings?.length ?? 0,
+    cashTotal,
+    tfTotal,
   });
 }

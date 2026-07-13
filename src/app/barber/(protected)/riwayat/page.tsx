@@ -17,13 +17,19 @@ type BookingWithPayment = Booking & {
 };
 
 // Preset rentang tanggal cepat, pola sama seperti di halaman Laporan admin.
-// "all" (Semua) adalah default — ini behaviour lama sebelum filter ini ada,
-// jadi barber yang belum pernah pakai filter tidak akan lihat ada yang berubah.
-type DatePreset = "all" | "7d" | "30d" | "thisMonth";
+// "today" jadi default sekarang — supaya begitu barber buka Riwayat Kerja
+// pas mau closing/tutup kasir, langsung kelihatan transaksi HARI INI tanpa
+// perlu pilih apa-apa dulu. "Semua" tetap ada, tinggal satu klik kalau mau
+// lihat histori lebih jauh.
+type DatePreset = "today" | "all" | "7d" | "30d" | "thisMonth";
 
 function getPresetRange(preset: DatePreset): { from: string; to: string } | null {
   const now = new Date();
   if (preset === "all") return null;
+  if (preset === "today") {
+    const todayStr = toLocalDateString(now);
+    return { from: todayStr, to: todayStr };
+  }
   if (preset === "7d") {
     const from = new Date(now);
     from.setDate(from.getDate() - 6);
@@ -40,7 +46,7 @@ function getPresetRange(preset: DatePreset): { from: string; to: string } | null
 }
 
 export default function BarberRiwayatPage() {
-  const [preset, setPreset] = useState<DatePreset>("all");
+  const [preset, setPreset] = useState<DatePreset>("today");
   const [bookings, setBookings] = useState<BookingWithPayment[]>([]);
   const [cashTotal, setCashTotal] = useState(0);
   const [tfTotal, setTfTotal] = useState(0);
@@ -140,6 +146,7 @@ export default function BarberRiwayatPage() {
       <div className="mt-4 flex flex-wrap gap-2">
         {(
           [
+            { key: "today", label: "Hari Ini" },
             { key: "all", label: "Semua" },
             { key: "7d", label: "7 Hari" },
             { key: "30d", label: "30 Hari" },

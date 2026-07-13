@@ -197,37 +197,40 @@ export default function BarberRiwayatPage() {
         </div>
       </div>
 
-      {/* Rincian Cash vs TF/QR — buat barber cocokkan sendiri sama uang
-          fisik di tangan pas mau setor/tutup kasir. Kalau selisih, ini
-          jadi titik awal ngecek: bandingkan angka "Cash" di bawah ini
-          dengan uang cash yang benar-benar dipegang untuk periode yang
-          sama, baru telusuri satu-satu transaksi di daftar Riwayat
-          Pekerjaan kalau memang ketemu selisih. */}
-      <div className="mt-3 grid grid-cols-2 gap-3">
-        <div className="flex items-center gap-2.5 rounded-2xl border border-border-soft bg-surface px-4 py-3.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent">
-            <Banknote size={16} />
+      {/* Rincian Cash vs TF/QR — sengaja CUMA muncul di preset "Hari Ini"
+          (bukan minta admin). Alasannya: ini dipakai buat cocokkan uang
+          fisik di tangan pas closing/tutup kasir HARI ITU JUGA — kalau
+          ditampilkan untuk 7/30 hari atau bulan ini, angkanya nggak ada
+          gunanya buat dicocokkan ke uang cash yang sudah lama disetor. */}
+      {preset === "today" && (
+        <>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div className="flex items-center gap-2.5 rounded-2xl border border-border-soft bg-surface px-4 py-3.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent">
+                <Banknote size={16} />
+              </div>
+              <div>
+                <p className="text-xs text-text-secondary">Cash</p>
+                <p className="font-display text-sm font-bold">{formatRupiah(cashTotal)}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5 rounded-2xl border border-border-soft bg-surface px-4 py-3.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent">
+                <QrCode size={16} />
+              </div>
+              <div>
+                <p className="text-xs text-text-secondary">TF/QR</p>
+                <p className="font-display text-sm font-bold">{formatRupiah(tfTotal)}</p>
+              </div>
+            </div>
           </div>
-          <div>
-            <p className="text-xs text-text-secondary">Cash</p>
-            <p className="font-display text-sm font-bold">{formatRupiah(cashTotal)}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2.5 rounded-2xl border border-border-soft bg-surface px-4 py-3.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent">
-            <QrCode size={16} />
-          </div>
-          <div>
-            <p className="text-xs text-text-secondary">TF/QR</p>
-            <p className="font-display text-sm font-bold">{formatRupiah(tfTotal)}</p>
-          </div>
-        </div>
-      </div>
-      <p className="mt-2 text-[11px] leading-relaxed text-text-tertiary">
-        Cocokkan angka "Cash" di atas dengan uang tunai yang ada di tangan untuk
-        periode yang sama. Kalau beda, cek satu-satu di daftar "Riwayat Pekerjaan"
-        di bawah — tiap transaksi ditandai metode bayarnya.
-      </p>
+          <p className="mt-2 text-[11px] leading-relaxed text-text-tertiary">
+            Cocokkan angka "Cash" di atas dengan uang tunai yang ada di tangan hari ini.
+            Kalau beda, cek satu-satu di daftar "Riwayat Pekerjaan" di bawah — tiap
+            transaksi ditandai metode bayarnya.
+          </p>
+        </>
+      )}
 
       {/* Rincian per jenis layanan — buat barber cocokin dari ingatan/catatan
           sendiri ("tadi saya 3x Haircut, 1x Creambath") ke data sistem. */}

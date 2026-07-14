@@ -17,28 +17,17 @@ type BookingWithPayment = Booking & {
 };
 
 // Preset rentang tanggal cepat, pola sama seperti di halaman Laporan admin.
-// "today" jadi default sekarang — supaya begitu barber buka Riwayat Kerja
-// pas mau closing/tutup kasir, langsung kelihatan transaksi HARI INI tanpa
-// perlu pilih apa-apa dulu. "Semua" tetap ada, tinggal satu klik kalau mau
-// lihat histori lebih jauh.
-type DatePreset = "today" | "all" | "7d" | "30d" | "thisMonth";
+// Sengaja cuma 2 pilihan: "Hari Ini" (default, buat closing harian) dan
+// "Bulan Ini" (buat rekap bulanan). "Semua"/"7 Hari"/"30 Hari" dihilangkan
+// atas permintaan admin — histori & rentang custom cukup dicek admin lewat
+// dashboard admin, barber cukup lihat 2 rentang ini saja.
+type DatePreset = "today" | "thisMonth";
 
-function getPresetRange(preset: DatePreset): { from: string; to: string } | null {
+function getPresetRange(preset: DatePreset): { from: string; to: string } {
   const now = new Date();
-  if (preset === "all") return null;
   if (preset === "today") {
     const todayStr = toLocalDateString(now);
     return { from: todayStr, to: todayStr };
-  }
-  if (preset === "7d") {
-    const from = new Date(now);
-    from.setDate(from.getDate() - 6);
-    return { from: toLocalDateString(from), to: toLocalDateString(now) };
-  }
-  if (preset === "30d") {
-    const from = new Date(now);
-    from.setDate(from.getDate() - 29);
-    return { from: toLocalDateString(from), to: toLocalDateString(now) };
   }
   // thisMonth
   const from = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -147,9 +136,6 @@ export default function BarberRiwayatPage() {
         {(
           [
             { key: "today", label: "Hari Ini" },
-            { key: "all", label: "Semua" },
-            { key: "7d", label: "7 Hari" },
-            { key: "30d", label: "30 Hari" },
             { key: "thisMonth", label: "Bulan Ini" },
           ] as { key: DatePreset; label: string }[]
         ).map((p) => (
@@ -191,7 +177,7 @@ export default function BarberRiwayatPage() {
         </div>
         <div>
           <p className="text-xs text-text-secondary">
-            Total komisi {preset === "all" ? "(semua riwayat)" : "(periode ini)"}
+            Total komisi (periode ini)
           </p>
           <p className="font-display text-base font-bold text-accent">{formatRupiah(totalCommission)}</p>
         </div>
@@ -235,7 +221,7 @@ export default function BarberRiwayatPage() {
       {/* Rincian per jenis layanan — buat barber cocokin dari ingatan/catatan
           sendiri ("tadi saya 3x Haircut, 1x Creambath") ke data sistem. */}
       <h2 className="font-display mt-7 text-sm font-bold text-text-secondary uppercase tracking-wide">
-        Rincian Layanan {preset === "all" ? "" : "(Periode Ini)"}
+        Rincian Layanan (Periode Ini)
       </h2>
       <div className="mt-3 flex flex-col gap-2">
         {serviceBreakdown.map((s) => (
@@ -243,11 +229,8 @@ export default function BarberRiwayatPage() {
             key={s.name}
             className="flex items-center justify-between rounded-2xl border border-border-soft bg-surface px-4 py-3"
           >
-            <div>
-              <p className="text-sm font-semibold">{s.name}</p>
-              <p className="text-xs text-text-secondary">{s.count}x dikerjakan</p>
-            </div>
-            <p className="text-sm font-bold text-accent">{formatRupiah(s.total)}</p>
+            <p className="text-sm font-semibold">{s.name}</p>
+            <p className="text-sm font-bold text-text-secondary">{s.count}x dikerjakan</p>
           </div>
         ))}
         {serviceBreakdown.length === 0 && !loading && (
@@ -282,7 +265,7 @@ export default function BarberRiwayatPage() {
         Riwayat Pekerjaan
       </h2>
       <div className="mt-3 flex flex-col gap-3">
-        {(preset === "all" ? bookings.slice(0, 20) : bookings).map((b) => {
+        {bookings.map((b) => {
           const commission = getBookingTotalCommission(b);
           return (
             <div
@@ -327,12 +310,6 @@ export default function BarberRiwayatPage() {
         })}
         {bookings.length === 0 && !loading && (
           <p className="text-sm text-text-tertiary">Belum ada riwayat pekerjaan.</p>
-        )}
-        {preset === "all" && bookings.length > 20 && (
-          <p className="text-center text-[11px] text-text-tertiary">
-            Menampilkan 20 transaksi terbaru. Pilih preset "7 Hari"/"30 Hari"/"Bulan Ini" di atas
-            untuk lihat semua transaksi periode tertentu (buat cocokin kas).
-          </p>
         )}
       </div>
     </div>

@@ -125,6 +125,28 @@ export interface Product {
   created_at: string;
 }
 
+// Satu baris penjualan produk retail (bukan layanan) — dicatat lewat
+// "Catat Cepat" (barber) atau "Catat Penjualan" (admin). Lihat
+// supabase/migration_product_sales.sql. Sengaja terpisah dari
+// Booking/BookingService karena penjualan produk tidak butuh slot waktu.
+export interface ProductSale {
+  id: string;
+  product_id: string | null;
+  // snapshot nama & harga saat transaksi dibuat (tidak berubah meski admin
+  // mengubah harga/nama produk aslinya di kemudian hari)
+  product_name: string;
+  unit_price: number;
+  quantity: number;
+  total_price: number;
+  payment_method: "cash" | "qris";
+  sold_by: string | null;
+  notes: string | null;
+  created_at: string;
+  // relasi (joined, opsional)
+  product?: Product;
+  seller?: Staff;
+}
+
 export interface Slot {
   id: string;
   barber_id: string;

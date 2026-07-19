@@ -25,6 +25,7 @@ import {
   ArrowRight,
   Banknote,
   QrCode,
+  Package,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -61,11 +62,18 @@ interface AdminNotification {
   is_read: boolean;
   sent_at: string;
 }
+interface ProdukTerlaris {
+  name: string;
+  qty: number;
+  revenue: number;
+}
 
 export default function AdminDashboardPage() {
   const [data, setData] = useState<{
     todayBookings: Booking[];
     omsetHariIni: number;
+    omsetProdukHariIni: number;
+    produkTerlaris: ProdukTerlaris[];
     komisiHariIni: number;
     cashHariIni: number;
     tfHariIni: number;
@@ -239,6 +247,11 @@ export default function AdminDashboardPage() {
           value={formatRupiah(data.omsetHariIni)}
         />
         <StatCard
+          icon={<Package size={18} />}
+          label="dari Produk"
+          value={formatRupiah(data.omsetProdukHariIni)}
+        />
+        <StatCard
           icon={<HandCoins size={18} />}
           label="Komisi Barber Hari Ini"
           value={formatRupiah(data.komisiHariIni)}
@@ -358,6 +371,38 @@ export default function AdminDashboardPage() {
               ))}
               {data.barberPerformance.length === 0 && (
                 <p className="text-sm text-text-secondary">Belum ada data barber.</p>
+              )}
+            </div>
+          </div>
+
+          {/* PRODUK TERLARIS HARI INI — dari penjualan produk lewat "Catat
+              Cepat" barber atau dicatat admin, lihat /api/product-sales.
+              Berguna buat tahu produk mana yang perlu di-restock duluan. */}
+          <div>
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-base font-bold flex items-center gap-2">
+                <Package size={16} className="text-accent" />
+                Produk Terlaris Hari Ini
+              </h2>
+              <Link href="/admin/produk" className="text-xs font-semibold text-accent">
+                Kelola Produk
+              </Link>
+            </div>
+            <div className="mt-3 flex flex-col gap-2.5">
+              {data.produkTerlaris.slice(0, 5).map((p) => (
+                <div
+                  key={p.name}
+                  className="flex items-center justify-between rounded-2xl border border-border-soft bg-surface px-4 py-3"
+                >
+                  <div>
+                    <p className="text-sm font-semibold">{p.name}</p>
+                    <p className="text-xs text-text-secondary">{p.qty} terjual</p>
+                  </div>
+                  <p className="text-sm font-bold text-accent">{formatRupiah(p.revenue)}</p>
+                </div>
+              ))}
+              {data.produkTerlaris.length === 0 && (
+                <p className="text-sm text-text-secondary">Belum ada penjualan produk hari ini.</p>
               )}
             </div>
           </div>

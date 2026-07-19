@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import jsQR from "jsqr";
-import { Booking, Service } from "@/types";
+import { Booking, Product, Service } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/Button";
 import { ErrorState } from "@/components/ErrorState";
@@ -928,9 +928,20 @@ function BulkWalkinForm({
   const [qty, setQty]                 = useState<Record<string, number>>({});
   // harga final untuk layanan range‑harga (price_min/price_max)
   const [finalPrices, setFinalPrices] = useState<Record<string, string>>({});
+  // Produk retail (mis. pomade, minyak rambut) — katalog TERPISAH dari
+  // layanan (lihat /api/products), dijual lewat sesi Catat Cepat yang sama
+  // supaya barber tidak perlu buka form lain. Tidak lewat alur booking/slot
+  // sama sekali — cuma mengurangi stok & tercatat sebagai penjualan produk
+  // (lihat /api/product-sales).
+  const [products, setProducts]       = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productQty, setProductQty]   = useState<Record<string, number>>({});
+  // Tab aktif — "Layanan" dan "Produk" berbagi metode bayar & tombol simpan
+  // yang sama, cuma daftar item yang ditampilkan/dipilih yang beda.
+  const [tab, setTab] = useState<"layanan" | "produk">("layanan");
   // Metode bayar (satu pilihan berlaku untuk seluruh transaksi yang dicatat
-  // dalam satu sesi Catat Cepat ini) — defaultnya Cash, sama seperti
-  // perilaku lama sebelum ada pilihan ini.
+  // dalam satu sesi Catat Cepat ini, baik layanan maupun produk) —
+  // defaultnya Cash, sama seperti perilaku lama sebelum ada pilihan ini.
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "qris">("cash");
   const [submitting, setSubmitting]   = useState(false);
   const [progress, setProgress]       = useState<{ done: number; total: number } | null>(null);
@@ -949,6 +960,13 @@ function BulkWalkinForm({
       .finally(() => setServicesLoading(false));
   }, []);
 
+  useEffect(() => {
+    fetch("/api/products")
+      .then((r) => r.json())
+      .then((d) => setProducts(d.products || []))
+      .finally(() => setProductsLoading(false));
+  }, []);
+
   function changeQty(id: string, delta: number) {
     setQty((prev) => {
       const next = Math.max(0, (prev[id] ?? 0) + delta);
@@ -957,8 +975,26 @@ function BulkWalkinForm({
     });
   }
 
+  // Dibatasi maksimal sisa stok — supaya barber tidak bisa mencatat lebih
+  // banyak dari yang tersedia secara fisik di rak.
+  function changeProductQty(id: string, delta: number) {
+    setProductQty((prev) => {
+      const product = products.find((p) => p.id === id);
+      const max = product?.stock ?? 0;
+      const next = Math.max(0, Math.min(max, (prev[id] ?? 0) + delta));
+      if (next === 0) { const { [id]: _, ...rest } = prev; return rest; }
+      return { ...prev, [id]: next };
+    });
+  }
+
   const selectedEntries = Object.entries(qty).filter(([, v]) => v > 0);
   const totalTx = selectedEntries.reduce((a, [, v]) => a + v, 0);
+
+  const selectedProductEntries = Object.entries(productQty).filter(([, v]) => v > 0);
+  const totalProductQty = selectedProductEntries.reduce((a, [, v]) => a + v, 0);
+  // Total gabungan layanan + produk — dipakai untuk validasi, label tombol,
+  // dan pesan sukses.
+  const totalItems = totalTx + totalProductQty;
 
   // Layanan range‑harga yang sedang dipilih (qty > 0)
   const rangeSelected = selectedEntries
@@ -967,7 +1003,7 @@ function BulkWalkinForm({
 
   async function handleSubmit() {
     setError("");
-    if (totalTx === 0) { setError("Tambahkan minimal 1 layanan."); return; }
+    if (totalItems === 0) { setError("Tambahkan minimal 1 layanan atau produk."); return; }
     for (const s of rangeSelected) {
       if (!finalPrices[s.id]) {
         setError(`Isi harga untuk "${s.name}".`);
@@ -983,9 +1019,16 @@ function BulkWalkinForm({
       for (let i = 0; i < count; i++) jobs.push(serviceId);
     }
 
-    setProgress({ done: 0, total: jobs.length });
+    // Total langkah = jumlah transaksi layanan + 1 langkah gabungan untuk
+    // SEMUA produk (dikirim sekaligus dalam satu request — beda dari
+    // layanan yang satu request per orang, karena penjualan produk tidak
+    // butuh slot/antrian per orang sama sekali).
+    const hasProducts = selectedProductEntries.length > 0;
+    const totalSteps = jobs.length + (hasProducts ? 1 : 0);
+    setProgress({ done: 0, total: totalSteps });
     let successCount = 0;
     const errors: string[] = [];
+    let stepsDone = 0;
 
     for (let i = 0; i < jobs.length; i++) {
       const svcId = jobs[i];
@@ -1004,7 +1047,7 @@ function BulkWalkinForm({
           }),
         });
         const createData = await createRes.json();
-        if (!createRes.ok) { errors.push(createData.error || "Gagal catat"); setProgress({ done: i + 1, total: jobs.length }); continue; }
+        if (!createRes.ok) { errors.push(createData.error || "Gagal catat"); stepsDone++; setProgress({ done: stepsDone, total: totalSteps }); continue; }
 
         // 2. Langsung tandai SELESAI
         const bookingId: string = createData.booking?.id;
@@ -1023,7 +1066,34 @@ function BulkWalkinForm({
       } catch {
         errors.push("Koneksi gagal");
       }
-      setProgress({ done: i + 1, total: jobs.length });
+      stepsDone++;
+      setProgress({ done: stepsDone, total: totalSteps });
+    }
+
+    // Penjualan produk — satu request gabungan untuk semua produk yang
+    // dipilih (lihat /api/product-sales). Stok dikurangi otomatis di sisi
+    // server, atomik per produk.
+    if (hasProducts) {
+      try {
+        const res = await fetch("/api/product-sales", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: selectedProductEntries.map(([product_id, quantity]) => ({ product_id, quantity })),
+            payment_method: paymentMethod,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errors.push(data.error || "Gagal catat penjualan produk");
+        } else {
+          successCount += totalProductQty;
+        }
+      } catch {
+        errors.push("Koneksi gagal saat mencatat produk");
+      }
+      stepsDone++;
+      setProgress({ done: stepsDone, total: totalSteps });
     }
 
     setSubmitting(false);
@@ -1055,8 +1125,31 @@ function BulkWalkinForm({
           </button>
         </div>
         <p className="text-xs text-text-secondary mb-4">
-          Pilih layanan dan jumlah pelanggan. Semua langsung tercatat sebagai transaksi selesai.
+          Pilih layanan dan/atau produk. Semua langsung tercatat sebagai transaksi selesai.
         </p>
+
+        {/* Tab Layanan/Produk — berbagi metode bayar & tombol simpan yang
+            sama di bawah, cuma daftar yang ditampilkan beda. */}
+        <div className="mb-4 flex gap-1 rounded-xl bg-surface-2 p-1">
+          <button
+            type="button"
+            onClick={() => setTab("layanan")}
+            className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition-colors ${
+              tab === "layanan" ? "bg-accent text-black" : "text-text-secondary"
+            }`}
+          >
+            Layanan{totalTx > 0 ? ` (${totalTx})` : ""}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("produk")}
+            className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition-colors ${
+              tab === "produk" ? "bg-accent text-black" : "text-text-secondary"
+            }`}
+          >
+            Produk{totalProductQty > 0 ? ` (${totalProductQty})` : ""}
+          </button>
+        </div>
 
         {/* Metode bayar — berlaku untuk seluruh transaksi di sesi Catat
             Cepat ini. Menentukan transaksi ini kehitung sebagai Cash atau
@@ -1091,7 +1184,62 @@ function BulkWalkinForm({
           </div>
         </div>
 
+        {/* Daftar produk + stepper */}
+        {tab === "produk" && (
+          <div className="flex flex-col gap-2">
+            {productsLoading && (
+              <p className="py-4 text-center text-xs text-text-tertiary">Memuat produk...</p>
+            )}
+            {!productsLoading && products.length === 0 && (
+              <p className="py-4 text-center text-xs text-text-tertiary">Belum ada produk tersedia.</p>
+            )}
+            {!productsLoading && products.map((p) => {
+              const count = productQty[p.id] ?? 0;
+              const outOfStock = p.stock <= 0;
+              return (
+                <div
+                  key={p.id}
+                  className={`rounded-xl border px-3 py-2.5 transition-colors ${
+                    count > 0 ? "border-accent bg-accent/8" : "border-border-soft bg-surface-2"
+                  } ${outOfStock ? "opacity-50" : ""}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{p.name}</p>
+                      <p className="text-xs text-text-tertiary">
+                        {formatRupiah(p.price)} · Stok {p.stock}
+                      </p>
+                    </div>
+                    {/* Stepper — dibatasi maksimal sisa stok */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        disabled={submitting || count === 0}
+                        onClick={() => changeProductQty(p.id, -1)}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-soft bg-surface text-text-secondary disabled:opacity-30 active:scale-95 transition-transform text-lg font-bold"
+                      >−</button>
+                      <span className={`w-7 text-center text-sm font-bold tabular-nums ${count > 0 ? "text-accent" : "text-text-tertiary"}`}>
+                        {count}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={submitting || outOfStock || count >= p.stock}
+                        onClick={() => changeProductQty(p.id, 1)}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-black active:scale-95 transition-transform text-lg font-bold disabled:opacity-30"
+                      >+</button>
+                    </div>
+                  </div>
+                  {outOfStock && (
+                    <p className="mt-1.5 text-[11px] font-semibold text-status-cancelled">Stok habis</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* Daftar layanan + stepper */}
+        {tab === "layanan" && (
         <div className="flex flex-col gap-2">
           {servicesLoading && (
             <p className="py-4 text-center text-xs text-text-tertiary">Memuat layanan...</p>
@@ -1157,16 +1305,18 @@ function BulkWalkinForm({
             );
           })}
         </div>
+        )}
 
-        {/* Ringkasan */}
-        {selectedEntries.length > 0 && (
+        {/* Ringkasan — gabungan layanan + produk, karena keduanya masuk ke
+            satu sesi Catat Cepat yang sama dan disimpan lewat satu tombol. */}
+        {(selectedEntries.length > 0 || selectedProductEntries.length > 0) && (
           <div className="mt-4 rounded-xl border border-border-soft bg-surface-2 px-3 py-2.5">
             <p className="text-xs font-semibold text-text-secondary mb-1.5">Ringkasan</p>
             {selectedEntries.map(([id, count]) => {
               const s = services.find((x) => x.id === id);
               const fp = finalPrices[id] ? Number(finalPrices[id]) : s?.price ?? null;
               return (
-                <div key={id} className="flex justify-between text-xs text-text-secondary py-0.5">
+                <div key={`svc-${id}`} className="flex justify-between text-xs text-text-secondary py-0.5">
                   <span>{s?.name ?? id} × {count}</span>
                   <span className="font-semibold text-text-primary">
                     {fp != null ? formatRupiah(fp * count) : `${count} orang`}
@@ -1174,9 +1324,20 @@ function BulkWalkinForm({
                 </div>
               );
             })}
+            {selectedProductEntries.map(([id, count]) => {
+              const p = products.find((x) => x.id === id);
+              return (
+                <div key={`prod-${id}`} className="flex justify-between text-xs text-text-secondary py-0.5">
+                  <span>{p?.name ?? id} × {count}</span>
+                  <span className="font-semibold text-text-primary">
+                    {p ? formatRupiah(p.price * count) : ""}
+                  </span>
+                </div>
+              );
+            })}
             <div className="mt-1.5 border-t border-border-soft pt-1.5 flex justify-between text-xs font-bold">
               <span>Total transaksi</span>
-              <span className="text-accent">{totalTx} orang</span>
+              <span className="text-accent">{totalItems} item</span>
             </div>
           </div>
         )}
@@ -1200,7 +1361,7 @@ function BulkWalkinForm({
         {done && (
           <div className="mt-4 flex items-center gap-2 rounded-xl bg-status-done/10 px-3 py-2.5 text-sm text-status-done font-semibold">
             <CheckCircle2 size={16} />
-            {totalTx} transaksi berhasil dicatat!
+            {totalItems} transaksi berhasil dicatat!
           </div>
         )}
 
@@ -1212,14 +1373,14 @@ function BulkWalkinForm({
 
         <Button
           fullWidth
-          disabled={submitting || done || totalTx === 0}
+          disabled={submitting || done || totalItems === 0}
           onClick={handleSubmit}
           className="mt-4"
         >
           {submitting
             ? `Menyimpan ${progress?.done ?? 0}/${progress?.total ?? 0}...`
-            : totalTx > 0
-            ? `Simpan ${totalTx} Transaksi`
+            : totalItems > 0
+            ? `Simpan ${totalItems} Transaksi`
             : "Simpan Transaksi"}
         </Button>
       </div>

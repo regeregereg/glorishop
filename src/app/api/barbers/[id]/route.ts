@@ -22,9 +22,17 @@ export async function PATCH(
       bio: body.bio,
       is_active: body.is_active,
       photo_url: body.photo_url,
+      // Jam istirahat — dikirim sebagai "" oleh form saat admin
+      // mengosongkan field, dinormalisasi ke null di sini supaya kolom
+      // `time` di Postgres tidak error menerima string kosong. Kalau
+      // key ini tidak dikirim sama sekali (mis. toggleActive yang cuma
+      // update is_active), body.break_start bernilai undefined dan
+      // otomatis tidak ikut di-update (nilai lama tetap tersimpan).
+      ...(body.break_start !== undefined && { break_start: body.break_start || null }),
+      ...(body.break_end !== undefined && { break_end: body.break_end || null }),
     })
     .eq("id", id)
-    .select("id, username, name, role, is_active, bio, photo_url")
+    .select("id, username, name, role, is_active, bio, photo_url, break_start, break_end")
     .single();
 
   if (error) {

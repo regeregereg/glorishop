@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   const supabase = createAdminClient();
   let query = supabase
     .from("staff")
-    .select("id, name, photo_url, bio, is_active, created_at")
+    .select("id, name, photo_url, bio, is_active, created_at, break_start, break_end")
     .eq("role", "barber")
     .order("name", { ascending: true });
 

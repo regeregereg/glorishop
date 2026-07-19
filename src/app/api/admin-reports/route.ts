@@ -101,15 +101,48 @@ export async function GET(req: NextRequest) {
     if (!b.slot) continue;
     dailyRevenue[b.slot.date] = (dailyRevenue[b.slot.date] ?? 0) + getBookingTotalPrice(b);
   }
+
+  // PENJUALAN PRODUK PADA RENTANG INI — terpisah dari bookings (lihat
+  // supabase/migration_product_sales.sql). Digabung ke totalOmset & grafik
+  // omset harian (produk juga bagian dari pemasukan toko), tapi ditampilkan
+  // terpisah juga (totalOmsetProduk, produkTerlaris) supaya owner bisa
+  // audit porsi layanan vs produk.
+  const { data: productSales } = await supabase
+    .from("product_sales")
+    .select("*")
+    .gte("created_at", `${from}T00:00:00`)
+    .lte("created_at", `${to}T23:59:59`);
+
+  const totalOmsetProduk = (productSales ?? []).reduce((sum, s) => sum + s.total_price, 0);
+
+  const productCounts: Record<string, { name: string; qty: number; revenue: number }> = {};
+  for (const s of productSales ?? []) {
+    const key = s.product_id ?? s.product_name;
+    if (!productCounts[key]) {
+      productCounts[key] = { name: s.product_name, qty: 0, revenue: 0 };
+    }
+    productCounts[key].qty += s.quantity;
+    productCounts[key].revenue += s.total_price;
+
+    // ikut ditambahkan ke grafik omset harian supaya "Omset Harian" di
+    // laporan mencerminkan pemasukan toko secara utuh, bukan cuma layanan.
+    const dateKey = s.created_at.slice(0, 10);
+    dailyRevenue[dateKey] = (dailyRevenue[dateKey] ?? 0) + s.total_price;
+  }
+  const produkTerlaris = Object.values(productCounts).sort((a, b) => b.qty - a.qty);
+
   const dailyRevenueArray = Object.entries(dailyRevenue)
     .map(([date, total]) => ({ date, total }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
   return NextResponse.json({
-    totalOmset,
+    totalOmset: totalOmset + totalOmsetProduk,
+    totalOmsetLayanan: totalOmset,
+    totalOmsetProduk,
     totalKomisi,
     totalTransaksi: filtered.length,
     popularServices,
+    produkTerlaris,
     barberPerformance,
     dailyRevenue: dailyRevenueArray,
   });

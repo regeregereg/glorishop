@@ -38,7 +38,7 @@ export async function GET() {
 
   const filteredToday = todayBookings.filter((b) => b.slot?.date === today);
 
-  const omsetHariIni = filteredToday
+  let omsetHariIni = filteredToday
     .filter((b) => b.status === "DONE")
     .reduce((sum, b) => sum + getBookingTotalPrice(b), 0);
   const komisiHariIni = filteredToday
@@ -68,6 +68,41 @@ export async function GET() {
         cashHariIni += total;
       }
     });
+
+  // PENJUALAN PRODUK HARI INI — terpisah dari bookings (lihat
+  // supabase/migration_product_sales.sql), tapi digabung ke omset & rincian
+  // Cash/TF supaya laci kas tetap satu angka yang cocok dengan uang fisik
+  // di tangan (produk juga dibayar cash/TF di tempat, sama seperti walk-in
+  // layanan). Ditampilkan terpisah juga (omsetProdukHariIni) supaya owner
+  // tetap bisa lihat porsi masing-masing.
+  const { data: productSalesToday } = await supabase
+    .from("product_sales")
+    .select("*")
+    .gte("created_at", `${today}T00:00:00`)
+    .lte("created_at", `${today}T23:59:59`);
+
+  const omsetProdukHariIni = (productSalesToday ?? []).reduce((sum, s) => sum + s.total_price, 0);
+  for (const sale of productSalesToday ?? []) {
+    if (sale.payment_method === "qris") {
+      tfHariIni += sale.total_price;
+    } else {
+      cashHariIni += sale.total_price;
+    }
+  }
+  omsetHariIni += omsetProdukHariIni;
+
+  // PRODUK TERLARIS HARI INI — mirip "Layanan Populer" di laporan, berguna
+  // buat barber/admin tahu produk mana yang perlu di-restock duluan.
+  const productCounts: Record<string, { name: string; qty: number; revenue: number }> = {};
+  for (const sale of productSalesToday ?? []) {
+    const key = sale.product_id ?? sale.product_name;
+    if (!productCounts[key]) {
+      productCounts[key] = { name: sale.product_name, qty: 0, revenue: 0 };
+    }
+    productCounts[key].qty += sale.quantity;
+    productCounts[key].revenue += sale.total_price;
+  }
+  const produkTerlaris = Object.values(productCounts).sort((a, b) => b.qty - a.qty);
 
   const pendingCount = filteredToday.filter((b) => b.status === "PENDING").length;
   const activeCount = filteredToday.filter((b) =>
@@ -170,6 +205,8 @@ export async function GET() {
   return NextResponse.json({
     todayBookings: filteredToday,
     omsetHariIni,
+    omsetProdukHariIni,
+    produkTerlaris,
     komisiHariIni,
     cashHariIni,
     tfHariIni,

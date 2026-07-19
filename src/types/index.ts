@@ -39,6 +39,12 @@ export interface Staff {
   bio: string | null;
   is_active: boolean;
   created_at: string;
+  // Jam istirahat harian barber (mis. "12:00", 24 jam format "HH:MM" atau
+  // "HH:MM:SS" dari Postgres) — null berarti belum diatur / tidak ada
+  // istirahat. Dipakai untuk otomatis melubangi generate slot, lihat
+  // supabase/migration_break_time.sql.
+  break_start?: string | null;
+  break_end?: string | null;
 }
 
 export interface WorkSchedule {

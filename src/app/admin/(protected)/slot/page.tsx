@@ -55,15 +55,28 @@ function firstWeekday(year: number, month: number) {
   return new Date(year, month - 1, 1).getDay(); // 0 = Minggu
 }
 
-function generateTimeRanges(startTime: string, endTime: string, intervalMin: number) {
+function generateTimeRanges(
+  startTime: string,
+  endTime: string,
+  intervalMin: number,
+  breakStart?: string,
+  breakEnd?: string
+) {
   const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
   const ranges: { start_time: string; end_time: string }[] = [];
   let cur = toMin(startTime);
   const end = toMin(endTime);
+  const breakStartMin = breakStart ? toMin(breakStart) : null;
+  const breakEndMin = breakEnd ? toMin(breakEnd) : null;
   while (cur + intervalMin <= end) {
-    const s = `${pad(Math.floor(cur / 60))}:${pad(cur % 60)}`;
-    const e = `${pad(Math.floor((cur + intervalMin) / 60))}:${pad((cur + intervalMin) % 60)}`;
-    ranges.push({ start_time: s, end_time: e });
+    const slotEnd = cur + intervalMin;
+    const overlapsBreak =
+      breakStartMin !== null && breakEndMin !== null && cur < breakEndMin && slotEnd > breakStartMin;
+    if (!overlapsBreak) {
+      const s = `${pad(Math.floor(cur / 60))}:${pad(cur % 60)}`;
+      const e = `${pad(Math.floor(slotEnd / 60))}:${pad(slotEnd % 60)}`;
+      ranges.push({ start_time: s, end_time: e });
+    }
     cur += intervalMin;
   }
   return ranges;
@@ -108,6 +121,15 @@ export default function AdminSlotPage() {
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("18:00");
   const [intervalMin, setIntervalMin] = useState(30);
+  // Jam istirahat barber yang dipilih (dari staff.break_start/break_end,
+  // diatur di halaman Kelola Barber) — dipakai untuk otomatis melubangi
+  // slot saat generate. Toggle ini biar admin bisa matikan sementara untuk
+  // 1 batch tertentu (mis. hari libur nasional yang jam kerjanya beda)
+  // tanpa perlu hapus setting jam istirahat permanen si barber.
+  const [excludeBreak, setExcludeBreak] = useState(true);
+
+  // Aksi hapus slot jam istirahat yang kadung ke-generate sebelumnya
+  const [clearingBreak, setClearingBreak] = useState(false);
 
   // State aksi
   const [generating, setGenerating] = useState(false);
@@ -130,6 +152,15 @@ export default function AdminSlotPage() {
   }
 
   useEffect(() => { loadBarbers(); }, []);
+
+  // Barber yang lagi dipilih + jam istirahatnya (kalau sudah diatur di
+  // Kelola Barber). "HH:MM:SS" dari Postgres dipotong ke "HH:MM".
+  const selectedBarber = barbers.find((b) => b.id === barberId) ?? null;
+  const barberBreakStart = selectedBarber?.break_start?.slice(0, 5) || null;
+  const barberBreakEnd = selectedBarber?.break_end?.slice(0, 5) || null;
+  const hasBarberBreak = !!(barberBreakStart && barberBreakEnd);
+  const activeBreakStart = excludeBreak && hasBarberBreak ? barberBreakStart! : undefined;
+  const activeBreakEnd = excludeBreak && hasBarberBreak ? barberBreakEnd! : undefined;
 
   // ── Load summary bulanan ────────────────────────────────────────────────────
   const loadSummary = useCallback(async () => {
@@ -210,11 +241,13 @@ export default function AdminSlotPage() {
           start_time: startTime,
           end_time: endTime,
           interval_min: intervalMin,
+          break_start: activeBreakStart,
+          break_end: activeBreakEnd,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      const slotsPerDay = generateTimeRanges(startTime, endTime, intervalMin).length;
+      const slotsPerDay = generateTimeRanges(startTime, endTime, intervalMin, activeBreakStart, activeBreakEnd).length;
       showToast(
         `✓ ${dates.length} hari berhasil dibuka — ${slotsPerDay} slot per hari`,
         true
@@ -228,6 +261,40 @@ export default function AdminSlotPage() {
       showToast((err as Error).message || "Gagal generate slot.", false);
     } finally {
       setGenerating(false);
+    }
+  }
+
+  // ── Hapus slot jam istirahat (retroaktif) ───────────────────────────────────
+  async function handleClearBreak(date: string) {
+    if (!barberId || !barberBreakStart || !barberBreakEnd) return;
+    setClearingBreak(true);
+    try {
+      const res = await fetch("/api/slots/clear-break", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          barber_id: barberId,
+          date,
+          break_start: barberBreakStart,
+          break_end: barberBreakEnd,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (data.bookedCount > 0) {
+        showToast(
+          `${data.deletedCount} slot kosong dihapus. ${data.bookedCount} sudah dibooking — hubungi pelanggan untuk reschedule.`,
+          true
+        );
+      } else {
+        showToast(`${data.deletedCount} slot di jam istirahat dihapus.`, true);
+      }
+      loadDayDetail(date);
+      await loadSummary();
+    } catch (err: unknown) {
+      showToast((err as Error).message || "Gagal membersihkan slot istirahat.", false);
+    } finally {
+      setClearingBreak(false);
     }
   }
 
@@ -275,7 +342,7 @@ export default function AdminSlotPage() {
   // Pad to full rows
   while (cells.length % 7 !== 0) cells.push(null);
 
-  const previewSlotCount = generateTimeRanges(startTime, endTime, intervalMin).length;
+  const previewSlotCount = generateTimeRanges(startTime, endTime, intervalMin, activeBreakStart, activeBreakEnd).length;
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -469,6 +536,32 @@ export default function AdminSlotPage() {
               <p className="rounded-xl bg-accent-soft px-3 py-2 text-xs text-accent">
                 {previewSlotCount} slot per hari · {startTime} – {endTime}
               </p>
+
+              {/* Jam istirahat barber — dari Kelola Barber. Kalau belum
+                  diatur untuk barber ini, tampilkan ajakan singkat saja
+                  tanpa mengganggu alur generate yang sudah ada. */}
+              {hasBarberBreak ? (
+                <label className="flex items-center gap-2.5 rounded-xl border border-border-soft bg-surface-2 px-3 py-2.5 text-xs cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={excludeBreak}
+                    onChange={(e) => setExcludeBreak(e.target.checked)}
+                    className="h-4 w-4 accent-accent"
+                  />
+                  <span className="text-text-secondary">
+                    Lewati jam istirahat{" "}
+                    <span className="font-semibold text-text-primary">
+                      {barberBreakStart}–{barberBreakEnd}
+                    </span>{" "}
+                    saat generate
+                  </span>
+                </label>
+              ) : (
+                <p className="rounded-xl border border-border-soft bg-surface-2 px-3 py-2 text-[11px] text-text-tertiary">
+                  Barber ini belum punya jam istirahat. Atur di halaman{" "}
+                  <span className="font-semibold">Kelola Barber</span> agar otomatis dilubangi di sini.
+                </p>
+              )}
             </div>
 
             {/* Aksi generate */}
@@ -537,6 +630,27 @@ export default function AdminSlotPage() {
                   )}
                 </div>
 
+                {/* Bersihkan slot lama yang jatuh di jam istirahat — cuma
+                    muncul kalau barber ini sudah punya jam istirahat
+                    diatur DAN masih ada slot kosong di jam tersebut untuk
+                    tanggal ini (biasanya slot lama dari sebelum jam
+                    istirahat diatur). */}
+                {!detail.loading && !detail.error && hasBarberBreak && barberBreakStart && barberBreakEnd &&
+                  detail.slots.some(
+                    (s) => s.is_available && s.start_time.slice(0, 5) >= barberBreakStart! && s.start_time.slice(0, 5) < barberBreakEnd!
+                  ) && (
+                    <button
+                      onClick={() => handleClearBreak(detail.date)}
+                      disabled={clearingBreak}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-accent/30 bg-accent-soft px-3 py-2 text-xs font-semibold text-accent hover:bg-accent-soft/70"
+                    >
+                      <Trash2 size={12} />
+                      {clearingBreak
+                        ? "Membersihkan..."
+                        : `Bersihkan slot kosong di jam istirahat (${barberBreakStart}–${barberBreakEnd})`}
+                    </button>
+                  )}
+
                 {detail.loading && (
                   <div className="flex flex-col gap-1.5">
                     {[1, 2, 3].map((n) => (
@@ -567,23 +681,37 @@ export default function AdminSlotPage() {
                       {detail.slots.filter((s) => !s.is_available).length} terpakai
                     </p>
                     <div className="grid grid-cols-3 gap-1.5 max-h-52 overflow-y-auto pr-1">
-                      {detail.slots.map((s) => (
-                        <div
-                          key={s.id}
-                          className={cn(
-                            "rounded-xl border px-2 py-2 text-center text-xs font-semibold",
-                            s.is_available
-                              ? "border-status-done/30 bg-status-done/10 text-status-done"
-                              : "border-status-cancelled/30 bg-status-cancelled/10 text-status-cancelled"
-                          )}
-                          title={s.is_available ? "Tersedia" : "Sudah dibooking"}
-                        >
-                          {formatTime(s.start_time)}
-                          {s.is_available
-                            ? <Check size={10} className="mx-auto mt-0.5 opacity-60" />
-                            : <X size={10} className="mx-auto mt-0.5 opacity-60" />}
-                        </div>
-                      ))}
+                      {detail.slots.map((s) => {
+                        const inBreak =
+                          hasBarberBreak &&
+                          barberBreakStart &&
+                          barberBreakEnd &&
+                          s.start_time.slice(0, 5) >= barberBreakStart &&
+                          s.start_time.slice(0, 5) < barberBreakEnd;
+                        return (
+                          <div
+                            key={s.id}
+                            className={cn(
+                              "relative rounded-xl border px-2 py-2 text-center text-xs font-semibold",
+                              s.is_available
+                                ? "border-status-done/30 bg-status-done/10 text-status-done"
+                                : "border-status-cancelled/30 bg-status-cancelled/10 text-status-cancelled"
+                            )}
+                            title={
+                              (s.is_available ? "Tersedia" : "Sudah dibooking") +
+                              (inBreak ? " · jam istirahat" : "")
+                            }
+                          >
+                            {inBreak && (
+                              <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-accent" />
+                            )}
+                            {formatTime(s.start_time)}
+                            {s.is_available
+                              ? <Check size={10} className="mx-auto mt-0.5 opacity-60" />
+                              : <X size={10} className="mx-auto mt-0.5 opacity-60" />}
+                          </div>
+                        );
+                      })}
                     </div>
                   </>
                 )}

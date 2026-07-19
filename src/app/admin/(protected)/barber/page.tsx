@@ -159,6 +159,10 @@ function BarberForm({
   const [password, setPassword] = useState("");
   const [bio, setBio] = useState(barber?.bio ?? "");
   const [photoUrl, setPhotoUrl] = useState<string | null>(barber?.photo_url ?? null);
+  // Jam istirahat — format input time HTML "HH:MM". Kolom Postgres `time`
+  // biasanya balik sebagai "HH:MM:SS", jadi dipotong ke 5 karakter.
+  const [breakStart, setBreakStart] = useState(barber?.break_start?.slice(0, 5) ?? "");
+  const [breakEnd, setBreakEnd] = useState(barber?.break_end?.slice(0, 5) ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -169,13 +173,27 @@ function BarberForm({
       setError("Lengkapi data wajib.");
       return;
     }
+    if ((breakStart && !breakEnd) || (!breakStart && breakEnd)) {
+      setError("Isi jam mulai DAN jam selesai istirahat, atau kosongkan keduanya.");
+      return;
+    }
+    if (breakStart && breakEnd && breakStart >= breakEnd) {
+      setError("Jam selesai istirahat harus setelah jam mulai.");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = barber
         ? await fetch(`/api/barbers/${barber.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, bio, photo_url: photoUrl }),
+            body: JSON.stringify({
+              name,
+              bio,
+              photo_url: photoUrl,
+              break_start: breakStart,
+              break_end: breakEnd,
+            }),
           })
         : await fetch("/api/barbers", {
             method: "POST",
@@ -245,6 +263,44 @@ function BarberForm({
             rows={2}
             className="rounded-xl border border-border-soft bg-surface-2 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
           />
+
+          {/* Jam istirahat — cuma muncul saat edit barber yang sudah ada
+              (bukan waktu tambah baru), karena endpoint create belum
+              menangani field ini; sekali barber dibuat, admin tinggal
+              klik Edit lagi untuk mengaturnya. Begitu diisi, jam ini
+              otomatis dilubangi tiap kali generate slot di halaman
+              Kelola Slot — booking tidak akan pernah bisa masuk ke jam
+              ini karena slotnya memang tidak pernah dibuat. */}
+          {barber && (
+            <div className="rounded-xl border border-border-soft bg-surface-2 p-3">
+              <p className="mb-2 text-xs font-semibold text-text-secondary">
+                Jam istirahat (opsional)
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-[11px] text-text-tertiary">Mulai</label>
+                  <input
+                    type="time"
+                    value={breakStart}
+                    onChange={(e) => setBreakStart(e.target.value)}
+                    className="w-full rounded-lg border border-border-soft bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] text-text-tertiary">Selesai</label>
+                  <input
+                    type="time"
+                    value={breakEnd}
+                    onChange={(e) => setBreakEnd(e.target.value)}
+                    className="w-full rounded-lg border border-border-soft bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+                  />
+                </div>
+              </div>
+              <p className="mt-1.5 text-[11px] text-text-tertiary">
+                Slot di jam ini otomatis dilewati saat generate slot baru di halaman Kelola Slot.
+              </p>
+            </div>
+          )}
 
           {error && (
             <p className="rounded-xl bg-status-cancelled/10 px-3 py-2 text-xs text-status-cancelled">

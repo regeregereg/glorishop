@@ -5,13 +5,18 @@ import Link from "next/link";
 import { formatRupiah, formatDateShort, toLocalDateString } from "@/lib/utils";
 import { ErrorState } from "@/components/ErrorState";
 import { Button } from "@/components/Button";
-import { Wallet, ShoppingBag, HandCoins, Store, ClipboardCheck, Printer, Clock3, AlertTriangle, UserX } from "lucide-react";
+import { Wallet, ShoppingBag, HandCoins, Store, ClipboardCheck, Printer, Clock3, AlertTriangle, UserX, Package } from "lucide-react";
 
 interface PopularService {
   name: string;
   count: number;
   revenue: number;
   commission: number;
+}
+interface ProdukTerlaris {
+  name: string;
+  qty: number;
+  revenue: number;
 }
 interface BarberPerf {
   name: string;
@@ -81,9 +86,12 @@ export default function AdminLaporanPage() {
   const [to, setTo] = useState(() => toLocalDateString(new Date()));
   const [data, setData] = useState<{
     totalOmset: number;
+    totalOmsetLayanan: number;
+    totalOmsetProduk: number;
     totalKomisi: number;
     totalTransaksi: number;
     popularServices: PopularService[];
+    produkTerlaris: ProdukTerlaris[];
     barberPerformance: BarberPerf[];
     dailyRevenue: DailyRevenue[];
   } | null>(null);
@@ -209,6 +217,9 @@ export default function AdminLaporanPage() {
               <p className="font-display mt-1 text-2xl font-extrabold">
                 {formatRupiah(data.totalOmset)}
               </p>
+              <p className="mt-1 text-[11px] text-text-tertiary">
+                Layanan {formatRupiah(data.totalOmsetLayanan)} · Produk {formatRupiah(data.totalOmsetProduk)}
+              </p>
             </div>
             <div className="rounded-2xl border border-border-soft bg-surface p-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent">
@@ -258,7 +269,7 @@ export default function AdminLaporanPage() {
             </div>
           </div>
 
-          <div className="mt-6 grid gap-6 lg:grid-cols-2">
+          <div className="mt-6 grid gap-6 lg:grid-cols-3">
             <div>
               <h2 className="font-display mb-3 text-sm font-bold">Layanan Terpopuler</h2>
               <div className="flex flex-col gap-2.5">
@@ -282,6 +293,34 @@ export default function AdminLaporanPage() {
                   </div>
                 ))}
                 {data.popularServices.length === 0 && (
+                  <p className="text-sm text-text-secondary">Belum ada data.</p>
+                )}
+              </div>
+            </div>
+
+            {/* PRODUK TERLARIS — dari penjualan produk lewat Catat Cepat
+                barber atau dicatat admin (tabel product_sales, TERPISAH
+                dari booking layanan). Belum ada komisi barber untuk
+                penjualan produk saat ini. */}
+            <div>
+              <h2 className="font-display mb-3 text-sm font-bold flex items-center gap-2">
+                <Package size={14} className="text-accent" />
+                Produk Terlaris
+              </h2>
+              <div className="flex flex-col gap-2.5">
+                {data.produkTerlaris.map((p) => (
+                  <div
+                    key={p.name}
+                    className="flex items-center justify-between rounded-2xl border border-border-soft bg-surface px-4 py-3"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold">{p.name}</p>
+                      <p className="text-xs text-text-secondary">{p.qty} terjual</p>
+                    </div>
+                    <p className="text-sm font-bold text-accent">{formatRupiah(p.revenue)}</p>
+                  </div>
+                ))}
+                {data.produkTerlaris.length === 0 && (
                   <p className="text-sm text-text-secondary">Belum ada data.</p>
                 )}
               </div>

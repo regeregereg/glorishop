@@ -10,6 +10,37 @@ import { formatTime, formatRupiah, getBookingServiceNames, getBookingPriceLabel,
 import { getBookingTotalCommission } from "@/lib/commission";
 import { Play, Check, Star, Plus, X, Scissors, Wallet, AlertCircle, LogIn, LogOut, Clock, ScanLine, QrCode, CheckCircle2, Banknote } from "lucide-react";
 
+// ─── Helper: fetch + retry ─────────────────────────────────────────────────────
+// "Catat Cepat" bisa mengirim PULUHAN request berurutan dalam satu sesi
+// (satu per pelanggan/produk). Kalau sinyal barber sempat drop sedetik di
+// tengah sesi yang panjang, request paling akhir yang paling rawan kena.
+// Wrapper ini otomatis mengulang sampai 2x lagi (jeda singkat di antaranya)
+// KHUSUS untuk kegagalan koneksi/response tidak valid — bukan untuk error
+// bisnis biasa (mis. "stok tidak cukup") yang datang dari server dengan
+// status non-2xx, karena mengulang itu tidak akan mengubah hasilnya.
+async function fetchJsonWithRetry(
+  url: string,
+  options: RequestInit,
+  retries = 2,
+  delayMs = 800
+): Promise<{ ok: boolean; status: number; data: any }> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const res = await fetch(url, options);
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error("respons_tidak_valid");
+      }
+      return { ok: res.ok, status: res.status, data };
+    } catch (err) {
+      if (attempt >= retries) throw err;
+      await new Promise((r) => setTimeout(r, delayMs * (attempt + 1)));
+    }
+  }
+}
+
 // ─── Tipe absensi ────────────────────────────────────────────────────────────
 interface AttendanceRecord {
   id: string;
@@ -947,6 +978,10 @@ function BulkWalkinForm({
   const [progress, setProgress]       = useState<{ done: number; total: number } | null>(null);
   const [error, setError]             = useState("");
   const [done, setDone]               = useState(false);
+  // Disimpan terpisah dari totalItems — karena begitu sukses, qty/productQty
+  // dikosongkan (lihat handleSubmit), jadi totalItems langsung jadi 0 dan
+  // TIDAK BISA dipakai lagi untuk teks banner "X berhasil dicatat!".
+  const [lastSuccessCount, setLastSuccessCount] = useState(0);
 
   useEffect(() => {
     fetch("/api/services")
@@ -1019,10 +1054,10 @@ function BulkWalkinForm({
       for (let i = 0; i < count; i++) jobs.push(serviceId);
     }
 
-    // Total langkah = jumlah transaksi layanan + 1 langkah gabungan untuk
-    // SEMUA produk (dikirim sekaligus dalam satu request — beda dari
-    // layanan yang satu request per orang, karena penjualan produk tidak
-    // butuh slot/antrian per orang sama sekali).
+    // Produk dikirim LEBIH DULU (satu request cepat, sebelum antrian
+    // layanan yang panjang) — supaya kalau koneksi memburuk seiring
+    // lamanya sesi, penjualan produk sudah aman tercatat duluan, bukan
+    // jadi korban paling akhir.
     const hasProducts = selectedProductEntries.length > 0;
     const totalSteps = jobs.length + (hasProducts ? 1 : 0);
     setProgress({ done: 0, total: totalSteps });
@@ -1030,11 +1065,41 @@ function BulkWalkinForm({
     const errors: string[] = [];
     let stepsDone = 0;
 
+    // Sisa item yang BELUM berhasil tercatat — dipakai untuk mengisi ulang
+    // form di akhir, supaya kalau ada yang gagal, barber tinggal tekan
+    // "Simpan" lagi TANPA risiko item yang sudah sukses ikut tercatat
+    // dobel (yang sudah sukses otomatis hilang dari daftar).
+    const remainingQty: Record<string, number> = { ...qty };
+    let remainingProductQty: Record<string, number> = { ...productQty };
+
+    if (hasProducts) {
+      try {
+        const res = await fetchJsonWithRetry("/api/product-sales", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: selectedProductEntries.map(([product_id, quantity]) => ({ product_id, quantity })),
+            payment_method: paymentMethod,
+          }),
+        });
+        if (!res.ok) {
+          errors.push(res.data?.error || "Gagal catat penjualan produk");
+        } else {
+          successCount += totalProductQty;
+          remainingProductQty = {};
+        }
+      } catch {
+        errors.push("Koneksi tidak stabil saat mencatat produk (sudah dicoba 3x)");
+      }
+      stepsDone++;
+      setProgress({ done: stepsDone, total: totalSteps });
+    }
+
     for (let i = 0; i < jobs.length; i++) {
       const svcId = jobs[i];
       try {
         // 1. Catat walk-in (status CONFIRMED)
-        const createRes = await fetch("/api/bookings/walkin", {
+        const createRes = await fetchJsonWithRetry("/api/bookings/walkin", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1046,64 +1111,56 @@ function BulkWalkinForm({
               : undefined,
           }),
         });
-        const createData = await createRes.json();
-        if (!createRes.ok) { errors.push(createData.error || "Gagal catat"); stepsDone++; setProgress({ done: stepsDone, total: totalSteps }); continue; }
+        if (!createRes.ok) {
+          errors.push(createRes.data?.error || "Gagal catat");
+          stepsDone++;
+          setProgress({ done: stepsDone, total: totalSteps });
+          continue;
+        }
 
         // 2. Langsung tandai SELESAI
-        const bookingId: string = createData.booking?.id;
+        const bookingId: string = createRes.data.booking?.id;
         if (bookingId) {
-          const doneRes = await fetch(`/api/bookings/${bookingId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: "DONE" }),
-          });
-          if (!doneRes.ok) {
-            // Transaksi sudah tercatat, hanya status-nya belum DONE —
-            // tetap hitung sukses, tidak perlu blokir.
+          try {
+            await fetchJsonWithRetry(`/api/bookings/${bookingId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: "DONE" }),
+            });
+          } catch {
+            // Booking-nya sudah tercatat (createRes sukses), cuma status
+            // DONE-nya yang gagal walau sudah dicoba ulang — tetap
+            // dihitung sukses, tidak perlu diulang dari nol.
           }
         }
         successCount++;
+        remainingQty[svcId] = Math.max(0, (remainingQty[svcId] ?? 0) - 1);
       } catch {
-        errors.push("Koneksi gagal");
-      }
-      stepsDone++;
-      setProgress({ done: stepsDone, total: totalSteps });
-    }
-
-    // Penjualan produk — satu request gabungan untuk semua produk yang
-    // dipilih (lihat /api/product-sales). Stok dikurangi otomatis di sisi
-    // server, atomik per produk.
-    if (hasProducts) {
-      try {
-        const res = await fetch("/api/product-sales", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            items: selectedProductEntries.map(([product_id, quantity]) => ({ product_id, quantity })),
-            payment_method: paymentMethod,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          errors.push(data.error || "Gagal catat penjualan produk");
-        } else {
-          successCount += totalProductQty;
-        }
-      } catch {
-        errors.push("Koneksi gagal saat mencatat produk");
+        errors.push("Koneksi tidak stabil (sudah dicoba 3x)");
       }
       stepsDone++;
       setProgress({ done: stepsDone, total: totalSteps });
     }
 
     setSubmitting(false);
+    setProgress(null);
+
+    // Sisakan di form CUMA item yang belum berhasil — item yang sudah
+    // sukses otomatis hilang dari hitungan, jadi tombol "Simpan" berikutnya
+    // aman dipakai sebagai "Coba Lagi" tanpa duplikasi.
+    const cleanedQty = Object.fromEntries(Object.entries(remainingQty).filter(([, v]) => v > 0));
+    setQty(cleanedQty);
+    setProductQty(remainingProductQty);
+
     if (errors.length > 0 && successCount === 0) {
       setError(`Semua gagal: ${errors[0]}`);
     } else if (errors.length > 0) {
-      setError(`${successCount} berhasil, ${errors.length} gagal: ${errors[0]}`);
-      setDone(true);
+      setError(
+        `${successCount} berhasil, ${errors.length} gagal: ${errors[0]}. Sisanya tetap ada di daftar — tekan "Simpan" lagi untuk coba ulang.`
+      );
       onCreated();
     } else {
+      setLastSuccessCount(successCount);
       setDone(true);
       onCreated();
       setTimeout(onClose, 1400);
@@ -1361,7 +1418,7 @@ function BulkWalkinForm({
         {done && (
           <div className="mt-4 flex items-center gap-2 rounded-xl bg-status-done/10 px-3 py-2.5 text-sm text-status-done font-semibold">
             <CheckCircle2 size={16} />
-            {totalItems} transaksi berhasil dicatat!
+            {lastSuccessCount} transaksi berhasil dicatat!
           </div>
         )}
 
@@ -1379,6 +1436,8 @@ function BulkWalkinForm({
         >
           {submitting
             ? `Menyimpan ${progress?.done ?? 0}/${progress?.total ?? 0}...`
+            : error && totalItems > 0
+            ? `Coba Lagi (${totalItems} Tersisa)`
             : totalItems > 0
             ? `Simpan ${totalItems} Transaksi`
             : "Simpan Transaksi"}

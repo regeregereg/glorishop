@@ -5,7 +5,7 @@ import { Booking } from "@/types";
 import { Button } from "@/components/Button";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ErrorState } from "@/components/ErrorState";
-import { formatDateShort, formatTime, formatRupiah, getBookingServiceNames } from "@/lib/utils";
+import { formatDateShort, formatTime, formatRupiah, getBookingServiceNames, toLocalDateString } from "@/lib/utils";
 import { AlertCircle, CheckCircle2, XCircle, RefreshCw, Clock } from "lucide-react";
 
 type StuckBooking = Booking & { _type: "booking" | "payment" };
@@ -163,7 +163,21 @@ export default function AdminResolvePage() {
                             {b.barber?.name ?? "—"}
                           </td>
                           <td className="px-4 py-3 text-text-secondary">
-                            {slot ? `${formatDateShort(slot.date)} ${formatTime(slot.start_time)}` : "—"}
+                            {slot ? (
+                              <div className="flex items-center gap-1.5">
+                                <span>{formatDateShort(slot.date)} {formatTime(slot.start_time)}</span>
+                                {slot.date === toLocalDateString(new Date()) && (
+                                  <span
+                                    className="rounded-full bg-status-cancelled/15 px-2 py-0.5 text-[10px] font-bold text-status-cancelled"
+                                    title="Booking ini dari HARI INI — pastikan barbernya memang sudah selesai kerjakan sebelum ditandai Selesai."
+                                  >
+                                    HARI INI
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              "—"
+                            )}
                           </td>
                           <td className="px-4 py-3">
                             <StatusBadge status={b.status} size="sm" />
@@ -289,6 +303,29 @@ export default function AdminResolvePage() {
               {confirmTarget.action === "cancel" && "Batalkan Booking?"}
               {confirmTarget.action === "expire" && "Kadaluarkan Pembayaran?"}
             </h3>
+            {(() => {
+              const slot = Array.isArray(confirmTarget.booking.slot)
+                ? confirmTarget.booking.slot[0]
+                : confirmTarget.booking.slot;
+              const isToday = slot?.date === toLocalDateString(new Date());
+              return (
+                <>
+                  {slot && (
+                    <p className="mt-2 text-xs text-text-tertiary">
+                      Jadwal: {formatDateShort(slot.date)} {formatTime(slot.start_time)} •{" "}
+                      {getBookingServiceNames(confirmTarget.booking)}
+                    </p>
+                  )}
+                  {confirmTarget.action === "done" && isToday && (
+                    <p className="mt-2 rounded-lg bg-status-cancelled/10 px-3 py-2 text-xs font-semibold text-status-cancelled">
+                      ⚠️ Booking ini dari HARI INI. Pastikan barbernya SUDAH BENAR-BENAR
+                      selesai mengerjakan sebelum menandai selesai — jangan cuma karena
+                      jadwalnya sudah lewat.
+                    </p>
+                  )}
+                </>
+              );
+            })()}
             <p className="mt-2 text-sm text-text-secondary">
               {confirmTarget.action === "done" &&
                 `Booking ${confirmTarget.booking.user?.name ?? confirmTarget.booking.walkin_name ?? "pelanggan"} akan ditandai SELESAI dan pelanggan mendapat notifikasi.`}

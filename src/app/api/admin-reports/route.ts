@@ -16,14 +16,32 @@ export async function GET(req: NextRequest) {
 
   const supabase = createAdminClient();
 
+  // FIX: filter tanggal langsung di DB lewat INNER JOIN ("!inner"), bukan
+  // ambil SEMUA booking berstatus DONE sepanjang sejarah toko lalu filter
+  // tanggalnya belakangan di JS (pola lama).
+  //
+  // Kenapa diganti: Supabase/PostgREST membatasi hasil query ke maksimal
+  // 1000 baris kalau tidak ada filter/pagination yang membatasi di level
+  // database. Begitu jumlah booking DONE toko melewati ±1000, query lama
+  // itu diam-diam cuma dapat 1000 baris pertama — booking-booking setelah
+  // tanggal tertentu jadi tidak pernah ikut kehitung, padahal datanya ada
+  // (makanya "Omset Harian" kelihatan mentok di satu tanggal terus,
+  // sementara di halaman Semua Booking datanya tetap muncul normal karena
+  // route itu sudah difilter tanggal di DB, lihat /api/bookings/route.ts).
+  //
+  // Solusinya sama seperti yang sudah dipakai di /api/bookings: pakai
+  // INNER JOIN + .gte/.lte pada slot.date supaya WHERE-nya jalan di level
+  // database, jadi tidak pernah butuh ambil >1000 baris sekaligus.
   const { data: bookings } = await supabase
     .from("bookings")
-    .select("*, service:services(*), services:booking_services(*), barber:staff(id, name), slot:slots(*)")
-    .eq("status", "DONE");
+    .select(
+      "*, service:services(*), services:booking_services(*), barber:staff(id, name), slot:slots!inner(*)"
+    )
+    .eq("status", "DONE")
+    .gte("slot.date", from)
+    .lte("slot.date", to);
 
-  const filtered = (bookings ?? []).filter(
-    (b) => b.slot && b.slot.date >= from && b.slot.date <= to
-  );
+  const filtered = bookings ?? [];
 
   const totalOmset = filtered.reduce((sum, b) => sum + getBookingTotalPrice(b), 0);
   // Total komisi yang harus dibayarkan ke SEMUA barber pada rentang ini —

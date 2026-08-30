@@ -14,6 +14,9 @@ export default function AdminBarberPage() {
   const [loadError, setLoadError] = useState(false);
   const [editing, setEditing] = useState<Staff | "new" | null>(null);
   const [portfolioFor, setPortfolioFor] = useState<Staff | null>(null);
+  const [deleting, setDeleting] = useState<Staff | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -33,6 +36,26 @@ export default function AdminBarberPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  async function handleDelete() {
+    if (!deleting) return;
+    setDeleteBusy(true);
+    setDeleteError("");
+    try {
+      const res = await fetch(`/api/barbers/${deleting.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setDeleteError(data.error || "Gagal menghapus barber.");
+        return;
+      }
+      setBarbers((prev) => prev.filter((x) => x.id !== deleting.id));
+      setDeleting(null);
+    } catch {
+      setDeleteError("Gagal menghapus barber. Periksa koneksi internet kamu.");
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
 
   async function toggleActive(b: Staff) {
     try {
@@ -105,6 +128,16 @@ export default function AdminBarberPage() {
                 >
                   <Pencil size={13} />
                 </button>
+                <button
+                  onClick={() => {
+                    setDeleteError("");
+                    setDeleting(b);
+                  }}
+                  title="Hapus barber"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-soft text-status-cancelled"
+                >
+                  <Trash2 size={13} />
+                </button>
               </div>
             </div>
             <p className="mt-3 font-semibold text-sm">{b.name}</p>
@@ -140,6 +173,46 @@ export default function AdminBarberPage() {
           barber={portfolioFor}
           onClose={() => setPortfolioFor(null)}
         />
+      )}
+
+      {deleting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-[var(--radius-card)] border border-border-soft bg-surface p-6">
+            <h2 className="font-display text-lg font-bold">Hapus Barber?</h2>
+            <p className="mt-2 text-sm text-text-secondary">
+              Kamu akan menghapus <span className="font-semibold text-text-primary">{deleting.name}</span> secara
+              permanen. Tindakan ini tidak bisa dibatalkan.
+            </p>
+
+            {deleteError && (
+              <p className="mt-3 rounded-xl bg-status-cancelled/10 px-3 py-2 text-xs text-status-cancelled">
+                {deleteError}
+              </p>
+            )}
+
+            <div className="mt-4 flex gap-2">
+              <Button
+                variant="secondary"
+                fullWidth
+                onClick={() => {
+                  setDeleting(null);
+                  setDeleteError("");
+                }}
+                disabled={deleteBusy}
+              >
+                Batal
+              </Button>
+              <Button
+                variant="danger"
+                fullWidth
+                onClick={handleDelete}
+                disabled={deleteBusy}
+              >
+                {deleteBusy ? "Menghapus..." : "Hapus"}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

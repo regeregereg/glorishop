@@ -35,12 +35,20 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const supabase = createAdminClient();
 
+  // Samakan normalisasi username dengan proses login (trim + huruf kecil),
+  // supaya username custom seperti "Ferdi123" atau " ferdi123 " tetap bisa
+  // dipakai login apa adanya, bukan cuma versi huruf kecil persis.
+  const username = (body.username as string)?.trim().toLowerCase();
+  if (!username) {
+    return NextResponse.json({ error: "Username wajib diisi." }, { status: 400 });
+  }
+
   const passwordHash = bcrypt.hashSync(body.password || "barber123", 10);
 
   const { data, error } = await supabase
     .from("staff")
     .insert({
-      username: body.username,
+      username,
       password_hash: passwordHash,
       role: "barber",
       name: body.name,
@@ -51,6 +59,13 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
+    // Kode 23505 = username-nya sudah dipakai barber/admin lain.
+    if (error.code === "23505") {
+      return NextResponse.json(
+        { error: "Username itu sudah dipakai. Pilih username lain." },
+        { status: 409 }
+      );
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

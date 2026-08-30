@@ -5,7 +5,7 @@ import Link from "next/link";
 import { formatRupiah, formatDateShort, toLocalDateString } from "@/lib/utils";
 import { ErrorState } from "@/components/ErrorState";
 import { Button } from "@/components/Button";
-import { Wallet, ShoppingBag, HandCoins, Store, ClipboardCheck, Printer, Clock3, AlertTriangle, UserX, Package } from "lucide-react";
+import { Wallet, ShoppingBag, HandCoins, Store, ClipboardCheck, Printer, FileStack, Clock3, AlertTriangle, UserX, Package } from "lucide-react";
 
 interface PopularService {
   name: string;
@@ -137,9 +137,16 @@ export default function AdminLaporanPage() {
   return (
     <div>
       <h1 className="font-display text-2xl font-extrabold">Laporan</h1>
-      <p className="mt-1 text-sm text-text-secondary">
-        Rekap omset, layanan terpopuler, dan performa barber.
-      </p>
+      <div className="mt-1 flex items-center justify-between gap-3">
+        <p className="text-sm text-text-secondary">
+          Rekap omset, layanan terpopuler, dan performa barber.
+        </p>
+        <Link href={`/admin/laporan-lengkap?from=${from}&to=${to}`} target="_blank">
+          <Button size="sm" icon={<FileStack size={14} />}>
+            Cetak Laporan Lengkap
+          </Button>
+        </Link>
+      </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
         {(

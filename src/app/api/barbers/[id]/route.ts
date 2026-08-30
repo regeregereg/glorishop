@@ -47,3 +47,59 @@ export async function PATCH(
 
   return NextResponse.json({ barber: data });
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const staff = await getStaffSession();
+  if (!staff || staff.role !== "admin") {
+    return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
+  }
+  const { id } = await params;
+
+  const supabase = createAdminClient();
+
+  // Bersihkan data pendukung yang aman dihapus ikut (foto portofolio,
+  // subscription notifikasi push) supaya tidak jadi baris "yatim" di
+  // database setelah barber-nya dihapus.
+  await supabase.from("barber_portfolios").delete().eq("barber_id", id);
+  await supabase.from("push_subscriptions").delete().eq("staff_id", id);
+
+  // Hanya boleh menghapus akun dengan role "barber" — jaga-jaga supaya
+  // endpoint ini tidak bisa dipakai untuk menghapus akun admin.
+  const { error, count } = await supabase
+    .from("staff")
+    .delete({ count: "exact" })
+    .eq("id", id)
+    .eq("role", "barber");
+
+  if (error) {
+    // Kode 23503 = pelanggaran foreign key: barber ini masih punya riwayat
+    // booking/slot/review yang terhubung, jadi tidak bisa dihapus permanen
+    // tanpa merusak data tersebut. Sarankan nonaktifkan saja.
+    if (error.code === "23503") {
+      return NextResponse.json(
+        {
+          error:
+            "Barber ini masih punya riwayat booking/slot/ulasan, jadi tidak bisa dihapus permanen. Nonaktifkan saja lewat tombol status supaya riwayatnya tetap aman.",
+        },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (!count) {
+    return NextResponse.json(
+      { error: "Barber tidak ditemukan." },
+      { status: 404 }
+    );
+  }
+
+  revalidateTag("barbers", "max");
+  revalidateTag("home-data", "max");
+  revalidatePath(`/barber/${id}`);
+
+  return NextResponse.json({ ok: true });
+}
